@@ -1,0 +1,6 @@
+path=G:/RENNES1/Projet/01-Acquisition/
+listFiles=file1.out,file2.out
+epsg_source=4326
+epsg_target=32634
+Z=height
+geoidgrid=SWEN08_RH2000
