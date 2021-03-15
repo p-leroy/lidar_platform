@@ -1,0 +1,12 @@
+**/*.las
+**/*.laz
+**/*.pyc
+
+.idea/
+.vscode/
+pylastests/.cache/
+pylastests/.pytest_cache/
+pylas.egg-info/
+.pytest_cache/
+.cache/
+.mypy_cache/
