@@ -1,4 +1,4 @@
-## How to collect a specific folder in Plateforme Lidar's Git :
+## How to collect a specific folder on Plateforme Lidar's Git :
 ```
 git init
 git remote add -f origin https://github.com/baptistefeldmann/plateforme_lidar
