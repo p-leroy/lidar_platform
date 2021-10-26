@@ -277,7 +277,9 @@ class writeLAS(object):
         pt_return_count=[0]*5
         unique,counts=np.unique(self.output.return_num,return_counts=True)
         for i in unique:
-            pt_return_count[i-1]=counts[i-1]
+            try:
+                pt_return_count[i-1]=counts[i-1]
+            except: pass
 
         if self.formatId in [4,5,9,10]:
             globalEncoding=2

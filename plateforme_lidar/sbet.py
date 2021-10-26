@@ -191,8 +191,8 @@ def Projection(epsg_in,epsg_out,x,y,z):
     result : ndarray
             table of the transform data
     """
-    p1=pyproj.Proj(init=epsg_in)
-    p2=pyproj.Proj(init=epsg_out)
+    p1=pyproj.Proj(epsg_in)
+    p2=pyproj.Proj(epsg_out)
     tmp=pyproj.transform(p1,p2,x,y,z)
     result=np.array([tmp[0],tmp[1],tmp[2]])
     return np.transpose(result)
@@ -217,7 +217,7 @@ def interpolate(time_sbet,sbet_coords,time_ref,method="linear"):
     Return
     ------
     interp : ndarray
-            sbet coordinates interpolated
+        sbet coordinates interpolated (X,Y,Z,time)
     """
     f=[interp1d(time_sbet,sbet_coords[:,0],kind=method),
        interp1d(time_sbet,sbet_coords[:,1],kind=method),

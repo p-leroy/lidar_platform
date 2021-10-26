@@ -105,6 +105,12 @@ def compute_normals_dip(filepath,CC_param,radius,model="LS"):
     """
     query=open_file(CC_param,filepath)
     utils.Run_bis(query+" -octree_normals "+str(radius)+" -orient PLUS_Z -model "+model+" -normals_to_dip -save_clouds")
+
+def compute_feature(query,features_dict):
+    for i in features_dict.keys():
+        query+=" -feature"+i+str(features_dict[i])
+    
+    utils.Run_bis(query+" -save_clouds")
     
 def create_raster(commande,grid_size,interp=False):
     """

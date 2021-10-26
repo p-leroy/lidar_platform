@@ -11,13 +11,12 @@ if __name__=='__main__':
 
     parser.add_argument('-dirpath', metavar='N', type=str)
     parser.add_argument('-root', metavar='N', type=str)
-    parser.add_argument('-buffer',type=int)
-    parser.add_argument('-cores',type=int)
+    parser.add_argument('-buffer',action='store_true',default=False)
+    parser.add_argument('-cores',default=50)
+    parser.add_argument('-o_ptsrcid',action='store_true',default=False)
 
     args=parser.parse_args()
     workspace=args.dirpath
     name=args.root
-    buffer=bool(args.buffer)
-    nbcores=args.cores
-    calculs.ReverseTiling_mem(workspace,name,buffer,nbcores)
+    calculs.ReverseTiling_mem(workspace,name,args.buffer,args.cores,args.o_ptsrcid)
 

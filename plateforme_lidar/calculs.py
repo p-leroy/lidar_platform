@@ -178,11 +178,12 @@ def writeKML(filepath,names,descriptions,coordinates):
     return True
 
 class ReverseTiling_mem(object):
-    def __init__(self,workspace,fileroot,buffer=False,cores=50):
+    def __init__(self,workspace,fileroot,buffer=False,cores=50,write_ptSrcId=True):
         print("[Reverse Tiling memory friendly]")
         self.workspace=workspace
         self.cores=cores
         self.motif=fileroot.split(sep='XX')
+        self.write_ptSrcId=write_ptSrcId
         
         print("Remove buffer...",end=" ")
         if buffer:
@@ -202,15 +203,20 @@ class ReverseTiling_mem(object):
         pts_srcid=np.unique(f.pt_src_id)
         return [filename,pts_srcid]
 
-    def _mergeLines(self,key,maxLen):
+    def _mergeLines(self,key,maxLen,linenum=0):
         query="lasmerge -i "
         for filename in self.linesDict[key]:
             query+=self.workspace+filename+" "
 
-        keyStr=str(key)
-        diff=maxLen-len(keyStr)
-        name=self.motif[0]+"0"*diff+keyStr[0:-2]+self.motif[1]
-        query+="-keep_point_source "+keyStr+" -o "+self.workspace+name
+        if linenum==0:
+            diff=maxLen-len(str(key))
+            numLine=str(key)[0:-2]
+        else:
+            numLine=str(linenum)
+            diff=maxLen-len(numLine)
+
+        name=self.motif[0]+"0"*diff+numLine+self.motif[1]
+        query+="-keep_point_source "+str(key)+" -o "+self.workspace+name
         utils.Run(query)
 
     def removeBuffer(self):
@@ -234,9 +240,19 @@ class ReverseTiling_mem(object):
 
     def writingLines(self,buffer):
         maxPtSrcId=len(str(max(self.linesDict.keys())))
-        for i in self.linesDict.keys():
-            print(i)
-            self._mergeLines(i,maxPtSrcId)
+        maxNumberLines=len(str(len(self.linesDict.keys())+1))
+        if self.write_ptSrcId:
+            for i in self.linesDict.keys():
+                print(i)
+                self._mergeLines(i,maxPtSrcId)
+        else:
+            num=1
+            list_ptsrcid=list(self.linesDict.keys())
+            list_ptsrcid.sort()
+            for i in list_ptsrcid:
+                print(i)
+                self._mergeLines(i,maxNumberLines,num)
+                num+=1
 
         if buffer:
             listNames=[os.path.split(i)[1] for i in glob.glob(self.workspace+self.motif[0])]
