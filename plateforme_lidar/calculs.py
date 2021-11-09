@@ -220,11 +220,9 @@ class ReverseTiling_mem(object):
         utils.Run(query)
 
     def removeBuffer(self):
-        query="lastile -i "+self.workspace+"*.laz -remove_buffer -cores "+str(self.cores)+" -olaz"
+        os.mkdir(self.workspace+"new_tile")
+        query="lastile -i "+self.workspace+"*.laz -remove_buffer -cores "+str(self.cores)+" -odir "+self.workspace+"new_tile -olaz"
         utils.Run(query)
-        for filepath in glob.glob(self.workspace+"*_1.laz"):
-            nom=os.path.split(filepath)[-1]
-            os.rename(self.workspace+nom,self.workspace+"new_tile/"+nom)
         self.workspace+="new_tile/"
 
     def searchingLines(self):
