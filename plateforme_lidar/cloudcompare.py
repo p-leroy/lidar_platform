@@ -108,7 +108,7 @@ def compute_normals_dip(filepath,CC_param,radius,model="LS"):
 
 def compute_feature(query,features_dict):
     for i in features_dict.keys():
-        query+=" -feature"+i+str(features_dict[i])
+        query+=" -feature "+i+" "+str(features_dict[i])
     
     utils.Run_bis(query+" -save_clouds")
     
