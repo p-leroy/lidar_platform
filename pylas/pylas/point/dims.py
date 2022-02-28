@@ -94,16 +94,16 @@ DIMENSIONS_TO_TYPE: Dict[str, str] = {
     "raw_classification": "u1",
     "scan_angle_rank": "i1",
     "user_data": "u1",
-    "point_source_id": "u2",
+    "pt_src_id": "u2", #"point_source_id": "u2",
     "gps_time": "f8",
     "red": "u2",
     "green": "u2",
     "blue": "u2",
     # Waveform related dimensions
-    "wavepacket_index": "u1",
-    "wavepacket_offset": "u8",
-    "wavepacket_size": "u4",
-    "return_point_wave_location": "u4",
+    "wave_packet_desc_index": "u1", #"wavepacket_index": "u1",
+    "byte_offset_to_waveform_data": "u8", #"wavepacket_offset": "u8",
+    "waveform_packet_size": "u4", #"wavepacket_size": "u4",
+    "return_point_waveform_loc": "u4", #"return_point_wave_location": "u4",
     "x_t": "f4",
     "y_t": "f4",
     "z_t": "f4",
@@ -123,7 +123,7 @@ POINT_FORMAT_0: Tuple[str, ...] = (
     "raw_classification",
     "scan_angle_rank",
     "user_data",
-    "point_source_id",
+    "pt_src_id", #"point_source_id",
 )
 
 POINT_FORMAT_6: Tuple[str, ...] = (
@@ -135,16 +135,16 @@ POINT_FORMAT_6: Tuple[str, ...] = (
     "classification_flags",
     "classification",
     "user_data",
-    "scan_angle",
-    "point_source_id",
+    "scan_angle_rank",
+    "pt_src_id", #"point_source_id",
     "gps_time",
 )
 
 WAVEFORM_FIELDS_NAMES: Tuple[str, ...] = (
-    "wavepacket_index",
-    "wavepacket_offset",
-    "wavepacket_size",
-    "return_point_wave_location",
+    "wave_packet_desc_index", #"wavepacket_index",
+    "byte_offset_to_waveform_data", #"wavepacket_offset",
+    "waveform_packet_size", #"wavepacket_size",
+    "return_point_waveform_loc", #"return_point_wave_location",
     "x_t",
     "y_t",
     "z_t",
@@ -197,9 +197,9 @@ EDGE_OF_FLIGHT_LINE_MASK_6 = 0b10000000
 
 COMPOSED_FIELDS_0: Dict[str, List[SubField]] = {
     "bit_fields": [
-        SubField("return_number", RETURN_NUMBER_MASK_0),
-        SubField("number_of_returns", NUMBER_OF_RETURNS_MASK_0),
-        SubField("scan_direction_flag", SCAN_DIRECTION_FLAG_MASK_0),
+        SubField("return_num", RETURN_NUMBER_MASK_0), #SubField("return_number", RETURN_NUMBER_MASK_0),
+        SubField("num_returns", NUMBER_OF_RETURNS_MASK_0), #SubField("number_of_returns", NUMBER_OF_RETURNS_MASK_0),
+        SubField("scan_dir_flag", SCAN_DIRECTION_FLAG_MASK_0),
         SubField("edge_of_flight_line", EDGE_OF_FLIGHT_LINE_MASK_0),
     ],
     "raw_classification": [
@@ -213,8 +213,8 @@ COMPOSED_FIELDS_0: Dict[str, List[SubField]] = {
 
 COMPOSED_FIELDS_6: Dict[str, List[SubField]] = {
     "bit_fields": [
-        SubField("return_number", RETURN_NUMBER_MASK_6),
-        SubField("number_of_returns", NUMBER_OF_RETURNS_MASK_6),
+        SubField("return_num", RETURN_NUMBER_MASK_6), #SubField("return_number", RETURN_NUMBER_MASK_6),
+        SubField("num_returns", NUMBER_OF_RETURNS_MASK_6), #SubField("number_of_returns", NUMBER_OF_RETURNS_MASK_6),
     ],
     "classification_flags": [
         SubField("synthetic", SYNTHETIC_MASK_6),
@@ -222,7 +222,7 @@ COMPOSED_FIELDS_6: Dict[str, List[SubField]] = {
         SubField("withheld", WITHHELD_MASK_6),
         SubField("overlap", OVERLAP_MASK_6),
         SubField("scanner_channel", SCANNER_CHANNEL_MASK_6),
-        SubField("scan_direction_flag", SCAN_DIRECTION_FLAG_MASK_6),
+        SubField("scan_dir_flag", SCAN_DIRECTION_FLAG_MASK_6),
         SubField("edge_of_flight_line", EDGE_OF_FLIGHT_LINE_MASK_6),
     ],
 }
@@ -550,9 +550,19 @@ class ScaledArrayView:
         return self.scaled_array()
 
     def __array_function__(self, func, types, args, kwargs):
-        args = tuple(
-            arg.array if isinstance(arg, ScaledArrayView) else arg for arg in args
-        )
+        converted_args = []
+        for arg in args:
+            if isinstance(arg, (tuple, list)):
+                top_level_args = []
+                converted_args.append(top_level_args)
+            else:
+                top_level_args = converted_args
+                arg = [arg]
+            top_level_args.extend(
+                a.array if isinstance(a, ScaledArrayView) else a for a in arg
+            )
+
+        args = converted_args
         ret = func(*args, **kwargs)
         if ret is not None:
             if isinstance(ret, np.ndarray) and ret.dtype != np.bool:

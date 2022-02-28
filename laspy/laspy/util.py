@@ -310,7 +310,7 @@ class Format():
             self.add("classification_flags", "ctypes.c_ubyte", 1)
             self.add("classification_byte", "ctypes.c_ubyte", 1)
             self.add("user_data", "ctypes.c_ubyte", 1)
-            self.add("scan_angle", "ctypes.c_short", 1)
+            self.add("scan_angle_rank", "ctypes.c_short", 1)
             self.add("pt_src_id", "ctypes.c_ushort", 1)
             self.add("gps_time", "ctypes.c_double", 1)
         if fmt in ("7", "8", "10"):

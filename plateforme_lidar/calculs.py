@@ -293,7 +293,6 @@ class ReverseTiling_mem(object):
         self.linesDict={}
         listData=[lastools.readLAS(i) for i in glob.glob(workspace+"*.laz")]'''
 
-
 def replace_nan(tab,value):
     temp=np.isnan(tab)
     for lig in range(0,len(tab[:,0])):

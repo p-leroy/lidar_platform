@@ -83,6 +83,7 @@ class LAS_format(object):
              ("classification","uint8"),
              ("scan_angle_rank","int8"),
              ("user_data","uint8"),
+             ("scan_dir_flag","uint8"),
              ("pt_src_id","uint16")]
 
         gps=[("gps_time","float64")]

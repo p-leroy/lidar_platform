@@ -170,18 +170,18 @@ def Projection(epsg_in,epsg_out,x,y,z):
 
     Parameters
     ----------
-    epsg_in : str
+    epsg_in : int
               EPSG code of source reference system
-              ex : "epsg:2154"
-    epsg_out : str
+              ex : 4171
+    epsg_out : int
                EPSG code of target reference system
-               ex : "epsg:4171"
+               ex : 2154
     x : ndarray
         Abscissa axis data.
-        For geographical coordinates it's longitude
+        For geographical coordinates it's latitude
     y : ndarray
         Ordinate axis data.
-        For geographical coordinates it's latitude
+        For geographical coordinates it's longitude
     z : ndarray
         Elevation data
         This field is required but not modified
@@ -191,10 +191,9 @@ def Projection(epsg_in,epsg_out,x,y,z):
     result : ndarray
             table of the transform data
     """
-    p1=pyproj.Proj(epsg_in)
-    p2=pyproj.Proj(epsg_out)
-    tmp=pyproj.transform(p1,p2,x,y,z)
-    result=np.array([tmp[0],tmp[1],tmp[2]])
+    transformer=pyproj.Transformer.from_crs(epsg_in,epsg_out)
+    temp=transformer.transform(x,y,z)
+    result=np.array([temp[0],temp[1],temp[2]])
     return np.transpose(result)
 
 def interpolate(time_sbet,sbet_coords,time_ref,method="linear"):
@@ -273,7 +272,7 @@ def conversionSbet(listFiles,epsg_SRC,epsg_FIN,change_alti=False):
     if epsg_SRC==epsg_FIN:
         coords_tot=mergeData[:,1:4]
     else:
-        coords_tot=Projection(epsg_SRC,epsg_FIN,mergeData[:,2],mergeData[:,1],mergeData[:,3])
+        coords_tot=Projection(epsg_SRC,epsg_FIN,mergeData[:,1],mergeData[:,2],mergeData[:,3])
     #-------------------------------------------------------#
         
     borne=[min(time_tot),max(time_tot)]
@@ -281,7 +280,7 @@ def conversionSbet(listFiles,epsg_SRC,epsg_FIN,change_alti=False):
 
 def Sbet2Ascii(filepath,epsg_src,epsg_target):
     data=open_sbet(filepath)
-    coords=Projection(epsg_src,epsg_target,data[:,2],data[:,1],data[:,3])
+    coords=Projection(epsg_src,epsg_target,data[:,1],data[:,2],data[:,3])
     output=np.append(coords,np.reshape(data[:,0],(-1,1)),axis=1)
     f=np.savetxt(filepath[0:-4]+"_ascii.txt",output,fmt="%.3f;%.3f;%.3f;%f",delimiter=";",header="X;Y;Z;gpstime")
 

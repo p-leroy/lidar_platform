@@ -21,13 +21,17 @@ def Filter_LAS(obj,select):
 
     obj_new=utils.lasdata()
     obj_new['metadata']=obj.metadata
-    for i in obj.__dict__.keys():
-        if i != 'metadata':
-            setattr(obj_new,i,getattr(obj,i)[select])
+    listFeatures=list(obj.__dict__.keys())
+    listFeatures.remove("metadata")
+
+    for i in listFeatures:
+        setattr(obj_new,i,getattr(obj,i)[select])
     return obj_new
 
 def Merge_LAS(listObj):
     """Merge lasdata
+    The returned structure takes format of the first in the list
+    All the extraFields aren't kept
 
     Args:
         listObj (list): list of 'plateforme_lidar.utils.lasdata' type
@@ -36,12 +40,13 @@ def Merge_LAS(listObj):
         'plateforme_lidar.utils.lasdata': lasdata merged
     """
     merge=utils.lasdata()
-    merge['metadata']=listObj[0].metadata
+    merge['metadata']=copy.deepcopy(listObj[0].metadata)
     merge['metadata']['extraField']=[]
+    listFeatures=list(listObj[0].__dict__.keys())
+    [listFeatures.remove(i) for i in listObj[0].metadata["extraField"]+["metadata"]]
 
-    for feature in listObj[0].__dict__.keys():
-        if feature not in ['metadata']:
-            merge[feature]=np.concatenate([i[feature] for i in listObj],axis=0)
+    for feature in listFeatures:
+        merge[feature]=np.concatenate([i[feature] for i in listObj],axis=0)
     return merge
 
 def Filter_WDP(lines,select):
