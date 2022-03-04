@@ -1,7 +1,7 @@
 # coding: utf-8
 # Baptiste Feldmann
 from subprocess import Popen,PIPE,STDOUT
-import subprocess,os,struct,datetime,sys,time
+import subprocess,os,struct,datetime,time
 from numpy import loadtxt
 
 def delete_file(liste):
@@ -28,6 +28,22 @@ def Run(query,silent=False,optShell=False,sleeping=0):
 
 def Run_bis(query,optShell=False):
     subprocess.run(query,shell=optShell)
+
+class Timing(object):
+    def __init__(self,length,step=20):
+        self.length=length
+        listVerbose=list(range(step,100,step))+[98]
+        self.pourcent=[int(i*self.length/100) for i in listVerbose]
+        self.start=time.time()
+    def timer(self,idx):
+        if idx in self.pourcent:
+            pos=self.pourcent.index(idx)
+            duration=round(time.time()-self.start,1)
+            remain=round(duration*(len(self.pourcent)-pos)/(pos+1),1)
+            msg=str(idx)+" in "+str(duration)+"sec - remaining "+str(remain)+"sec"
+        else:
+            msg=""
+        return msg
 
 #---CloudCompare---#
 QUERY_0={"standard":"G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare -silent",

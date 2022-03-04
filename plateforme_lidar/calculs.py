@@ -4,13 +4,15 @@
 from . import lastools,utils
 import pylas
 
-import simplekml
 import numpy as np
-import math,copy,glob,os
-import scipy as sp
+import glob,os,simplekml,itertools
+import matplotlib.pyplot as plt
+import scipy.spatial as scp
 from scipy.spatial import cKDTree
 from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN
+import shapely
+import shapely.ops
 from shapely.geometry import Polygon
 from joblib import Parallel,delayed
 
@@ -78,6 +80,62 @@ def correction_vect(vectorApp,indRefr=1.333):
     return np.transpose(vectTrue)
 
 #======================================#
+
+class Alphashape(object):
+    def __init__(self,points2D,alpha=100):
+        self.points=points2D
+        self.alpha=alpha
+        self.compute_alphashape()
+        
+    def compute_alphashape(self):
+        # More you decrease alpha factor, greater the constraint will be on alphashape
+        # More you increase alpha factor, more the alphashape will be a convex hull
+        print("[Alphashape] Delaunay triangulation...",end='')
+        tri=scp.Delaunay(self.points)
+        nbrVertices=len(tri.vertices)
+        print("done !")
+
+        print("[Alphashape] Cleaning %d triangles :" %nbrVertices)
+        displayer=utils.Timing(nbrVertices,20)
+        
+        edges=set()
+        edge_points=[]
+        for i in range(0,nbrVertices):
+            msg=displayer.timer(i)
+            if len(msg)>1:
+                print("[Alphashape] "+msg)
+                
+            idx=tri.vertices[i]
+            triangle=self.points[idx,:]
+            length=[np.linalg.norm(triangle[i%3]-triangle[(i+1)%3]) for i in [0,1,2]]
+            s=np.sum(length)*0.5
+            area=s*np.prod(s-length)
+            if area>0:
+                area=np.sqrt(area)
+
+            #test if circumradius is lower than alpha parameter
+            if np.prod(length)/(4*area) < self.alpha:
+                for i,j in itertools.combinations(idx,r=2):
+                    if (i,j) not in edges and (j,i) not in edges:
+                        edges.add((i,j))
+                        edge_points.append(self.points[[i,j],:])
+        print("[Alphashape] Cleaning %d triangles : done !" %nbrVertices)
+
+        print("[Alphashape] Polygonize...",end='')
+        m=shapely.geometry.MultiLineString(edge_points)
+        triangles=list(shapely.ops.polygonize(m))
+        self.alphashape=shapely.ops.cascaded_union(triangles)
+        print("done !")
+
+    def viewer(self):
+        if type(self.alphashape)==shapely.geometry.polygon.Polygon:
+            a=self.alphashape.exterior.xy
+            plt.fill(a[0],a[1],alpha=2,edgecolor="red",facecolor="blue")
+        else:
+            for i in self.alphashape:
+                a=i.exterior.xy
+                plt.fill(a[0],a[1],alpha=2,edgecolor="red",facecolor="blue")
+        plt.show()
 
 def computeDBSCAN(filepath,maxdist=1,minsamples=5):
     """make Scikit-Learn DBSCAN clustering

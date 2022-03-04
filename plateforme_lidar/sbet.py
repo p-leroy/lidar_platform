@@ -179,9 +179,11 @@ def Projection(epsg_in,epsg_out,x,y,z):
     x : ndarray
         Abscissa axis data.
         For geographical coordinates it's latitude
+        For projection coordinates it's Easting
     y : ndarray
         Ordinate axis data.
         For geographical coordinates it's longitude
+        For projection coordinates it's Northing
     z : ndarray
         Elevation data
         This field is required but not modified
