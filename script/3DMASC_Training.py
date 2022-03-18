@@ -1,6 +1,7 @@
 import plateforme_lidar as pl
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import MinMaxScaler
 from sklearn import metrics
 import numpy as np
 import matplotlib.pyplot as plt
@@ -64,10 +65,11 @@ print("Compute features time duration: %.1f sec" %(time.time()-deb))
     
 #---Initialization---#
 dictio=pl.CC_3DMASC.load_features(workspace+"features/PCX_all_features.sbf",workspace+features_file,True)
-data=pl.calculs.featureNorm(dictio['features'])
 # features normalization :
 # NaN are replaced by -1 and for each feature min=0 and max=1
-#data=pl.calculs.replace_nan(dictio['features'],0)
+#Normalize by (0,1) and replace nan by -1
+data=MinMaxScaler((0,1)).fit_transform(dictio['features'])
+data=np.nan_to_num(data,nan=-1)
 
 names=dictio['names']
 labels=dictio['labels']

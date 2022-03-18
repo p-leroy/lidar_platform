@@ -11,6 +11,7 @@ import scipy.spatial as scp
 from scipy.spatial import cKDTree
 from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import MinMaxScaler
 import shapely
 import shapely.ops
 from shapely.geometry import Polygon
@@ -350,27 +351,4 @@ class ReverseTiling_mem(object):
     def searchingLines(self):
         self.linesDict={}
         listData=[lastools.readLAS(i) for i in glob.glob(workspace+"*.laz")]'''
-
-def replace_nan(tab,value):
-    temp=np.isnan(tab)
-    for lig in range(0,len(tab[:,0])):
-        for col in range(0,len(tab[0,:])):
-            if temp[lig,col]:
-                tab[lig,col]=value
-    return tab
-
-
-def featureNorm(dataset):
-    NbrCol=len(dataset[0,:])
-    for i in range(0,NbrCol):
-        col=dataset[:,i]
-        if all(np.isnan(col)):
-            newcol=np.array([-1]*len(col))
-        else:
-            mini=min(col[np.isfinite(col)])
-            maxi=max(col[np.isfinite(col)])
-            newcol=(col-mini)/(maxi-mini)*100
-            newcol[np.isnan(newcol)]=-1
-        dataset[:,i]=newcol
-    return dataset
 

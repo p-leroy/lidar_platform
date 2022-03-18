@@ -104,12 +104,14 @@ class Overlap(object):
 
 workspace=r'G:\RENNES1\Loire_totale_automne2019\Loire_S01-01_S01-02_S02-01PART\04-QC\Recouvrement\ground_flightlines_C3'+'//'
 params_file="m3c2_params2.txt"
+projectName="Ardeche_18102021"
 filtre_dist_uncertainty=0.5
 filtre_m3c2Distance=10
 param_openFile=['standard','LAS',"Loire49-1"]
 
-rootsDict={85:["Loire_zone49-1_L","_C3_ground.laz"]}
+rootsDict={100:[projectName+"_L","_C2_r_1.laz"]}
 
-a=Overlap(workspace,params_file,"Loire_zone49-1_C3_sol_recouvrement.laz",[param_openFile,rootsDict,filtre_dist_uncertainty,filtre_m3c2Distance,2])
+a=Overlap(workspace,params_file,projectName+"_C2_recouvrement.laz",
+        [param_openFile,rootsDict,filtre_dist_uncertainty,filtre_m3c2Distance,2])
 a.Preprocessing()
 a.Processing()

@@ -1,8 +1,7 @@
 import plateforme_lidar as pl
 import numpy as np
-import pickle
-import glob
-import os
+import pickle,glob,os
+from sklearn.preprocessing import MinMaxScaler
 from joblib import Parallel,delayed
 import time
 import importlib
@@ -20,8 +19,9 @@ def computeFeatures(workspace,PCX_filename,params_CC,params_features):
 
 def classify(workspace,filename,model,features_file):
     dictio=pl.CC_3DMASC.load_features(workspace+"features/"+filename[0:-4]+"_features.sbf",features_file)
-    #data=pl.calculs.replace_nan(dictio['features'],0)
-    data=pl.calculs.featureNorm(dictio['features'])
+    #Normalize by (0,1) and replace nan by -1
+    data=MinMaxScaler((0,1)).fit_transform(dictio['features'])
+    data=np.nan_to_num(data,nan=-1)
     
     labels_pred=model.predict(data)
     confid_pred=model.predict_proba(data)
