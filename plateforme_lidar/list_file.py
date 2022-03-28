@@ -1,6 +1,6 @@
 # coding: utf-8
 # Baptiste Feldmann
-import glob,os,argparse
+import glob,argparse
 
 parser=argparse.ArgumentParser(description='Process some strings...')
 parser.add_argument('-dirpath', metavar='N', type=str)

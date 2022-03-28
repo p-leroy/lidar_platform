@@ -1,8 +1,7 @@
 # coding: utf-8
 # Baptiste Feldmann
 from plateforme_lidar import calculs
-import argparse,time,os
-import numpy as np
+import argparse,os
 import importlib
 importlib.reload(calculs)
 

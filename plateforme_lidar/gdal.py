@@ -29,7 +29,7 @@ def Buildvrt(filepath,nodata=-9999):
     f.close()
     query='gdalbuildvrt -resolution average -r nearest -srcnodata "'+str(nodata)+'" -input_file_list '+filepath[0:-4]+\
            '_buildvrtInputfile.txt '+filepath[0:-4]+'_virtual.vrt'
-    utils.Run(utils.gdalQueryRoot+query,True,optShell=True)
+    utils.Run(utils.GDAL_QUERY_ROOT+query,True,optShell=True)
     os.remove(filepath[0:-4]+"_buildvrtInputfile.txt")
     print("done in %.1f sec" %(time.time()-begin))
 
@@ -66,7 +66,7 @@ def Merge(listFiles,outFile):
         f.write(os.path.abspath(i)+"\n")
     f.close()
     query="gdal_merge -n -9999 -a_nodata -9999 -ot Float32 -of GTiff -o "+outFile+" --optfile "+outFile[0:-4]+"_mergeInputFiles.txt"
-    utils.Run(utils.gdalQueryRoot+query,True,optShell=True)
+    utils.Run(utils.GDAL_QUERY_ROOT+query,True,optShell=True)
     os.remove(outFile[0:-4]+"_mergeInputFiles.txt")
     print("done in %.1f sec" %(time.time()-begin))
 

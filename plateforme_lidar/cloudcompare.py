@@ -247,8 +247,8 @@ def poisson(filename,params):
     query=utils.QUERY_0['PoissonRecon']+" --in "+filename+" --out "+filename[0:-4]+"_mesh.ply"
     for i in params.keys():
         query+=" --"+i+int(bool(len(params[i])))*" "
-        if i in utils.PoissonRecon_parameters.keys():
-            query+=utils.PoissonRecon_parameters[i][params[i]]
+        if i in utils.POISSONRECON_PARAMETERS.keys():
+            query+=utils.POISSONRECON_PARAMETERS[i][params[i]]
         else:
             query+=params[i]
     utils.Run(query)   

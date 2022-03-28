@@ -62,10 +62,12 @@ for i in loadtxt(globalShiftFile,str,delimiter=";"):
 #================#
 
 #---LasFWF---#
-headerWDP_binary=struct.pack("=H16sHQ32s",*(0,b'LASF_Spec',65535,0,b'WAVEFORM_DATA_PACKETS'))
+HEADER_WDP_BYTE=struct.pack("=H16sHQ32s",*(0,b'LASF_Spec',65535,0,b'WAVEFORM_DATA_PACKETS'))
 #================#
 
 #---Lastools---#
+LASPY_PARALLEL_BACKEND={True:getattr(__import__("laspy"),"compression").LazBackend(0),False:getattr(__import__("laspy"),"compression").LazBackend(1)}
+
 class lasdata(object):
     """LAS data object
 
@@ -93,7 +95,7 @@ class lasdata(object):
         self.__dict__[key]=item
     pass
 
-class LAS_format(object):
+class LAS_FORMAT(object):
     def __init__(self):
         std=[("intensity","uint16"),
              ("return_number","uint8"),
@@ -141,12 +143,12 @@ class LAS_format(object):
 #================#
 
 #---VLRS Geokey---#
-CRS_key={"Vertical":4096,"Projected":3072}
-geokey_standard={1:(1,0,4),1024:(0, 1, 1),3076:(0, 1, 9001), 4099:(0, 1, 9001)}
+CRS_KEY={"Vertical":4096,"Projected":3072}
+GEOKEY_STANDARD={1:(1,0,4),1024:(0, 1, 1),3076:(0, 1, 9001), 4099:(0, 1, 9001)}
 #=================#
 
 #---PoissonRecon---#
-PoissonRecon_parameters={"bType":{"Free":"1","Dirichlet":"2","Neumann":"3"}}
+POISSONRECON_PARAMETERS={"bType":{"Free":"1","Dirichlet":"2","Neumann":"3"}}
 #==================#
 
 #---PySBF---#
@@ -173,11 +175,11 @@ VERTICAL_DATUM_DIR='G:/RENNES1/BaptisteFeldmann/Vertical_datum/'
 #====================#
 
 #---GDAL---#
-gdalQueryRoot="osgeo4w "
+GDAL_QUERY_ROOT="osgeo4w "
 #===============#
 
 #---Other---#
-class date(object):
+class DATE(object):
     def __init__(self):
         today=datetime.datetime.now().timetuple()
         self.year=today.tm_year

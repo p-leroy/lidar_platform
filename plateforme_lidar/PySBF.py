@@ -105,19 +105,3 @@ class Reader(object):
         else:
             for i in range(0,self.header['NbScalarFields']):
                 self.scalarNames+=["SF"+str(i+1)]
-
-
-    
-if __name__=="__main__":
-    filepath=r'G:\RENNES1\BaptisteFeldmann\Developpements\extrait_1_v2.sbf'
-    f=File(filepath)
-
-
-
-        
-            
-        
-            
-
-
-            

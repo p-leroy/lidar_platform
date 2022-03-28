@@ -6,8 +6,6 @@ from . import utils
 import laspy
 from datetime import datetime,timezone
 
-LASPY_PARALLEL_BACKEND={True:laspy.compression.LazBackend(0),False:laspy.compression.LazBackend(1)}
-
 def Filter_LAS(obj,select):
     """Filtering lasdata
 
@@ -151,10 +149,10 @@ def VLRS_keys(vlrs,geokey):
             num=i*4
             vlrs_dict[vlrs[34735][num]]=vlrs[34735][num+1:num+4]
     else:
-        vlrs_dict=utils.geokey_standard
+        vlrs_dict=utils.GEOKEY_STANDARD
 
     for i in list(geokey.keys()):
-        vlrs_dict[utils.CRS_key[i]]=[0,1,geokey[i]]
+        vlrs_dict[utils.CRS_KEY[i]]=[0,1,geokey[i]]
 
     vlrs_sort=np.sort(list(vlrs_dict.keys()))
     vlrs_final=[]
@@ -182,7 +180,7 @@ class writeLAS(object):
         self._start=time.time()
         self.output_data=data
         del data
-        self.LAS_fmt=utils.LAS_format()
+        self.LAS_fmt=utils.LAS_FORMAT()
         # new_header=self.createHeader("1.3",format_id)
         # pointFormat=laspy.PointFormat(format_id)
         # for extraField in extraFields:
@@ -196,7 +194,7 @@ class writeLAS(object):
             setattr(self.point_record,extraField["name"],extraField["data"])
 
         self.writeAttr()
-        self.point_record.write(filepath,laz_backend=LASPY_PARALLEL_BACKEND[parallel])
+        self.point_record.write(filepath,laz_backend=utils.LASPY_PARALLEL_BACKEND[parallel])
         print("done !")
 
         if len(waveforms)>0 and format_id in [4,5,9,10]:
@@ -222,7 +220,7 @@ class writeLAS(object):
 
         print("0%..",end="")
         with open(filepath[0:-4]+".wdp","wb") as wdpFile :
-            wdpFile.write(utils.headerWDP_binary)
+            wdpFile.write(utils.HEADER_WDP_BYTE)
             for i in range(0,nbrPoints):
                 if i in pourcent:
                     print("%d%%.." %(20*(pourcent.index(i)+1)),end='')
@@ -291,46 +289,6 @@ class writeLAS(object):
             except:
                 warnings.warn("Warning: Not possible to write attribute : "+i[0])
 
-def readLAS_laspy(filepath,extraField=False):
-    """Reading LAS with LasPy
-
-    Args:
-        filepath (str): input LAS file (extensions: .las or .laz)
-        extraField (bool, optional): True if you want to load additional fields. Defaults to False.
-
-    Returns:
-        'plateforme_lidar.utils.lasdata': lasdata object
-    """
-    f=laspy.file.File(filepath,mode='r')
-    LAS_fmt=utils.LAS_format()
-
-    metadata={"vlrs":read_VLRbody(f.header.vlrs),"extraField":[]}
-    output=utils.lasdata()
-    
-    for i in LAS_fmt.recordFormat[f.header.data_format_id]:
-        try :
-            output[i[0]]=np.array(getattr(f,i[0]))  
-        except:
-            print("[LasPy] "+str(i[0])+" not found !")  
-
-    coords=np.array([f.X,f.Y,f.Z])
-    scales=np.transpose(np.array([f.header.scale]))
-    offsets=np.transpose(np.array([f.header.offset]))
-    fields=coords*scales+offsets
-    setattr(output,"XYZ",fields.transpose())
-
-    if extraField:
-        extra=f.reader.extra_dimensions
-        for i in extra:
-            name=i.get_name().decode('utf-8').replace('\x00',"").replace(' ','_')
-            nameStd=name.replace('(','').replace(')','').lower()
-            metadata["extraField"]+=[nameStd]
-            output[nameStd]=np.copy(f.reader.get_dimension(name))
-
-    output['metadata']=metadata
-    f.close()
-    return output
-
 def readLAS(filepath,extraField=False,parallel=True):
     """Reading LAS with PyLas
 
@@ -341,8 +299,8 @@ def readLAS(filepath,extraField=False,parallel=True):
     Returns:
         'plateforme_lidar.utils.lasdata': lasdata object
     """
-    f=laspy.read(filepath,laz_backend=LASPY_PARALLEL_BACKEND[parallel])
-    LAS_fmt=utils.LAS_format()
+    f=laspy.read(filepath,laz_backend=utils.LASPY_PARALLEL_BACKEND[parallel])
+    LAS_fmt=utils.LAS_FORMAT()
     
     metadata={"vlrs":read_VLRbody(f.vlrs),"extraField":[]}
     output=utils.lasdata()
@@ -364,19 +322,19 @@ def readLAS(filepath,extraField=False,parallel=True):
     output['metadata']=metadata       
     return output
 
-def sortLASdata(data,names,mode='standard'):
-    namesAttr=utils.fields_names[mode]
-    data_sort=np.copy(data)
-    names_sort=np.copy(names)
-    for i in namesAttr:
-        listNames=list(names_sort)
-        idx_true=namesAttr.index(i)+3
-        if i not in names_sort:
-            raise ValueError("Attribute %s isn't present in your column names !" %i)
-        if listNames.index(i)!=idx_true:
-            data_sort[:,[listNames.index(i),idx_true]]=data_sort[:,[idx_true,listNames.index(i)]]
-            names_sort[[listNames.index(i),idx_true]]=names_sort[[idx_true,listNames.index(i)]]
-    return data_sort,names_sort
+# def sortLASdata(data,names,mode='standard'):
+#     namesAttr=utils.fields_names[mode]
+#     data_sort=np.copy(data)
+#     names_sort=np.copy(names)
+#     for i in namesAttr:
+#         listNames=list(names_sort)
+#         idx_true=namesAttr.index(i)+3
+#         if i not in names_sort:
+#             raise ValueError("Attribute %s isn't present in your column names !" %i)
+#         if listNames.index(i)!=idx_true:
+#             data_sort[:,[listNames.index(i),idx_true]]=data_sort[:,[idx_true,listNames.index(i)]]
+#             names_sort[[listNames.index(i),idx_true]]=names_sort[[idx_true,listNames.index(i)]]
+#     return data_sort,names_sort
 
 def readWDP(lasfile,lasdata):
     """Reading waveforms in WDP file

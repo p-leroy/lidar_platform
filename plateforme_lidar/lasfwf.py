@@ -3,8 +3,7 @@
 import numpy as np
 from scipy import signal, stats
 from sklearn.neighbors import NearestNeighbors
-from . import lastools,utils
-import os,mmap
+from . import lastools
 import matplotlib.pyplot as plt
 
 def findpeaks(line,treshold,size,nb_max):
@@ -17,8 +16,8 @@ def findpeaks(line,treshold,size,nb_max):
 def peaks_processing(point,line,params):
     peaks=findpeaks(line,*params)
     if len(peaks)>0:
-        vlr=point.metadata['vlrs'][99+point['wave_packet_desc_index']]
-        point_loc=point['return_point_waveform_loc']
+        vlr=point.metadata['vlrs'][99+point['wavepacket_index']]
+        point_loc=point['return_point_wave_location']
         anchor=point.XYZ+point_loc*[point['x_t'],point['y_t'],point['z_t']]
 
         peaks_time=(peaks+1)*vlr[3]
@@ -29,8 +28,8 @@ def peaks_processing(point,line,params):
         return data_peaks
 
 def viewerFWF(point,line,peaks=[]):
-    wave_loc=point['return_point_waveform_loc']
-    vlr=point.metadata['vlrs'][99+point['wave_packet_desc_index']]
+    wave_loc=point['return_point_wave_location']
+    vlr=point.metadata['vlrs'][99+point['wavepacket_index']]
     x_vline=np.round(wave_loc/vlr[3])
     plt.figure()
     plt.plot(np.arange(0,len(line)*1000/vlr[3]),line,'k-')
@@ -54,8 +53,8 @@ def ringing_effect(data,tab_fwf,metadata,register=False):
     for i in liste:
         point=data[i,:]
         line=tab_fwf[i]
-        wave_loc=point[names.index('return_point_waveform_loc')]
-        vlr=metadata['vlrs'][99+point[names.index('wave_packet_desc_index')]]
+        wave_loc=point[names.index('return_point_wave_location')]
+        vlr=metadata['vlrs'][99+point[names.index('wavepacket_index')]]
         x_vline=np.round(wave_loc/vlr[3])
 
         extrait_minmax=list(line[int(x_vline+window_minmax[0]):int(x_vline+window_minmax[1])])
@@ -79,7 +78,7 @@ def ringing_effect(data,tab_fwf,metadata,register=False):
 
 def __func(wave,pt):
     vlrs=pt.metadata['vlrs']
-    idx_pt=np.round(pt['return_point_waveform_loc']/vlrs[int(99+pt['wave_packet_desc_index'])][3],decimals=0)
+    idx_pt=np.round(pt['return_point_wave_location']/vlrs[int(99+pt['wavepacket_index'])][3],decimals=0)
     select=np.logical_and(wave>180,wave<215)
     base_lvl=np.median(wave[select])
     wave_clean=wave-base_lvl

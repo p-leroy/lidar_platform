@@ -1,10 +1,9 @@
 # coding: utf-8
 # Baptiste Feldmann
-from . import cloudcompare,lastools,PySBF,utils
-from sklearn.ensemble import RandomForestClassifier
+from . import cloudcompare,PySBF,utils
 import sklearn.metrics as metrics
 import numpy as np
-import pickle,os,glob
+import os
 
 def compute_features(query0_params,workspace,params,training_file):
     """
@@ -34,7 +33,7 @@ def compute_features(query0_params,workspace,params,training_file):
     query=query[0:-1]+'" -save_clouds'
     utils.Run(query,sleeping=2)
     
-    today=utils.date()
+    today=utils.DATE()
     if query0_params[1]=="SBF":
         cloudcompare.last_file(workspace+"_".join([params["PCX"][0:-4],"WITH_FEATURES",today.date,"*.sbf"]),params["PCX"][0:-4]+"_features.sbf")
         cloudcompare.last_file(workspace+"_".join([params["PCX"][0:-4],"WITH_FEATURES",today.date,"*.sbf.data"]),params["PCX"][0:-4]+"_features.sbf.data")
