@@ -2,7 +2,7 @@
 # Baptiste Feldmann
 # Liste de fonctions pour la correction bathy
 from . import lastools,utils
-import pylas
+import laspy
 
 import numpy as np
 import glob,os,simplekml,itertools
@@ -258,8 +258,8 @@ class ReverseTiling_mem(object):
         print("done !")  
 
     def _get_ptSrcId(self,filename):
-        f=pylas.read(self.workspace+filename)
-        pts_srcid=np.unique(f.pt_src_id)
+        f=laspy.read(self.workspace+filename)
+        pts_srcid=np.unique(f.point_source_id)
         return [filename,pts_srcid]
 
     def _mergeLines(self,key,maxLen,linenum=0):

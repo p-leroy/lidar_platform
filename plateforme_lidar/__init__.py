@@ -8,7 +8,7 @@ __credits__=["Baptiste Feldmann","Dimitri Lague","Nantes-Rennes LiDAR research P
 __status__="Development"
 __url__="https://www.lidar-nantes-rennes.eu"
 __email__="baptiste.feldmann@univ-rennes1.fr"
-__version__="0.2.0"
+__version__="0.3.0"
 
 from . import calculs,CC_3DMASC,classification,cloudcompare,lasfwf,lastools,PySBF,sbet,gdal,utils
 

@@ -6,4 +6,4 @@ simplekml
 shapely
 matplotlib
 pyproj
-lazrs
+laspy[lazrs]

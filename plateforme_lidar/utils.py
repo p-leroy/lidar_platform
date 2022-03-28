@@ -85,6 +85,8 @@ class lasdata(object):
         return len(self.XYZ)
     def __str__(self):
         return "\n".join(self.__dict__.keys())
+    def __repr__(self):
+        return "<LAS object of "+str(len(self.XYZ))+" points with "+str(len(self.metadata['extraField']))+" extra-fields>"
     def __getitem__(self,key):
         return self.__dict__[key]
     def __setitem__(self,key,item):
@@ -94,13 +96,13 @@ class lasdata(object):
 class LAS_format(object):
     def __init__(self):
         std=[("intensity","uint16"),
-             ("return_num","uint8"),
-             ("num_returns","uint8"),
+             ("return_number","uint8"),
+             ("number_of_returns","uint8"),
              ("classification","uint8"),
              ("scan_angle_rank","int8"),
              ("user_data","uint8"),
-             ("scan_dir_flag","uint8"),
-             ("pt_src_id","uint16")]
+             ("scan_direction_flag","uint8"),
+             ("point_source_id","uint16")]
 
         gps=[("gps_time","float64")]
 
@@ -110,16 +112,16 @@ class LAS_format(object):
         
         nir=[("nir","uint16")]
 
-        fwf=[("wave_packet_desc_index","uint8"),
-             ("byte_offset_to_waveform_data","uint64"),
-             ("waveform_packet_size","uint32"),
-             ("return_point_waveform_loc","float32"),
+        fwf=[("wavepacket_index","uint8"),
+             ("wavepacket_offset","uint64"),
+             ("wavepacket_size","uint32"),
+             ("return_point_wave_location","float32"),
              ("x_t","float32"),
              ("y_t","float32"),
              ("z_t","float32")]
 
         systemId='ALTM Titan DW 14SEN343'
-        softwareId='Nantes-Rennes Lidar Platform'
+        softwareId='Lidar Platform by Univ. Rennes 1'
 
         pack=[std,std+gps,std+rgb,std+gps+rgb,std+gps+fwf,std+gps+rgb+fwf,
               std+gps,std+gps+rgb,std+gps+rgb+nir,std+gps+fwf,std+gps+rgb+nir+fwf]
@@ -148,8 +150,8 @@ PoissonRecon_parameters={"bType":{"Free":"1","Dirichlet":"2","Neumann":"3"}}
 #==================#
 
 #---PySBF---#
-convention={"gpstime":"gps_time","numberofreturns":"num_returns","returnnumber":"return_num",
-            "scananglerank":"scan_angle_rank","pointsourceid":"pt_src_id"}
+convention={"gpstime":"gps_time","numberofreturns":"number_of_returns","returnnumber":"return_number",
+            "scananglerank":"scan_angle_rank","pointsourceid":"point_source_id"}
 #===================#
 
 #---SBET---#
@@ -158,6 +160,16 @@ field_names = ('time (s)', 'latitude (deg)', 'longitude (deg)', 'hauteur (m)',
                        'roll (rad)', 'pitch (rad)', 'platform_heading (rad)', 'wander_angle (rad)', 
                        'x_acceleration (m/s²)', 'y_acceleration (m/s²)', 'z_acceleration (m/s²)', 
                        'x_angular_rate (rad/s)', 'y_angular_rate (rad/s)', 'z_angular (rad/s)')
+
+LIST_OF_ATTR=[('time','float64'),('latitude','float64'),('longitude','float64'),('elevation','float32'),
+        ('x_vel','float32'),('y_vel','float32'),('z_vel','float32'),
+        ('roll','float32'),('pitch','float32'),('heading','float32'),('wander_angle','float32'),
+        ('x_acceleration','float32'),('y_acceleration','float32'),('z_acceleration','float32'),
+        ('x_angular_rate','float32'),('y_angular_rate','float32'),('z_angulare_rate','float32')]
+# 17 attributes of 8 bytes each = 136 bytes
+LINE_SIZE=int(136)
+# vertical datum folder
+VERTICAL_DATUM_DIR='G:/RENNES1/BaptisteFeldmann/Vertical_datum/'
 #====================#
 
 #---GDAL---#

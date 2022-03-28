@@ -1,11 +1,12 @@
 # coding: utf-8
 # Baptiste Feldmann
 # Module pour le traitement du fichier SBET
+from . import utils
 import numpy as np
 from scipy.interpolate import griddata
 from scipy.interpolate import interp1d
 import pyproj
-import math,struct,os,mmap
+import math,struct,os,mmap,copy
 
 # lat : 41.9875 - 51.5125
 # long : -5.5 - 8.5
@@ -17,63 +18,88 @@ import math,struct,os,mmap
 ##delta_lat=0.025
 ##delta_long=1/30
 
-def h2He(geoidgrid,long,lat,hauteur):
-    """
-    Function for convert ellipsoidal height into altitude
-    This function uses linear interpolation between points
-    in geoidgrid and your points
+def Merge_sbet(listSBET):
+    new=copy.deepcopy(listSBET[0])
+    for i in range(1,len(listSBET)):
+        new.array=np.append(new.array,listSBET[i].array)
 
-    Parameters
-    ----------
-    geoidgrid : str
-            filename (.npz) of the geoid grid that you want to use
-            ex : "RAF09.npz"
-    long : ndarray
-           longitudes of points
-    lat : ndarray
-          latitudes of points
-    hauteur : ndarray
-              ellispoidal height of points
+    new.gps_time=new.array['time']
+    new.latitude=new.array['latitude']
+    new.longitude=new.array['longitude']
+    new.elevation=new.array['elevation']
+    return new
+    
+class SBET(object):
+    def __init__(self,filepath):
+        self.filepath=filepath
 
-    Return
-    ------
-    alti : ndarray
-        The altitudes of points
-    """
-    npzfile=np.load("G:/RENNES1/BaptisteFeldmann/Vertical_datum/"+geoidgrid+".npz")
-    grille=npzfile[npzfile.files[0]]
-    ondulation=griddata(grille[:,0:2],grille[:,2],(long,lat),method='linear')
-    alti=hauteur-ondulation
-    return alti
+        if os.path.splitext(self.filepath)!=".out":
+            self.open_file()
+        else:
+            raise OSError("Unknown file extension, can read only .out file !")
+    
+    def __str__(self):
+        return "\n".join(self.__dict__.keys())
+    
+    def open_file(self):
+        f=open(self.filepath,mode='rb')
+        f_size=os.path.getsize(self.filepath)
+        data=mmap.mmap(f.fileno(),f_size,access=mmap.ACCESS_READ)
+        nbr_line=int(len(data)/utils.LINE_SIZE)
 
-def He2h(geoidgrid,long,lat,altitude):
-    """
-    Function for convert altitude into ellipsoidal height
-    This function uses linear interpolation between points
-    in geoidgrid and your points
+        temp=[]
+        for i in range(0,nbr_line):
+            temp+=[struct.unpack('17d',data[i*utils.LINE_SIZE:(i+1)*utils.LINE_SIZE])]
+        self.array=np.array(temp,dtype=utils.LIST_OF_ATTR)
+        self.array['latitude']*=180/math.pi
+        self.array['longitude']*=180/math.pi
 
-    Parameters
-    ----------
-    geoidgrid : str
-            filename (.npz) of the geoid grid that you want to use
-            ex : "RAF09.npz"
-    long : ndarray
-           longitudes of points
-    lat : ndarray
-          latitudes of points
-    altitude : ndarray
-               altitude of points
+        self.gps_time=self.array['time']
+        self.latitude=self.array['latitude']
+        self.longitude=self.array['longitude']
+        self.elevation=self.array['elevation']
+    
+    def _compute_undulation(self,geoidgrid):
+        # npzfile=np.load("G:/RENNES1/BaptisteFeldmann/Vertical_datum/"+geoidgrid+".npz")
+        npzfile=np.load(utils.VERTICAL_DATUM_DIR+geoidgrid+".npz")
+        grille=npzfile[npzfile.files[0]]
+        undulation=griddata(grille[:,0:2],grille[:,2],(self.longitude,self.latitude),method='linear')
+        return undulation
 
-    Return
-    ------
-    hauteur : ndarray
-        The ellipsoidal heights of points
-    """
-    npzfile=np.load("G:/RENNES1/BaptisteFeldmann/Vertical_datum/"+geoidgrid+".npz")
-    grille=npzfile[npzfile.files[0]]
-    ondulation=griddata(grille[:,0:2],grille[:,2],(long,lat),method='linear')
-    hauteur=altitude+ondulation
-    return hauteur
+    def h2He(self,geoidgrid):
+        # ellipsoidal height to altitude
+        undulation=self._compute_undulation(geoidgrid)
+        alti=self.elevation-undulation
+        self.elevation,self.array['elevation']=alti,alti
+    
+    def He2h(self,geoidgrid):
+        # altitude to ellipsoidal height
+        undulation=self._compute_undulation(geoidgrid)
+        height=self.elevation+undulation
+        self.elevation,self.array['elevation']=height,height
+
+    def projection(self,epsg_IN,epsg_OUT):
+        #----Conversion coordonnées Géo vers Projetées----------#
+        # epsg:4171 -> ETRS89-géo lat,long,h
+        # epsg:2154 -> RGF93-L93 E,N,H
+        # epsg:4326 -> WGS84-géo lat,long,h
+        # epsg:32634 -> WGS84-UTM 34N E,N,H
+        # epsg:4167 -> NZGD2000 lat,long,h
+        # epsg:2193 -> NZTM2000 E,N,H
+        transformer=pyproj.Transformer.from_crs(epsg_IN,epsg_OUT)
+        self.easting,self.northing=transformer.transform(self.latitude,self.longitude)
+    
+    def export(self,epsg_in,epsg_out):
+        if not hasattr(self,"easting"):
+            self.projection(epsg_in,epsg_out)
+
+        data=np.array([self.easting,self.northing,self.elevation,self.gps_time])
+        f=np.savetxt(self.filepath[0:-4]+"_ascii.txt",np.transpose(data),fmt="%.3f;%.3f;%.3f;%f",delimiter=";",header="X;Y;Z;gpstime")
+
+    def interpolate(self,time_ref):
+        temp=np.transpose([self.easting,self.northing,self.elevation])
+        f=interp1d(self.gps_time,temp,axis=0)
+        return f(time_ref)
 
 def calc_grid(name_geoid,pts0,deltas):
     """
@@ -110,59 +136,6 @@ def calc_grid(name_geoid,pts0,deltas):
     np.savez_compressed("D:/TRAVAIL/Vertical_datum/RAF09.npz",tableau)
     return True
 
-def open_sbet(filepath,register=False):
-    """
-    Function for open a binary sbet file and return
-    data in a matrix.
-
-    Parameters
-    ----------
-    workspace : str
-            path of your work space
-    file : str
-           name of your binary sbet file
-    register : bool, optional
-           if you want to register the data in a file
-
-    Returns
-    ------
-    field_names : ndarray
-                table of the field names
-    tab : ndarray
-         data
-    """
-    if os.path.splitext(filepath)[1]==".out":
-        # 17 attributes of 8 bytes each = 136 bytes
-        line_size=int(136)
-
-        f=open(filepath,mode='rb')
-        f_size=os.path.getsize(filepath)
-        data=mmap.mmap(f.fileno(),f_size,access=mmap.ACCESS_READ)
-
-        try :
-            assert(len(data)%line_size==0)
-        except :
-            raise OSError("Problem with size of file\nIt must contain 17 fields of 8 bytes each !")
-        
-        nbr_line=int(len(data)/line_size)
-        tab=[]
-        for i in range(0,nbr_line):
-            tab+=[list(struct.unpack('17d',data[i*line_size:(i+1)*line_size]))]
-
-        tab=np.array(tab)
-        tab[:,1]=tab[:,1]*180/math.pi
-        tab[:,2]=tab[:,2]*180/math.pi
-
-    elif os.path.splitext(filepath)[1]==".npz":
-        f=np.load(filepath)
-        tab=f[f.files[0]]
-    else:
-        raise OSError("Unknown file extension, can read only .out or .npz file !")
-            
-    if register :
-        np.savez_compressed(filepath[0:-4]+".npz",tab)
-    return tab
-
 def Projection(epsg_in,epsg_out,x,y,z):
     """
     Function for compute the transformation between
@@ -198,103 +171,21 @@ def Projection(epsg_in,epsg_out,x,y,z):
     result=np.array([temp[0],temp[1],temp[2]])
     return np.transpose(result)
 
-def interpolate(time_sbet,sbet_coords,time_ref,method="linear"):
-    """
-    Function for interpolate sbet coordinates to get
-    exact coordinates of laser shots from GPS Time of
-    points cloud.
-
-    Parameters
-    ----------
-    time_sbet : ndarray
-            GPS time of sbet file
-    sbet_coords : ndarray
-            sbet coordinates
-    method : str
-        interpolation method
-    time_ref : ndarray
-        GPS time of points cloud
-        
-    Return
-    ------
-    interp : ndarray
-        sbet coordinates interpolated (X,Y,Z,time)
-    """
-    f=[interp1d(time_sbet,sbet_coords[:,0],kind=method),
-       interp1d(time_sbet,sbet_coords[:,1],kind=method),
-       interp1d(time_sbet,sbet_coords[:,2],kind=method)]
-    interp=np.array([f[0](time_ref),f[1](time_ref),f[2](time_ref),time_ref])
-    return np.transpose(interp)
-
-def conversionSbet(listFiles,epsg_SRC,epsg_FIN,change_alti=False):
-    """
-    Function for sbet treatments. This function open a Sbet file, transform
-    coordinates between two references system, uses previous functions.
-
-    Parameters
-    ----------
-    workspace : str
-            path of your work space
-    sbet_files : str or list
-            name of your sbet file or liste of several sbet files
-    epsg_SRC : str
-            EPSG code of source reference system
-    epsg_FIN : str
-            EPSG code of target reference system
-    change_alti : str, optional
-            name of geoid grid if you want to convert elevation
-        
-    Returns
-    ------
-    borne : list
-            GPS time bounds
-    time_sbet : 
-            concatenate GPS time of sbet file(s)
-    coords : ndarray
-            instrument coordinates of each laser shots 
-    """
-    if type(listFiles)==str:
-        listFiles=[listFiles]
-
-    listData=[open_sbet(i) for i in listFiles]
-    mergeData=np.concatenate(listData,axis=0)
-
-    if change_alti!=False:
-        temp=h2He(change_alti,mergeData[:,2],mergeData[:,1],mergeData[:,3])
-        mergeData[:,3]=temp
-
-    #----Conversion coordonnées Géo vers Projetées----------#
-    # epsg:4171 -> ETRS89-géo lat,long,h
-    # epsg:2154 -> RGF93-L93 E,N,H
-    # epsg:4326 -> WGS84-géo lat,long,h
-    # epsg:32634 -> WGS84-UTM 34N E,N,H
-    # epsg:4167 -> NZGD2000 lat,long,h
-    # epsg:2193 -> NZTM2000 E,N,H
-    time_tot=mergeData[:,0]
-    if epsg_SRC==epsg_FIN:
-        coords_tot=mergeData[:,1:4]
-    else:
-        coords_tot=Projection(epsg_SRC,epsg_FIN,mergeData[:,1],mergeData[:,2],mergeData[:,3])
-    #-------------------------------------------------------#
-        
-    borne=[min(time_tot),max(time_tot)]
-    return borne,time_tot,coords_tot
-
-def Sbet2Ascii(filepath,epsg_src,epsg_target):
-    data=open_sbet(filepath)
-    coords=Projection(epsg_src,epsg_target,data[:,1],data[:,2],data[:,3])
-    output=np.append(coords,np.reshape(data[:,0],(-1,1)),axis=1)
-    f=np.savetxt(filepath[0:-4]+"_ascii.txt",output,fmt="%.3f;%.3f;%.3f;%f",delimiter=";",header="X;Y;Z;gpstime")
-
 def Sbet_config(filepath):
     sbet_dict={}
     for i in np.loadtxt(filepath,str,delimiter="="):
         sbet_dict[i[0]]=i[1]
-
-    if sbet_dict['Z']=='height':
-        borne,time_sbet,coords_sbet=conversionSbet([sbet_dict['path']+str(i) for i in sbet_dict['listFiles'].split(",")],'epsg:'+sbet_dict['epsg_source'],
-                                                   'epsg:'+sbet_dict['epsg_target'],sbet_dict['geoidgrid'])
+    
+    listObj=[]
+    for i in sbet_dict['listFiles'].split(','):
+        listObj+=[SBET(sbet_dict['path'])+str(i)]
+    
+    if len(listObj)>1:
+        sbet_obj=Merge_sbet(listObj)
     else:
-        borne,time_sbet,coords_sbet=conversionSbet([sbet_dict['path']+str(i) for i in sbet_dict['listFiles'].split(",")],'epsg:'+sbet_dict['epsg_source'],
-                                                   'epsg:'+sbet_dict['epsg_target'])
-    return time_sbet,coords_sbet
+        sbet_obj=listObj[0]
+    
+    if sbet_dict['Z']=='height':
+        sbet_obj.h2He(sbet_dict['geoidgrid'])
+    sbet_obj.projection(sbet_dict['epsg_source'],sbet_dict['epsg_target'])
+    return sbet_obj
