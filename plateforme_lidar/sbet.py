@@ -178,7 +178,7 @@ def Sbet_config(filepath):
     
     listObj=[]
     for i in sbet_dict['listFiles'].split(','):
-        listObj+=[SBET(sbet_dict['path'])+str(i)]
+        listObj+=[SBET(sbet_dict['path']+str(i))]
     
     if len(listObj)>1:
         sbet_obj=Merge_sbet(listObj)
@@ -187,5 +187,5 @@ def Sbet_config(filepath):
     
     if sbet_dict['Z']=='height':
         sbet_obj.h2He(sbet_dict['geoidgrid'])
-    sbet_obj.projection(sbet_dict['epsg_source'],sbet_dict['epsg_target'])
+    sbet_obj.projection(int(sbet_dict['epsg_source']),int(sbet_dict['epsg_target']))
     return sbet_obj
