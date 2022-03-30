@@ -7,3 +7,4 @@ shapely
 matplotlib
 pyproj
 laspy[lazrs]
+laszip

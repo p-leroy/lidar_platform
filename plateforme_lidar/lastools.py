@@ -99,7 +99,7 @@ def read_VLRbody(vlrs):
         elif vlr.record_id==10:
             #read bbox tile vlrs :
             # (level,index,implicit_lvl,reversible,buffer,min_x,max_x,min_y,max_y)
-            liste[vlr.record_id]=struct.unpack("=2IH2?4f",vlr.record_data_bytes())
+            liste[vlr.record_id]=struct.unpack("=2IH2?4f",vlr.record_data)
         elif vlr.record_id==34735:
             #read Projection
             # (KeyDirectoryVersion,KeyRevision,MinorRevision,NumberofKeys)+ n*(KeyId,TIFFTagLocation,Count,Value_offset)
@@ -119,16 +119,22 @@ def pack_VLRbody(dictio):
     if len(dictio)>0:
         for i in dictio.keys():
             if i >=100 and i<=356 :
-                temp=laspy.header.VLR(user_id="LASF_Spec",record_id=i,VLR_body=struct.pack("=BBLLdd",*dictio[i]))
+                # waveform vlrs
+                # (Bits/sample,wavefm compression type,nbr of samples,Temporal spacing,digitizer gain,digitizer offset)
+                temp=laspy.header.VLR(user_id="LASF_Spec",record_id=i,record_data=struct.pack("=BBLLdd",*dictio[i]))
             elif i==10:
-                temp=laspy.header.VLR(user_id="LAStools",record_id=i,VLR_body=struct.pack("=2IH2?4f",*dictio[i]))
+                # bbox tile vlrs :
+                # (level,index,implicit_lvl,reversible,buffer,min_x,max_x,min_y,max_y)
+                temp=laspy.header.VLR(user_id="LAStools",record_id=i,record_data=struct.pack("=2IH2?4f",*dictio[i]))
             elif i==34735:
+                # Projection
+                # (KeyDirectoryVersion,KeyRevision,MinorRevision,NumberofKeys)+ n*(KeyId,TIFFTagLocation,Count,Value_offset)
                 fmt="="+str(len(dictio[i]))+"H"
-                temp=laspy.header.VLR(user_id="LASF_Projection",record_id=i,VLR_body=struct.pack(fmt,*dictio[i]))
+                temp=laspy.header.VLR(user_id="LASF_Projection",record_id=i,record_data=struct.pack(fmt,*dictio[i]))
             else:
-                raise ValueError("VLR.record_id unknown : "+str(i))
+                raise Exception("VLR.record_id unknown : "+str(i))
 
-            size+=len(temp)
+            size+=len(temp.record_data_bytes())
             liste+=[temp]
     return liste,size
 
@@ -194,8 +200,12 @@ class writeLAS(object):
             setattr(self.point_record,extraField["name"],extraField["data"])
 
         self.writeAttr()
-        self.point_record.write(filepath,laz_backend=utils.LASPY_PARALLEL_BACKEND[parallel])
-        print("done !")
+        if format_id in [4,5,9,10]:
+            backend=laspy.compression.LazBackend(2)
+        else:
+            backend=laspy.compression.LazBackend(int(not parallel))
+        self.point_record.write(filepath,laz_backend=backend)
+        print("done")
 
         if len(waveforms)>0 and format_id in [4,5,9,10]:
             self.waveDataPacket(filepath,waveforms)
@@ -214,16 +224,16 @@ class writeLAS(object):
 
         if not all(offsets[1::]==(offsets[0:-1]+sizes[0:-1])):
             raise ValueError("byte offset list is not continuous, re-compute your LAS dataset")
-    
-        pourcent=[int(i*nbrPoints) for i in [0.2,0.4,0.6,0.8,0.98]]
-        print("[Writing waveform data packet] : %d waveforms" %len(waveforms))
-
-        print("0%..",end="")
+        
+        start=time.time()
+        print("[Writing waveform data packet] %d waveforms" %len(waveforms))
+        displayer=utils.Timing(nbrPoints,20)
         with open(filepath[0:-4]+".wdp","wb") as wdpFile :
             wdpFile.write(utils.HEADER_WDP_BYTE)
             for i in range(0,nbrPoints):
-                if i in pourcent:
-                    print("%d%%.." %(20*(pourcent.index(i)+1)),end='')
+                msg=displayer.timer(i)
+                if msg is not None:
+                    print("[Writing waveform data packet] "+msg)
                 
                 if len(waveforms[i])!=(sizes[i]/2):
                     raise ValueError("Size of waveform n°"+str(i)+" is not the same in LAS file")
@@ -231,7 +241,7 @@ class writeLAS(object):
                 try:
                     vlr_body=vlrs[pkt_desc_index[i]+99]
                 except:
-                    raise ValueError("Number of the wave packet desc index not in VLRS !")
+                    raise ValueError("Number of the wave packet desc index not in VLRS")
 
                 length=int(vlr_body[2])
         
@@ -240,7 +250,7 @@ class writeLAS(object):
                     wdpFile.write(test)
                 except :
                     raise ValueError(str(length))
-        print("done !")
+        print("[Writing waveform data packet] done in %d sec" %(time.time()-start))
 
     def createHeader(self,version,formatId):
         #Create header from point cloud in LAS 1.3 only
@@ -295,27 +305,34 @@ def readLAS(filepath,extraField=False,parallel=True):
     Args:
         filepath (str): input LAS file (extensions: .las or .laz)
         extraField (bool, optional): True if you want to load additional fields. Defaults to False.
+        backend (str, optional): 'multi' for parallel backend, 'single' for single-thread mode, 'laszip' to use laszip for LAS fwf
 
     Returns:
         'plateforme_lidar.utils.lasdata': lasdata object
     """
-    f=laspy.read(filepath,laz_backend=utils.LASPY_PARALLEL_BACKEND[parallel])
+    pointFormatId=laspy.open(filepath,mode='r',laz_backend=laspy.compression.LazBackend(2)).header.point_format.id
+    if pointFormatId in [4,5,9,10]:
+        backend=laspy.compression.LazBackend(2)
+    else:
+        backend=laspy.compression.LazBackend(int(not parallel))
+
+    f=laspy.read(filepath,laz_backend=backend)
     LAS_fmt=utils.LAS_FORMAT()
     
-    metadata={"vlrs":read_VLRbody(f.vlrs),"extraField":[]}
+    metadata={"vlrs":read_VLRbody(f.vlrs),"extraField":[],'filepath':filepath}
     output=utils.lasdata()
 
-    for i in LAS_fmt.recordFormat[f.header.point_format.id]:
+    for i in LAS_fmt.recordFormat[pointFormatId]:
         try:
             output[i[0]]=np.array(getattr(f,i[0]))
         except:
-            print("[LasPy] "+str(i[0])+" not found !")      
+            print("[LasPy] "+str(i[0])+" not found")      
 
     output['XYZ']=f.xyz
 
     if extraField:
         for i in f.point_format.extra_dimension_names:
-            name=i.replace('(','').replace(')','').lower()
+            name=i.replace('(','').replace(')','').replace(' ','_').lower()
             metadata['extraField']+=[name]
             output[name]=f[i]
 
@@ -336,11 +353,10 @@ def readLAS(filepath,extraField=False,parallel=True):
 #             names_sort[[listNames.index(i),idx_true]]=names_sort[[idx_true,listNames.index(i)]]
 #     return data_sort,names_sort
 
-def readWDP(lasfile,lasdata):
+def readWDP(lasdata):
     """Reading waveforms in WDP file
 
     Args:
-        lasfile (str): path to LAS file
         lasdata ('plateforme_lidar.utils.lasdata'): lasdata object
 
     Raises:
@@ -354,19 +370,19 @@ def readWDP(lasfile,lasdata):
     offset=np.uint64(lasdata.wavepacket_offset)
     pkt_desc_index=lasdata.wavepacket_index
     vlrs=lasdata.metadata['vlrs']
+    start=time.time()
+    print("[Reading waveform data packet] %d waveforms" %nbrPoints)
     
-    pourcent=[int(i*nbrPoints) for i in [0.2,0.4,0.6,0.8,0.98]]
-    print("[Reading waveform data packet] : %d waveforms" %nbrPoints)
-    
-    with open(lasfile[0:-4]+".wdp",'rb') as wdp:
-        dataraw=mmap.mmap(wdp.fileno(),os.path.getsize(lasfile[0:-4]+".wdp"),access=mmap.ACCESS_READ)
+    with open(lasdata.metadata['filepath'][0:-4]+".wdp",'rb') as wdp:
+        dataraw=mmap.mmap(wdp.fileno(),os.path.getsize(lasdata.metadata['filepath'][0:-4]+".wdp"),access=mmap.ACCESS_READ)
 
     lines=[]
-    print("0%..",end="")
+    displayer=utils.Timing(nbrPoints,20)
     for i in range(0,nbrPoints):
-        if i in pourcent:
-            print("%d%%.." %(20*(pourcent.index(i)+1)),end='')
-
+        msg=displayer.timer(i)
+        if msg is not None:
+            print("[Reading waveform data packet] "+msg)
+        
         try:
             vlr_body=vlrs[pkt_desc_index[i]+99]
         except:
@@ -375,7 +391,7 @@ def readWDP(lasfile,lasdata):
         length=int(vlr_body[2])
         line=np.array(struct.unpack(str(length)+'h',dataraw[offset[i]:(offset[i]+sizes[i])]))        
         lines+=[np.round_(line*vlr_body[4]+vlr_body[5],decimals=2)]
-    print("done !")
+    print("[Reading waveform data packet] done in %d sec" %(time.time()-start))
     return lines
 
 def read_orthofwf(workspace,lasfile):

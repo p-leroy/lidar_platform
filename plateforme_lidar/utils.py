@@ -32,18 +32,18 @@ def Run_bis(query,optShell=False):
 class Timing(object):
     def __init__(self,length,step=20):
         self.length=length
-        listVerbose=list(range(step,100,step))+[98]
+        if step>5:
+            listVerbose=[2]+list(range(step,100,step))+[98]
+        else:
+            listVerbose=list(range(step,100,step))+[98]
         self.pourcent=[int(i*self.length/100) for i in listVerbose]
         self.start=time.time()
     def timer(self,idx):
         if idx in self.pourcent:
-            pos=self.pourcent.index(idx)
             duration=round(time.time()-self.start,1)
-            remain=round(duration*(len(self.pourcent)-pos)/(pos+1),1)
+            remain=round(duration*(self.length/idx-1),1)
             msg=str(idx)+" in "+str(duration)+"sec - remaining "+str(remain)+"sec"
-        else:
-            msg=""
-        return msg
+            return msg
 
 #---CloudCompare---#
 QUERY_0={"standard":"G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare -silent",
@@ -66,8 +66,6 @@ HEADER_WDP_BYTE=struct.pack("=H16sHQ32s",*(0,b'LASF_Spec',65535,0,b'WAVEFORM_DAT
 #================#
 
 #---Lastools---#
-LASPY_PARALLEL_BACKEND={True:getattr(__import__("laspy"),"compression").LazBackend(0),False:getattr(__import__("laspy"),"compression").LazBackend(1)}
-
 class lasdata(object):
     """LAS data object
 
