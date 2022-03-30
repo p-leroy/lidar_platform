@@ -324,7 +324,7 @@ def readLAS(filepath,extraField=False,parallel=True):
 
     for i in LAS_fmt.recordFormat[pointFormatId]:
         try:
-            output[i[0]]=np.array(getattr(f,i[0]))
+            output[i[0]]=np.array(getattr(f,i[0]),dtype=i[1])
         except:
             print("[LasPy] "+str(i[0])+" not found")      
 
@@ -439,13 +439,15 @@ class GPSTime(object):
         Args:
             gpstime (list): GPS time
         """
-        self.gps_fmt_code=["GPS week time","Adjusted Standard GPS time","Standard GPS time"]
+        self.gps_fmt_code=["<GPS week time>","<Adjusted Standard GPS time>","<Standard GPS time>"]
         self.gps_epoch_datetime=datetime(1980,1,6,tzinfo=timezone.utc)
         self.offset_time=int(10**9)
         self.sec_in_week=int(3600*24*7)
         self.gpstime=np.atleast_1d(gpstime)
             
         self.GPSFormat=self.get_format()
+    def __repr__(self):
+        return self.GPSFormat
 
     def _get_week_number(self,standardTime):
         """Compute the week number in GPS standard time
