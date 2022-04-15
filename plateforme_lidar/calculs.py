@@ -82,6 +82,44 @@ def correction_vect(vectorApp,indRefr=1.333):
 
 #======================================#
 
+class PyC2C(object):
+    def __init__(self,compared,reference,dim=3,neighbors=1,cores=20):
+        if type(compared)==utils.lasdata and type(reference)==utils.lasdata:
+            self.compared,self.reference=compared,reference
+            self.compared_file,self.reference_file=None,None
+
+        else:
+            self.compared_file,self.reference_file=compared,reference
+            self.compared=lastools.readLAS(compared,True)
+            self.reference=lastools.readLAS(reference)
+        
+        if dim not in [2,3]:
+            raise Exception("dim must be in [2,3]")
+        self.compute(self.compared.XYZ,self.reference.XYZ,dim,cores,neighbors)
+
+    def compute(self,comp,ref,dim,nb_cores,neigh):
+        tree=cKDTree(ref[:,0:dim],leafsize=250)
+        index=tree.query(comp[:,0:dim],k=neigh,p=2,n_jobs=nb_cores)[1]
+
+        if neigh==1:
+            diff=comp-ref[index]
+        else:
+            diff=comp-np.mean(ref[index],axis=1)
+            
+        self.dist_plani=np.linalg.norm(diff[:,0:2],ord=2,axis=1)
+        self.dist_alti=diff[:,2]
+
+    def get_distances(self):
+        return {"dist_plani":self.dist_plani,"dist_alti":self.dist_alti}
+    
+    def save(self):
+        if self.compared_file is not None:
+            extra1=[{"name":"dist_plani","type":'float32',"data":self.dist_plani},
+                    {"name":"dist_alti","type":'float32',"data":self.dist_alti}]
+            extra=extra1+[{"name":i,"type":getattr(self.compared,i).dtype.name,"data":getattr(self.compared,i)} for i in self.compared.metadata['extraField']]
+            lastools.writeLAS(self.compared_file[0:-4]+"_C2C.laz",self.compared,extraFields=extra)
+
+
 class Alphashape(object):
     def __init__(self,points2D,alpha=100):
         self.points=points2D
@@ -96,15 +134,15 @@ class Alphashape(object):
         nbrVertices=len(tri.vertices)
         print("done !")
 
-        print("[Alphashape] Cleaning %d triangles :" %nbrVertices)
+        print(f'[Alphashape] Cleaning {nbrVertices} triangles :')
         displayer=utils.Timing(nbrVertices,20)
         
         edges=set()
         edge_points=[]
         for i in range(0,nbrVertices):
             msg=displayer.timer(i)
-            if len(msg)>1:
-                print("[Alphashape] "+msg)
+            if msg is not None:
+                print(f'[Alphashape] {msg}')
                 
             idx=tri.vertices[i]
             triangle=self.points[idx,:]
@@ -120,7 +158,7 @@ class Alphashape(object):
                     if (i,j) not in edges and (j,i) not in edges:
                         edges.add((i,j))
                         edge_points.append(self.points[[i,j],:])
-        print("[Alphashape] Cleaning %d triangles : done !" %nbrVertices)
+        print(f'[Alphashape] Cleaning {nbrVertices} triangles : done !')
 
         print("[Alphashape] Polygonize...",end='')
         m=shapely.geometry.MultiLineString(edge_points)
@@ -152,7 +190,7 @@ def computeDBSCAN(filepath,maxdist=1,minsamples=5):
     
     if len(np.unique(model.labels_))>1:
         extra=[(("labels","int16"),model.labels_)]
-        print("Number of clusters : "+str(len(np.unique(model.labels_))-1))
+        print(f'Number of clusters : {len(np.unique(model.labels_))-1}')
         lastools.writeLAS(filepath[0:-4]+"_DBSCAN.laz",data,extraField=extra)
     else:
         print("DBSCAN find only 1 cluster !")
@@ -186,7 +224,7 @@ def merge_c2c_fwf(workspace,fichier):
     controle=np.sqrt((tab_fwf[:,0]-tab_extra[:,0])**2+(tab_fwf[:,1]-tab_extra[:,1])**2+(tab_fwf[:,2]-tab_extra[:,2])**2)
     try: assert(all(controle<0.003))
     except:
-        raise ValueError("LAS_FWF file and LAS file don't match exactly!\nPlease check your files...")
+        raise Exception("LAS_FWF file and LAS file don't match exactly!\nPlease check your files...")
 
     dist_Z=tab_extra[:,names_extra.index('c2c_absolute_distances_(z)')]
     dist_plani=np.sqrt(np.power(tab_extra[:,names_extra.index('c2c_absolute_distances_(x)')],2)+np.power(tab_extra[:,names_extra.index('c2c_absolute_distances_(y)')],2))

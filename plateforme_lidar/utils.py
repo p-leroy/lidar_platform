@@ -48,7 +48,8 @@ class Timing(object):
 #---CloudCompare---#
 QUERY_0={"standard":"G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare -silent",
          "standard_view":"G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare",
-         "PoissonRecon":"G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon"}
+         "PoissonRecon":"G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon",
+         "CC_PL":"G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare -silent"}
 
 EXPORT_FMT={"LAS":" -c_export_fmt LAS -ext laz -auto_save OFF",
             "PLY_cloud":" -c_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
@@ -86,7 +87,8 @@ class lasdata(object):
     def __str__(self):
         return "\n".join(self.__dict__.keys())
     def __repr__(self):
-        return "<LAS object of "+str(len(self.XYZ))+" points with "+str(len(self.metadata['extraField']))+" extra-fields>"
+        var=len(self.metadata["extraField"])
+        return f'<LAS object of {len(self.XYZ)} points with {var} extra-fields>'
     def __getitem__(self,key):
         return self.__dict__[key]
     def __setitem__(self,key,item):
