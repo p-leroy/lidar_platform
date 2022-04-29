@@ -53,20 +53,25 @@ class Timing(object):
             return msg
 
 #---CloudCompare---#
-QUERY_0={"standard":"G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare -silent",
-         "standard_view":"G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare",
-         "PoissonRecon":"G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon",
-         "CC_PL":"G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare -silent"}
+# QUERY_0 = {"standard" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare -silent",
+#            "standard_view" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare",
+#            "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon",
+#            "CC_PL" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare -silent"}
 
-EXPORT_FMT={"LAS":" -c_export_fmt LAS -ext laz -auto_save OFF",
-            "PLY_cloud":" -c_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
-            "PLY_mesh":" -m_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
-            "SBF":" -c_export_fmt SBF -auto_save OFF"}
+QUERY_0 = {"standard" : '"C:\\Program Files\\CloudCompare\\CloudCompare.exe -silent"',
+           "standard_view" : '"C:\\Program Files\\CloudCompare\\CloudCompare"',
+           "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon",
+           "CC_PL" : "C:/opt/CloudCompareProjects/CloudCompare/CloudCompare -silent"}
 
-SHIFT={}
-globalShiftFile=os.path.split(os.path.abspath(__file__))[0]+"\\global_shift.txt"
-for i in loadtxt(globalShiftFile,str,delimiter=";"):
-    SHIFT[i[0]]=i[1]
+EXPORT_FMT = {"LAS" : " -c_export_fmt LAS -ext laz -auto_save OFF",
+              "PLY_cloud" : " -c_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
+              "PLY_mesh" : " -m_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
+              "SBF" : " -c_export_fmt SBF -auto_save OFF"}
+
+SHIFT = {}
+globalShiftFile = os.path.split(os.path.abspath(__file__))[0] + "\\global_shift.txt"
+for i in loadtxt(globalShiftFile, str, delimiter=";"):
+    SHIFT[i[0]] = i[1]
 #================#
 
 #---LasFWF---#

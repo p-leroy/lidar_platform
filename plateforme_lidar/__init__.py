@@ -10,7 +10,7 @@ __url__="https://www.lidar-nantes-rennes.eu"
 __email__="baptiste.feldmann@univ-rennes1.fr"
 __version__="0.3.0"
 
-from . import calculs,CC_3DMASC,classification,cloudcompare,lasfwf,lastools,PySBF,sbet,gdal,utils,test
+from . import calculs, CC_3DMASC, classification, cloudcompare, lasfwf, lastools, PySBF, sbet, gdal, utils, test
 
 test.check()
 

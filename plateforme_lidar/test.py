@@ -1,17 +1,22 @@
+import os, logging, shutil
+
 from . import utils
-import os,shutil
+
+
+logger = logging.getLogger(__name__)
+logging.basicConfig()
 
 class check(object):
     def __init__(self):
         self.check_utils()
 
-    def _utils_exception(self,constant):
-        raise Exception("<plateforme_lidar.utils."+constant+" : path invalid>")
+    def _utils_exception(self, value):
+        logger.warning(f" path invalid: {value}")
 
     def check_utils(self):
-        for key in utils.QUERY_0.keys():
-            if not os.path.exists(utils.QUERY_0[key].split(" ")[0]+".exe"):
-                self._utils_exception("QUERY_0")
+        for key, value in utils.QUERY_0.items():
+            if not os.path.exists(value.split(" ")[0]+".exe"):
+                self._utils_exception(value)
 
         if shutil.which(utils.GDAL_QUERY_ROOT.split(" ")[0]) is None:
             self._utils_exception("GDAL_QUERY_ROOT")
