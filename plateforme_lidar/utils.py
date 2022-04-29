@@ -1,7 +1,7 @@
 # coding: utf-8
 # Baptiste Feldmann
 from subprocess import Popen,PIPE,STDOUT
-import subprocess,os,struct,datetime,time
+import subprocess,os,struct,datetime,time,re
 from numpy import loadtxt
 
 def delete_file(liste):
@@ -28,6 +28,13 @@ def Run(query,silent=False,optShell=False,sleeping=0):
 
 def Run_bis(query,optShell=False):
     subprocess.run(query,shell=optShell)
+
+def camel_to_snake(name):
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+
+def snake_to_camel(name):
+    return ''.join(word.title() for word in name.split('_'))
 
 class Timing(object):
     def __init__(self,length,step=20):
@@ -152,6 +159,34 @@ POISSONRECON_PARAMETERS={"bType":{"Free":"1","Dirichlet":"2","Neumann":"3"}}
 #==================#
 
 #---PySBF---#
+class pointcloud(object):
+    """LAS data object
+
+    Attributes:
+        metadata (dict): {'vlrs': dict (info about LAS vlrs),'extraField': list (list of additional fields)}
+        XYZ (numpy.ndarray): coordinates
+        various attr (numpy.ndarray):
+    
+    Functionality:
+        len('plateforme_lidar.utils.lasdata'): number of points
+        print('plateforme_lidar.utils.lasdata'): list of attributes
+        get attribute: lasdata.attribute or lasdata[attribute]
+        set attribute: lasdata.attribute=value or lasdata[attribute]=value
+        create attribute: setattr(lasdata,attribute,value) or lasdata[attribute]=value
+    """   
+    def __len__(self):
+        return len(self.XYZ)
+    def __str__(self):
+        return "\n".join(self.__dict__.keys())
+    def __repr__(self):
+        var=len(self.metadata["ScalarNames"])
+        return f'<SBF object of {len(self.XYZ)} points with {var} attributes>'
+    def __getitem__(self,key):
+        return self.__dict__[key]
+    def __setitem__(self,key,item):
+        self.__dict__[key]=item
+    pass
+
 convention={"gpstime":"gps_time","numberofreturns":"number_of_returns","returnnumber":"return_number",
             "scananglerank":"scan_angle_rank","pointsourceid":"point_source_id"}
 #===================#

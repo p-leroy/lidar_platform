@@ -1,107 +1,150 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import mmap,struct,os
+import mmap,struct,os,time
 from . import utils
 
-class File(object):
-    def __init__(self,filepath,mode="r"):
-        self.filepath=filepath
-        self._mode=mode
-        self._Open()
+def readMetadataFile(filepath):
+    f=open(filepath,mode='r')
+    lines=[]
+    for i in f.readlines():
+        lines+=[i.replace("\n","")]
+    f.close()    
 
-    def _Open(self):
-        if self._mode=="r":
-            if not os.path.exists(self.filepath):
-                raise OSError("No such file or directory: '%s'" %self.filepath)
+    temp=lines[2].split("=")[1]
+    metadata={"NbPoints":int(lines[1].split("=")[1]),
+            "GlobalShift":tuple(float(i) for i in temp.split(",")),
+            "NbScalarFields":int(lines[3].split('=')[1])}
 
-            ext=os.path.splitext(self.filepath)[1]
-            if ext==".sbf":
-                listShiftPrec_temp=self._ComputeMetadata()
-                self._reader=Reader(self.filepath+".data",self.metadata)
-            elif ext==".data" and self.filepath[-9::]==".sbf.data":
-                self._reader=Reader(self.filepath)
-            else:
-                raise OSError("Unrecognized file format : '%s'" %os.path.split(self.filepath)[1])
-
-            self.header=self._reader.header
-            self.points=self._reader.points
-            self.scalarNames=self._reader.scalarNames
-            self.listShiftPrecision=dict(zip(self.scalarNames[3::],listShiftPrec_temp))
+    listShiftPrec={}
+    listScalarNames=[]
+    for line in lines[4::]:
+        pos=line.find("=")
+        value=line[(pos+1)::]
+        if value.find(",")==-1:
+            listScalarNames+=[utils.camel_to_snake(value)]
         else:
-            raise NotImplementedError("SBF files can only be opened in mode 'r' for now")
+            valueSplit=value.split(sep=",")
+            listScalarNames+=[utils.camel_to_snake(valueSplit[0])]
+            s=valueSplit[1].split(sep="=")[1][0:-1]
+            listShiftPrec[utils.camel_to_snake(valueSplit[0])]={"shift":float(s)}
+            if len(valueSplit)>2:
+                p=valueSplit[2].split(sep="=")[1][0:-1]
+                listShiftPrec[utils.camel_to_snake(valueSplit[0])]["prec"]=float(p)
+    metadata["ScalarNames"]=listScalarNames
+    metadata["ShiftPrecision"]=listShiftPrec
+    return metadata
 
-    def _ComputeMetadata(self):
-        f=open(self.filepath,mode='r')
-        tab=f.readlines()
-        f.close()    
-        temp=tab[2][12:-1].split(sep=",")
-        self.metadata={"File_type":tab[0][0:-1],
-                       "NbPoints":int(tab[1][7:-1]),
-                       "GlobalShift":(float(temp[0]),float(temp[1]),float(temp[2])),
-                       "NbScalarFields":int(tab[3][8:-1])}
-        listShiftPrec_temp=[]
-        for i in range(4,len(tab)):
-            pos=tab[i].find("=")
-            key=tab[i][0:pos]
-            value=tab[i][(pos+1):-1]
-            if value.find(",")==-1:
-                listShiftPrec_temp+=[{}]
-                self.metadata[key]=value
-            else:
-                valueSeg=value.split(sep=",")
-                self.metadata[key]=valueSeg[0]
-                s=valueSeg[1].split(sep="=")[1][0:-1]
-                if len(valueSeg)>2:
-                    p=valueSeg[2].split(sep="=")[1][0:-1]
-                    listShiftPrecision+=[{"shift":float(s),"prec":float(p)}]
-                else:
-                    listShiftPrec_temp+=[{"shift":float(s)}]
-        return listShiftPrec_temp
+def read(filepath):
+    output=utils.pointcloud()
 
+    ext=os.path.splitext(filepath)[1]
+    if ext==".sbf":
+        output['metadata']=readMetadataFile(filepath)
+        reader=Reader(filepath+".data",output.metadata)
+    elif ext==".data" and filepath[-9::]==".sbf.data":
+        reader=Reader(filepath)
+        output['metadata']={'NbPoints':reader.header['NbPoints'],
+                            'GlobalShift':(0.0,0.0,0.0),
+                            'NbScalarFields':reader.header['NbScalarFields'],
+                            'ScalarNames':[f'SF{i}' for i in range(1,reader.header['NbScalarFields']+1)],
+                            'ShiftPrecision':{}}
+    else:
+        raise Exception("Unrecognized file format : '%s'" %os.path.split(filepath)[1])
+
+    output['XYZ']=np.array([np.copy(reader.points['X']),np.copy(reader.points['Y']),np.copy(reader.points['Z'])]).transpose()
+    output.XYZ+=reader.header['InternalShift']
+    for i in output.metadata['ScalarNames']:
+        output[i]=np.copy(reader.points[i])
+    return output
     
 class Reader(object):
     def __init__(self,pathFileData,metadata={}):
-        self._convention=utils.convention
         self.metadata=metadata
         if not os.path.exists(pathFileData):
             raise OSError("No such file or directory: '%s'" %pathFileData)
 
         f=open(pathFileData,'rb')
-        self.__buffer=mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ)
+        self._buffer=mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ)
         f.close()
-        self._ComputeHeader()
-        self._ComputePoints()
-        self._ComputeSFnames()
+        self.ComputeHeader()
+        self.ComputePoints()
         
-    def _ComputeHeader(self):
-        head_buff=self.__buffer[0:64]
-        self.__data_size=len(self.__buffer[64::])
+    def ComputeHeader(self):
+        head_buff=self._buffer[0:64]
+        self._data_size=len(self._buffer[64::])
         head_tmp=struct.unpack('>2BQH3d',head_buff[0:36])
         self.header={'Key1':head_tmp[0],'Key2':head_tmp[1],'NbPoints':head_tmp[2],'NbScalarFields':head_tmp[3],
                      'InternalShift':(head_tmp[4],head_tmp[5],head_tmp[6]),'User_data':head_buff[36::]}
         self.NbSF=int(self.header['NbScalarFields']+3)
-        if self.NbSF*4*self.header['NbPoints']!=self.__data_size:
+        if self.NbSF*4*self.header['NbPoints']!=self._data_size:
             raise OSError("Unable to read data file :\n\tsize of each point and NbPoints don't match exactly file size !")
 
-    def _ComputePoints(self):
-        data_buff=self.__buffer[64::]
-        liste_data=[]
-        for i in range(0,self.header['NbPoints']):
-            liste_data+=[struct.unpack('>'+str(self.NbSF)+'f',data_buff[i*self.NbSF*4:(i+1)*self.NbSF*4])]
+    def ComputePoints(self):
+        try:
+            temp=list(zip(['X','Y','Z']+self.metadata['ScalarNames'],['>f']*(len(self.metadata['ScalarNames'])+3)))
+        except:
+            temp=list(zip(['X','Y','Z']+[f'SF{i}' for i in range(1,self.NbSF-2)],['>f']*self.NbSF))
+        
+        self.points=np.frombuffer(self._buffer,dtype=np.dtype(temp),count=self.header['NbPoints'],offset=64)
 
-        self.points=np.array(liste_data)
-        self.points[:,0:3]+=self.header['InternalShift']
-
-    def _ComputeSFnames(self):
-        self.scalarNames=['X','Y','Z']
-        if len(self.metadata)>0:
-            liste_keys=list(self.metadata.keys())
-            for i in range(4,len(liste_keys)):
-                name=self.metadata[liste_keys[i]].lower()
-                if name in self._convention.keys():
-                    self.scalarNames+=[self._convention[name]]
-                else:
-                    self.scalarNames+=[self.metadata[liste_keys[i]].lower().replace('"','')]
+class write(object):
+    def __init__(self,filepath,data):
+        print("[Writing LAS file]..",end="")
+        self._start=time.time()
+        self.filepath=filepath
+        self.data_length=len(data)
+        ext=os.path.splitext(filepath)[1]
+        if ext==".sbf":
+            self.writeMetadataFile(data.metadata)
+            self.output=open(self.filepath+".data",mode='wb')
+        elif ext==".data" and filepath[-9::]==".sbf.data":
+            self.output=open(self.filepath,mode='wb')
         else:
-            for i in range(0,self.header['NbScalarFields']):
-                self.scalarNames+=["SF"+str(i+1)]
+            raise Exception("Unrecognized file format : '%s'" %os.path.split(filepath)[1])
+
+        self.internalShift=np.min(data.XYZ,axis=0)
+        self.writeHeader(data)
+        self.writePoints(data)
+        self.output.close()
+        print("done")
+    
+    def __repr__(self):
+        return "Write "+str(len(self.data_length))+" points in "+str(round(time.time()-self._start,1))+" sec"
+
+    def writeMetadataFile(self,metadata):
+        lines=["[SBF]"]
+        lines+=[f'Points={metadata["NbPoints"]}',"GlobalShift="+str(metadata["GlobalShift"])[1:-1],f'SFCount={metadata["NbScalarFields"]}']
+        for i in range(1,metadata["NbScalarFields"]+1):
+            name=metadata["ScalarNames"][i-1]
+            line=f'SF{i}={utils.snake_to_camel(name)}'
+            if name in metadata["ShiftPrecision"].keys():
+                for key in metadata["ShiftPrecision"][name].keys():
+                    line+=f', "{key[0:1]}={metadata["ShiftPrecision"][name][key]}"'
+            lines+=[line]
+
+        with open(self.filepath,mode='w') as f:
+            f.write("\n".join(lines))
+
+    def writeHeader(self,pointcloud):
+        header=[42,42,self.data_length,pointcloud.metadata["NbScalarFields"],self.internalShift[0],self.internalShift[1],self.internalShift[2],b'']
+        header_bytes=struct.pack('>2BQH3d28s',*header)
+        if len(header_bytes)!=64:
+            raise Exception(f'Header issue, must be 64 bytes and got {len(header_bytes)} bytes')
+
+        self.output.write(header_bytes)
+    
+    def writePoints(self,pointcloud):
+        listNames=['X','Y','Z']+pointcloud.metadata['ScalarNames']
+        listFormat=['>f']*(pointcloud.metadata['NbScalarFields']+3)
+        dt=np.dtype(list(zip(listNames,listFormat)))
+
+        temp=[pointcloud.XYZ-self.internalShift]
+        for i in pointcloud.metadata["ScalarNames"]:
+            temp+=[np.reshape(getattr(pointcloud,i),(-1,1))]
+        temp=np.hstack(temp)
+        tab=[]
+        for i in temp:
+            tab+=[tuple(i)]
+        points=np.array(tab,dtype=dt)
+        self.output.write(points.tobytes())
+        

@@ -261,7 +261,7 @@ class writeLAS(object):
 
         new_header.system_identifier=self.LAS_fmt.identifier["system_identifier"]
         new_header.generating_software=self.LAS_fmt.identifier["generating_software"]
-        self.vlrs_list,vlrs_size=pack_VLRbody(self.output_data.metadata['vlrs'])
+        new_header.vlrs,vlrs_size=pack_VLRbody(self.output_data.metadata['vlrs'])
         new_header.offset_to_point_data=235+vlrs_size
 
         new_header.mins=np.min(self.output_data.XYZ,axis=0)
