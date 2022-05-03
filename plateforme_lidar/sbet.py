@@ -1,12 +1,14 @@
 # coding: utf-8
 # Baptiste Feldmann
 # Module pour le traitement du fichier SBET
+
+import math, struct, os, mmap, copy
+
 from . import utils
 import numpy as np
 from scipy.interpolate import griddata
 from scipy.interpolate import interp1d
 import pyproj
-import math,struct,os,mmap,copy
 
 # lat : 41.9875 - 51.5125
 # long : -5.5 - 8.5
@@ -172,20 +174,20 @@ def Projection(epsg_in,epsg_out,x,y,z):
     return np.transpose(result)
 
 def Sbet_config(filepath):
-    sbet_dict={}
-    for i in np.loadtxt(filepath,str,delimiter="="):
-        sbet_dict[i[0]]=i[1]
+    sbet_dict = {}
+    for i in np.loadtxt(filepath, str, delimiter="="):
+        sbet_dict[i[0]] = i[1]
     
-    listObj=[]
+    listObj = []
     for i in sbet_dict['listFiles'].split(','):
-        listObj+=[SBET(sbet_dict['path']+str(i))]
+        listObj += [SBET(sbet_dict['path'] + str(i))]
     
-    if len(listObj)>1:
-        sbet_obj=Merge_sbet(listObj)
+    if len(listObj) > 1:
+        sbet_obj = Merge_sbet(listObj)
     else:
-        sbet_obj=listObj[0]
+        sbet_obj = listObj[0]
     
-    if sbet_dict['Z']=='height':
+    if sbet_dict['Z'] == 'height':
         sbet_obj.h2He(sbet_dict['geoidgrid'])
-    sbet_obj.projection(int(sbet_dict['epsg_source']),int(sbet_dict['epsg_target']))
+    sbet_obj.projection(int(sbet_dict['epsg_source']), int(sbet_dict['epsg_target']))
     return sbet_obj

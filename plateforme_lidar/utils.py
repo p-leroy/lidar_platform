@@ -53,20 +53,27 @@ class Timing(object):
             return msg
 
 #---CloudCompare---#
-QUERY_0={"standard":"G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare -silent",
-         "standard_view":"G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare",
-         "PoissonRecon":"G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon",
-         "CC_PL":"G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare -silent"}
+# QUERY_0 = {"standard" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare -silent",
+#            "standard_view" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare",
+#            "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon",
+#            "CC_PL" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare -silent"}
 
-EXPORT_FMT={"LAS":" -c_export_fmt LAS -ext laz -auto_save OFF",
-            "PLY_cloud":" -c_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
-            "PLY_mesh":" -m_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
-            "SBF":" -c_export_fmt SBF -auto_save OFF"}
+QUERY_0 = {"standard" : 'C:\Program Files\CloudCompare\CloudCompare.exe -silent',
+           "standard_view" : 'C:\Program Files\CloudCompare\CloudCompare.exe',
+           "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon",
+           "cc_ple" : "C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe -silent",
+           "cc_ple_view" : "C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe"
+           }
 
-SHIFT={}
-globalShiftFile=os.path.split(os.path.abspath(__file__))[0]+"\\global_shift.txt"
-for i in loadtxt(globalShiftFile,str,delimiter=";"):
-    SHIFT[i[0]]=i[1]
+EXPORT_FMT = {"LAS" : " -c_export_fmt LAS -ext laz -auto_save OFF",
+              "PLY_cloud" : " -c_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
+              "PLY_mesh" : " -m_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
+              "SBF" : " -c_export_fmt SBF -auto_save OFF"}
+
+SHIFT = {}
+globalShiftFile = os.path.split(os.path.abspath(__file__))[0] + "\\global_shift.txt"
+for i in loadtxt(globalShiftFile, str, delimiter=";"):
+    SHIFT[i[0]] = i[1]
 #================#
 
 #---LasFWF---#
@@ -187,26 +194,55 @@ class pointcloud(object):
         self.__dict__[key]=item
     pass
 
-convention={"gpstime":"gps_time","numberofreturns":"number_of_returns","returnnumber":"return_number",
-            "scananglerank":"scan_angle_rank","pointsourceid":"point_source_id"}
+convention = {"gpstime" : "gps_time",
+              "numberofreturns" : "number_of_returns",
+              "returnnumber" : "return_number",
+              "scananglerank" : "scan_angle_rank",
+              "pointsourceid" : "point_source_id"}
 #===================#
 
 #---SBET---#
-field_names = ('time (s)', 'latitude (deg)', 'longitude (deg)', 'hauteur (m)', 
-                       'x_vel (m/s)', 'y_vel (m/s)', 'z_vel (m/s)', 
-                       'roll (rad)', 'pitch (rad)', 'platform_heading (rad)', 'wander_angle (rad)', 
-                       'x_acceleration (m/s²)', 'y_acceleration (m/s²)', 'z_acceleration (m/s²)', 
-                       'x_angular_rate (rad/s)', 'y_angular_rate (rad/s)', 'z_angular (rad/s)')
+field_names = ('time (s)',
+               'latitude (deg)',
+               'longitude (deg)',
+               'hauteur (m)',
+               'x_vel (m/s)',
+               'y_vel (m/s)',
+               'z_vel (m/s)',
+               'roll (rad)',
+               'pitch (rad)',
+               'platform_heading (rad)',
+               'wander_angle (rad)',
+               'x_acceleration (m/s²)',
+               'y_acceleration (m/s²)',
+               'z_acceleration (m/s²)',
+               'x_angular_rate (rad/s)',
+               'y_angular_rate (rad/s)',
+               'z_angular (rad/s)')
 
-LIST_OF_ATTR=[('time','float64'),('latitude','float64'),('longitude','float64'),('elevation','float32'),
-        ('x_vel','float32'),('y_vel','float32'),('z_vel','float32'),
-        ('roll','float32'),('pitch','float32'),('heading','float32'),('wander_angle','float32'),
-        ('x_acceleration','float32'),('y_acceleration','float32'),('z_acceleration','float32'),
-        ('x_angular_rate','float32'),('y_angular_rate','float32'),('z_angulare_rate','float32')]
+LIST_OF_ATTR = [('time','float64'),
+                ('latitude','float64'),
+                ('longitude','float64'),
+                ('elevation','float32'),
+                ('x_vel','float32'),
+                ('y_vel','float32'),
+                ('z_vel','float32'),
+                ('roll','float32'),
+                ('pitch','float32'),
+                ('heading','float32'),
+                ('wander_angle','float32'),
+                ('x_acceleration','float32'),
+                ('y_acceleration','float32'),
+                ('z_acceleration','float32'),
+                ('x_angular_rate','float32'),
+                ('y_angular_rate','float32'),
+                ('z_angulare_rate','float32')]
+
 # 17 attributes of 8 bytes each = 136 bytes
 LINE_SIZE=int(136)
+
 # vertical datum folder
-VERTICAL_DATUM_DIR='G:/RENNES1/BaptisteFeldmann/Vertical_datum/'
+VERTICAL_DATUM_DIR = 'C:\DATA\Vertical_datum'
 #====================#
 
 #---GDAL---#
@@ -216,10 +252,12 @@ GDAL_QUERY_ROOT="osgeo4w "
 #---Other---#
 class DATE(object):
     def __init__(self):
-        today=datetime.datetime.now().timetuple()
-        self.year=today.tm_year
-        self.day=today.tm_mday
-        self.month=today.tm_mon
-        self.date=str(str(self.year)+"-"+str("0"*(2-len(str(self.month)))+str(self.month))+"-"+str("0"*(2-len(str(self.day)))+str(self.day)))
-        self.time=str("0"*(2-len(str(today.tm_hour)))+str(today.tm_hour))+"h"+str("0"*(2-len(str(today.tm_min)))+str(today.tm_min))
+        today = datetime.datetime.now().timetuple()
+        self.year = today.tm_year
+        self.day = today.tm_mday
+        self.month = today.tm_mon
+        self.date = str(str(self.year) \
+                        + "-" + str("0" * (2-len(str(self.month))) \
+                                    + str(self.month)) + "-" + str("0" * (2-len(str(self.day)))+str(self.day)))
+        self.time = str("0" * (2 - len(str(today.tm_hour))) + str(today.tm_hour)) + "h" + str("0" * (2 - len(str(today.tm_min)))+str(today.tm_min))
 
