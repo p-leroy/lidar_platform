@@ -299,7 +299,7 @@ class writeLAS(object):
             except:
                 warnings.warn("Warning: Not possible to write attribute : "+i[0])
 
-def readLAS(filepath,extraField=False,parallel=True):
+def readLAS(filepath, extraField=False, parallel=True):
     """Reading LAS with PyLas
 
     Args:
@@ -310,33 +310,39 @@ def readLAS(filepath,extraField=False,parallel=True):
     Returns:
         'plateforme_lidar.utils.lasdata': lasdata object
     """
-    pointFormatId=laspy.open(filepath,mode='r',laz_backend=laspy.compression.LazBackend(2)).header.point_format.id
-    if pointFormatId in [4,5,9,10]:
-        backend=laspy.compression.LazBackend(2)
+    pointFormatId = laspy.open(filepath, mode='r', laz_backend=laspy.compression.LazBackend(2)).header.point_format.id
+    if pointFormatId in [4, 5, 9, 10]:  # Wave packets
+        # Point Data Record Format 4 adds Wave Packets to Point Data Record Format 1
+        # Point Data Record Format 5 adds Wave Packets to Point Data Record Format 3
+        # Point Data Record Format 9 adds Wave Packets to Point Data Record Format 6
+        # Point Data Record Format 10 adds Wave Packets to Point Data Record Format 7
+        backend = laspy.compression.LazBackend(2)
     else:
-        backend=laspy.compression.LazBackend(int(not parallel))
+        backend = laspy.compression.LazBackend(int(not parallel))
 
-    f=laspy.read(filepath,laz_backend=backend)
-    LAS_fmt=utils.LAS_FORMAT()
+    f = laspy.read(filepath,laz_backend=backend)
+    LAS_fmt = utils.LAS_FORMAT()
     
-    metadata={"vlrs":read_VLRbody(f.vlrs),"extraField":[],'filepath':filepath}
-    output=utils.lasdata()
+    metadata = {"vlrs" : read_VLRbody(f.vlrs),
+                "extraField" : [],
+                'filepath' : filepath}
+    output = utils.lasdata()
 
     for i in LAS_fmt.recordFormat[pointFormatId]:
         try:
-            output[i[0]]=np.array(getattr(f,i[0]),dtype=i[1])
+            output[i[0]] = np.array(getattr(f, i[0]), dtype=i[1])
         except:
-            print("[LasPy] "+str(i[0])+" not found")      
+            print("[LasPy] " + str(i[0]) + " not found")
 
     output['XYZ']=f.xyz
 
     if extraField:
         for i in f.point_format.extra_dimension_names:
-            name=i.replace('(','').replace(')','').replace(' ','_').lower()
-            metadata['extraField']+=[name]
-            output[name]=f[i]
+            name = i.replace('(', '').replace(')', '').replace(' ', '_').lower()
+            metadata['extraField'] += [name]
+            output[name] = f[i]
 
-    output['metadata']=metadata       
+    output['metadata'] = metadata
     return output
 
 # def sortLASdata(data,names,mode='standard'):

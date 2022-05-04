@@ -111,48 +111,49 @@ class lasdata(object):
 
 class LAS_FORMAT(object):
     def __init__(self):
-        std=[("intensity","uint16"),
-             ("return_number","uint8"),
-             ("number_of_returns","uint8"),
-             ("classification","uint8"),
-             ("scan_angle_rank","int8"),
-             ("user_data","uint8"),
-             ("scan_direction_flag","uint8"),
-             ("point_source_id","uint16")]
+        std = [("intensity","uint16"),
+               ("return_number","uint8"),
+               ("number_of_returns","uint8"),
+               ("classification","uint8"),
+               ("scan_angle_rank","int8"),
+               ("user_data","uint8"),
+               ("scan_direction_flag","uint8"),
+               ("point_source_id","uint16")]
 
-        gps=[("gps_time","float64")]
+        gps = [("gps_time","float64")]
 
-        rgb=[("red","uint16"),
-             ("green","uint16"),
-             ("blue","uint16")]
+        rgb = [("red","uint16"),
+               ("green","uint16"),
+               ("blue","uint16")]
         
-        nir=[("nir","uint16")]
+        nir = [("nir","uint16")]
 
-        fwf=[("wavepacket_index","uint8"),
-             ("wavepacket_offset","uint64"),
-             ("wavepacket_size","uint32"),
-             ("return_point_wave_location","float32"),
-             ("x_t","float32"),
-             ("y_t","float32"),
-             ("z_t","float32")]
+        fwf = [("wavepacket_index","uint8"),
+               ("wavepacket_offset","uint64"),
+               ("wavepacket_size","uint32"),
+               ("return_point_wave_location","float32"),
+               ("x_t","float32"),
+               ("y_t","float32"),
+               ("z_t","float32")]
 
-        systemId='ALTM Titan DW 14SEN343'
-        softwareId='Lidar Platform by Univ. Rennes 1'
+        systemId = 'ALTM Titan DW 14SEN343'
+        softwareId = 'Lidar Platform by Univ. Rennes 1'
 
-        pack=[std,std+gps,std+rgb,std+gps+rgb,std+gps+fwf,std+gps+rgb+fwf,
-              std+gps,std+gps+rgb,std+gps+rgb+nir,std+gps+fwf,std+gps+rgb+nir+fwf]
-        recordLen=[20,28,26,26+8,28+29,26+8+29,
-                   30,30+6,30+8,30+29,30+6+29]
+        pack = [std, std + gps, std + rgb, std + gps + rgb, std + gps + fwf, std + gps + rgb + fwf,
+                std + gps, std + gps + rgb, std + gps + rgb + nir, std + gps + fwf, std + gps + rgb + nir + fwf]
+        recordLen = [20, 28, 26, 26 + 8, 28 + 29, 26 + 8 + 29,
+                     30, 30 + 6, 30 + 8, 30 + 29, 30 + 6 + 29]
 
-        self.recordFormat=dict(zip(range(0,11),pack))
-        self.dataRecordLen=dict(zip(range(0,11),recordLen))
+        self.recordFormat = dict(zip(range(0, 11), pack))
+        self.dataRecordLen = dict(zip(range(0, 11), recordLen))
 
-        format_names=['uint8','int8','uint16','int16','uint32','int32','uint64','int64','float32','float64']
-        format_sizes=[1,1,2,2,4,4,8,8,4,8]
-        self.fmtNameValue=dict(zip(format_names,range(1,len(format_names)+1)))
-        self.fmtNameSize=dict(zip(format_names,format_sizes))
+        format_names = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32', 'uint64', 'int64', 'float32', 'float64']
+        format_sizes = [1, 1, 2, 2, 4, 4, 8, 8,4, 8]
+        self.fmtNameValue = dict(zip(format_names, range(1, len(format_names) + 1)))
+        self.fmtNameSize = dict(zip(format_names, format_sizes))
 
-        self.identifier={"system_identifier":systemId+'\x00'*(32-len(systemId)),"generating_software":softwareId+'\x00'*(32-len(softwareId))}
+        self.identifier = {"system_identifier" : systemId + '\x00' * (32 - len(systemId)),
+                           "generating_software" : softwareId + '\x00' * (32 - len(softwareId))}
 
 #================#
 
