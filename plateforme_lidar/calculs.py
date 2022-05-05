@@ -17,7 +17,7 @@ import shapely.ops
 from shapely.geometry import Polygon
 from joblib import Parallel,delayed
 
-def correction3D(pt_app,depthApp,pt_shot=[],vectorApp=[],indRefr=1.333):
+def correction3D(pt_app, depthApp, pt_shot=[], vectorApp=[], indRefr=1.333):
     """Bathymetric correction 3D
 
     Args:

@@ -1,10 +1,18 @@
 # coding: utf-8
 # Baptiste Feldmann
+import os, mmap, struct, copy, time, warnings
+from datetime import datetime, timezone
+import logging
+
 import numpy as np
-import os,mmap,struct,copy,time,warnings
-from . import utils
 import laspy
-from datetime import datetime,timezone
+
+from . import utils
+
+
+logger = logging.getLogger(__name__)
+logging.basicConfig()
+
 
 def Filter_LAS(obj,select):
     """Filtering lasdata
@@ -320,7 +328,7 @@ def readLAS(filepath, extraField=False, parallel=True):
     else:
         backend = laspy.compression.LazBackend(int(not parallel))
 
-    f = laspy.read(filepath,laz_backend=backend)
+    f = laspy.read(filepath, laz_backend=backend)
     LAS_fmt = utils.LAS_FORMAT()
     
     metadata = {"vlrs" : read_VLRbody(f.vlrs),
@@ -334,11 +342,12 @@ def readLAS(filepath, extraField=False, parallel=True):
         except:
             print("[LasPy] " + str(i[0]) + " not found")
 
-    output['XYZ']=f.xyz
+    output['XYZ'] = f.xyz
 
     if extraField:
         for i in f.point_format.extra_dimension_names:
             name = i.replace('(', '').replace(')', '').replace(' ', '_').lower()
+            logger.info(f'rename extra field {i} to {name}')
             metadata['extraField'] += [name]
             output[name] = f[i]
 
