@@ -233,35 +233,39 @@ def merge_c2c_fwf(workspace,fichier):
     names_tot=names_extra[0:-4]+names_fwf[num::]+['depth','distance_H']
     return tab_tot,names_tot,metadata_fwf['vlrs']
   
-def select_pairs_overlap(filepath,shifts):
-    liste_files=glob.glob(filepath)
-    liste_polygon=[]
-    liste_num=[]
-    for i in liste_files:
-        data=lastools.readLAS(i)
-        liste_num+=[str(os.path.split(i)[1][shifts[0]:shifts[0]+shifts[1]])]
-        pca_pts=PCA(n_components=2,svd_solver='full')
-        dat_new=pca_pts.fit_transform(data.XYZ[:,0:2])
+def select_pairs_overlap(filepath, shifts):
+    files = glob.glob(filepath)
+    polygons = []
+    num_list = []
+    for file in files:
+        data = lastools.readLAS(file)
+        head, tail = os.path.split(file)
+        num_list += [str(tail[shifts[0] : shifts[0] + shifts[1]])]
+        pca_pts = PCA(n_components=2, svd_solver='full')
+        dat_new = pca_pts.fit_transform(data.XYZ[:, 0:2])
         del data
         
-        borne=np.array([[min(dat_new[:,0]),min(dat_new[:,1])],
-                        [min(dat_new[:,0]),max(dat_new[:,1])],
-                        [max(dat_new[:,0]),max(dat_new[:,1])],
-                        [max(dat_new[:,0]),min(dat_new[:,1])]])
-        borne_new=pca_pts.inverse_transform(borne)
-        liste_polygon+=[Polygon(borne_new)]
+        boundaries = np.array([[min(dat_new[:,0]), min(dat_new[:,1])],
+                               [min(dat_new[:,0]), max(dat_new[:,1])],
+                               [max(dat_new[:,0]), max(dat_new[:,1])],
+                               [max(dat_new[:,0]), min(dat_new[:,1])]])
+        new_boundaries = pca_pts.inverse_transform(boundaries)
+        polygons += [Polygon(new_boundaries)]
 
-    comparison={}
-    for i in range(0,len(liste_polygon)-1):
-        listing=[]
-        for c in range(i+1,len(liste_polygon)):
-            if liste_polygon[i].overlaps(liste_polygon[c]):
-                diff=liste_polygon[i].difference(liste_polygon[c])
-                if diff.area/liste_polygon[i].area<0.9:
-                    listing+=[liste_num[c]]
+    comparison = {}
+    n_polygons = len(polygons)
+    for idx_a in range(0, n_polygons - 1):
+        polygon_a = polygons[idx_a]
+        listing = []
+        for idx_b in range(idx_a + 1, n_polygons):
+            polygon_b = polygons[idx_b]
+            if polygons_a.overlaps(polygon_b):
+                diff = polygon_a.difference(polygon_b)
+                if diff.area / polygon_a.area < 0.9:
+                    listing += [num_list[idx_b]]
 
-        if len(listing)>0:
-            comparison[liste_num[i]]=listing
+        if len(listing) > 0:
+            comparison[num_list[idx_a]] = listing
 
     return comparison
 
