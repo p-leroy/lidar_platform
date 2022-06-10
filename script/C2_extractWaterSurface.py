@@ -19,13 +19,13 @@ PL.cloudcompare.c2c_dist(query)
 os.remove(PL.cloudcompare.last_file(workspace+C2_filename[0:-4]+"_20*.laz"))
 PL.cloudcompare.last_file(workspace+C3_filename[0:-4]+"_C2C_DIST_*.laz",C3_filename[0:-4]+"_C2C.laz")
 
-C3_data=PL.lastools.readLAS(workspace+C3_filename[0:-4]+"_C2C.laz",True)
+C3_data=PL.lastools.ReadLAS(workspace + C3_filename[0:-4] + "_C2C.laz", True)
 outData=PL.lastools.Filter_LAS(C3_data,np.logical_and(C3_data.c2c_absolute_distances_z>filterVert[0],C3_data.c2c_absolute_distances_z<filterVert[1]))
 
 density=PL.calculs.computeDensity(outData.XYZ,radius=5)
 outData=PL.lastools.Filter_LAS(outData,density>15)
 
-PL.lastools.writeLAS(workspace+C3_filename[0:-4]+"_rawbathy.laz",outData)
+PL.lastools.WriteLAS(workspace + C3_filename[0:-4] + "_rawbathy.laz", outData)
 
 os.remove(workspace+C3_filename[0:-4]+"_C2C.laz")
 del C3_data
@@ -44,7 +44,7 @@ PL.cloudcompare.c2c_dist(query)
 os.remove(PL.cloudcompare.last_file(workspace+C3_filename[0:-4]+"_rawbathy_20*.laz"))
 PL.cloudcompare.last_file(workspace+C2_filename[0:-4]+"_normals_C2C_DIST_*.laz",C2_filename[0:-4]+"_normals_C2C.laz")
 
-C2_data=PL.lastools.readLAS(workspace+C2_filename[0:-4]+"_normals_C2C.laz",True)
+C2_data=PL.lastools.ReadLAS(workspace + C2_filename[0:-4] + "_normals_C2C.laz", True)
 
 select1=C2_data.dip_degrees<filterNormal
 select2=(C2_data.c2c_absolute_distances_x**2+C2_data.c2c_absolute_distances_y**2)**0.5<filterDist
@@ -55,7 +55,7 @@ outData=PL.lastools.Filter_LAS(C2_data,select_all)
 density=PL.calculs.computeDensity(outData.XYZ,radius=5)
 outData=PL.lastools.Filter_LAS(outData,density>15)
 
-PL.lastools.writeLAS(workspace+C2_filename[0:-4]+"_watersurface.laz",outData)
+PL.lastools.WriteLAS(workspace + C2_filename[0:-4] + "_watersurface.laz", outData)
 
 os.remove(workspace+C2_filename[0:-4]+"_normals.laz")
 os.remove(workspace+C2_filename[0:-4]+"_normals_C2C.laz")

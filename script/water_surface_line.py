@@ -212,7 +212,7 @@ if __name__=='__main__':
     workspace=r'G:\RENNES1\Loire_totale_automne2019\Loire_Briare-Sully-sur-Loire\05-Traitements'+'//'
     inFile="water_surface.csv"
     surface_water=r'G:\RENNES1\Loire_totale_automne2019\Loire_Briare-Sully-sur-Loire\05-Traitements\C2_ground_thin_1m_watersurface_smooth5.laz'
-    data=PL.lastools.readLAS(surface_water)
+    data=PL.lastools.ReadLAS(surface_water)
 
 ##    # Compute alphashape
 ##    AS=Alphashape(data.XYZ[:,0:2],50)

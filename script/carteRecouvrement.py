@@ -91,7 +91,7 @@ class Overlap(object):
         os.remove(new_file)
 
     def WritingFile(self,filepath):
-        inData=PL.lastools.readLAS(filepath,extraField=True)
+        inData=PL.lastools.ReadLAS(filepath, extraField=True)
         select1=inData["distance_uncertainty"]<self.filterDistUncertainty
         select2=np.logical_and(inData["m3c2_distance"]<self.m3c2Dist,inData["m3c2_distance"]>-self.m3c2Dist)
         select=np.logical_and(select1,select2)
@@ -99,7 +99,7 @@ class Overlap(object):
         extra=[(("m3c2_distance","float32"),inData2["m3c2_distance"]),
                 (("distance_uncertainty","float32"),inData2["distance_uncertainty"])]
 
-        PL.lastools.writeLAS(filepath[0:-4]+"_clean.laz",inData2,extraField=extra)
+        PL.lastools.WriteLAS(filepath[0:-4] + "_clean.laz", inData2, extraField=extra)
 
 
 workspace=r'G:\RENNES1\Loire_totale_automne2019\Loire_S01-01_S01-02_S02-01PART\04-QC\Recouvrement\ground_flightlines_C3'+'//'

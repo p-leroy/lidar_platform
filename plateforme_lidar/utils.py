@@ -26,15 +26,19 @@ def Run(query,silent=False,optShell=False,sleeping=0):
     if sleeping>0:
         time.sleep(sleeping)
 
-def Run_bis(query,optShell=False):
-    subprocess.run(query,shell=optShell)
+
+def Run_bis(query, shell=False):
+    subprocess.run(query, shell=shell)
+
 
 def camel_to_snake(name):
     name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
 
+
 def snake_to_camel(name):
     return ''.join(word.title() for word in name.split('_'))
+
 
 class Timing(object):
     def __init__(self,length,step=20):
@@ -60,12 +64,15 @@ class Timing(object):
 
 QUERY_0 = {"standard" : 'C:\Program Files\CloudCompare\CloudCompare.exe -silent',
            "standard_view" : 'C:\Program Files\CloudCompare\CloudCompare.exe',
-           "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon",
+           "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon.exe",
            "cc_ple" : "C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe -silent",
            "cc_ple_view" : "C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe"
            }
 
 EXPORT_FMT = {"LAS" : " -c_export_fmt LAS -ext laz -auto_save OFF",
+              "LAS_auto_save" : " -c_export_fmt LAS -ext laz",
+              "BIN_auto_save" : " -c_export_fmt BIN",
+              "SBF_auto_save" : " -c_export_fmt SBF",
               "PLY_cloud" : " -c_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
               "PLY_mesh" : " -m_export_fmt PLY -PLY_export_fmt BINARY_LE -auto_save OFF",
               "SBF" : " -c_export_fmt SBF -auto_save OFF"}

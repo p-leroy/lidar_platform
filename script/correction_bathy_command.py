@@ -9,7 +9,7 @@ def corbathy_discret(filepath,data_sbet):
     offsetName=-10
     output_suffix="_corbathy"
     # Ouverture du fichier contenant la bathy
-    inData=PL.lastools.readLAS(filepath,extraField=True)
+    inData=PL.lastools.ReadLAS(filepath, extraField=True)
 
     select=inData.depth<0.01
     dataUnderWater=PL.lastools.Filter_LAS(inData,select)
@@ -28,7 +28,7 @@ def corbathy_discret(filepath,data_sbet):
     extra=[(("depth","float32"),depthAll)]
     dataUnderWater.XYZ=coordsTrue
     data_corbathy=PL.lastools.Merge_LAS([dataUnderWater,dataAboveWater])
-    PL.lastools.writeLAS(filepath[0:offsetName]+output_suffix+".laz",data_corbathy,format_id=1,extraField=extra)
+    PL.lastools.WriteLAS(filepath[0:offsetName] + output_suffix + ".laz", data_corbathy, format_id=1, extraField=extra)
 
 def corbathy_fwf(filepath):
     offsetName=-10
@@ -59,7 +59,7 @@ def corbathy_fwf(filepath):
 
     #return data_corbathy,extra,metadata['vlrs']
     #PL.lastools.writeLAS(filepath[0:offsetName]+"_corbathy2.laz",dataCorbathy,format_id=4,extraField=extra)
-    PL.lastools.writeLAS(filepath[0:offsetName]+output_suffix+".laz",dataCorbathy,format_id=9)
+    PL.lastools.WriteLAS(filepath[0:offsetName] + output_suffix + ".laz", dataCorbathy, format_id=9)
     shutil.copyfile(filepath[0:-4]+".wdp",filepath[0:offsetName]+output_suffix+".wdp")
 
 #============================================================#

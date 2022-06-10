@@ -20,34 +20,34 @@ def interpolation(workspace,filename,surface_water,params):
     # os.remove(workspace+filename[0:-4]+"_normals_mesh.ply")
 
     bbox=np.array(filename[0:-4].split(sep="_")[params['bbox']:params['bbox']+2]+[params['tile_size']],dtype=str)
-    PL.cloudcompare.clip_tile(workspace+filename[0:-4]+"_sample_mesh.laz",bbox)
+    PL.cloudcompare.lastools_clip_tile(workspace + filename[0:-4] + "_sample_mesh.laz", bbox)
     
     query=PL.cloudcompare.open_file(params['CC'],[workspace+filename[0:-4]+"_sample_mesh_1.laz",workspace+surface_water])
     PL.cloudcompare.c2c_dist(query,True,10)
     PL.cloudcompare.last_file(workspace+filename[0:-4]+"_sample_mesh_1_C2C_DIST_20*.laz",filename[0:-4]+"_sample_mesh_1_C2C.laz")
     temp=PL.cloudcompare.last_file(workspace+surface_water[0:-4]+"_20*.laz")
     os.remove(temp)
-    data=PL.lastools.readLAS(workspace+filename[0:-4]+"_sample_mesh_1_C2C.laz",extraField=True)
+    data=PL.lastools.ReadLAS(workspace + filename[0:-4] + "_sample_mesh_1_C2C.laz", extraField=True)
     select=np.logical_and(data.c2c_absolute_distances<100,
                           np.logical_and(data.c2c_absolute_distances_z>-10,data.c2c_absolute_distances_z<-1))
     
     os.remove(workspace+filename[0:-4]+"_sample_mesh_1_C2C.laz")
     if any(select):
         data_new=PL.lastools.Filter_LAS(data,select)
-        PL.lastools.writeLAS(workspace+filename[0:-4]+"_sample_mesh_1_1.laz",data_new)
+        PL.lastools.WriteLAS(workspace + filename[0:-4] + "_sample_mesh_1_1.laz", data_new)
     
         query=PL.cloudcompare.open_file(params['CC'],[workspace+filename[0:-4]+"_sample_mesh_1_1.laz",workspace+filename])
         PL.cloudcompare.c2c_dist(query,False,10)
         PL.cloudcompare.last_file(workspace+filename[0:-4]+"_sample_mesh_1_1_C2C_DIST_20*.laz",filename[0:-4]+"_sample_mesh_1_1_C2C.laz")
         temp=PL.cloudcompare.last_file(workspace+filename[0:-4]+"_20*.laz")
         os.remove(temp)
-        data=PL.lastools.readLAS(workspace+filename[0:-4]+"_sample_mesh_1_1_C2C.laz",extraField=True)
+        data=PL.lastools.ReadLAS(workspace + filename[0:-4] + "_sample_mesh_1_1_C2C.laz", extraField=True)
         select=np.logical_and(data.c2c_absolute_distances>0.5,
                               data.c2c_absolute_distances<200)
         os.remove(workspace+filename[0:-4]+"_sample_mesh_1_1_C2C.laz")
         if any(select):
             data_new=PL.lastools.Filter_LAS(data,select)
-            PL.lastools.writeLAS(workspace+filename[0:-4]+"_sample_mesh_step1.laz",data_new)
+            PL.lastools.WriteLAS(workspace + filename[0:-4] + "_sample_mesh_step1.laz", data_new)
         else:
             print("Pas de point")
         os.remove(workspace+filename[0:-4]+"_sample_mesh_1_1.laz")
@@ -77,26 +77,26 @@ def interp_step2(workspace,filename,surface_water,params):
     PL.cloudcompare.last_file(workspace+filename[0:-4]+"_sample_mesh_1_C2C_DIST_20*.laz",filename[0:-4]+"_sample_mesh_1_C2C.laz")
     temp=PL.cloudcompare.last_file(workspace+surface_water[0:-4]+"_20*.laz")
     os.remove(temp)
-    data=PL.lastools.readLAS(workspace+filename[0:-4]+"_sample_mesh_1_C2C.laz",extraField=True)
+    data=PL.lastools.ReadLAS(workspace + filename[0:-4] + "_sample_mesh_1_C2C.laz", extraField=True)
     select=np.logical_and(data.c2c_absolute_distances<100,
                           np.logical_and(data.c2c_absolute_distances_z>-10,data.c2c_absolute_distances_z<-1))
     os.remove(workspace+filename[0:-4]+"_sample_mesh_1_C2C.laz")
     if any(select):
         data_new=PL.lastools.Filter_LAS(data,select)
-        PL.lastools.writeLAS(workspace+filename[0:-4]+"_sample_mesh_1_1.laz",data_new)
+        PL.lastools.WriteLAS(workspace + filename[0:-4] + "_sample_mesh_1_1.laz", data_new)
     
         query=PL.cloudcompare.open_file(params['CC'],[workspace+filename[0:-4]+"_sample_mesh_1_1.laz",workspace+filename])
         PL.cloudcompare.c2c_dist(query,False,10)
         PL.cloudcompare.last_file(workspace+filename[0:-4]+"_sample_mesh_1_1_C2C_DIST_20*.laz",filename[0:-4]+"_sample_mesh_1_1_C2C.laz")
         temp=PL.cloudcompare.last_file(workspace+filename[0:-4]+"_20*.laz")
         os.remove(temp)
-        data=PL.lastools.readLAS(workspace+filename[0:-4]+"_sample_mesh_1_1_C2C.laz",extraField=True)
+        data=PL.lastools.ReadLAS(workspace + filename[0:-4] + "_sample_mesh_1_1_C2C.laz", extraField=True)
         select=np.logical_and(data.c2c_absolute_distances>0.5,
                               data.c2c_absolute_distances<200)
         os.remove(workspace+filename[0:-4]+"_sample_mesh_1_1_C2C.laz")
         if any(select):
             data_new=PL.lastools.Filter_LAS(data,select)
-            PL.lastools.writeLAS(workspace+filename[0:-4]+"_sample_mesh_final.laz",data_new)
+            PL.lastools.WriteLAS(workspace + filename[0:-4] + "_sample_mesh_final.laz", data_new)
         else:
             print("Pas de point")
         os.remove(workspace+filename[0:-4]+"_sample_mesh_1_1.laz")
@@ -178,7 +178,7 @@ for i in liste_noms:
 for i in liste_noms:
     print(i)
     if os.path.exists(workspace+i[0:-4]+"_sample_mesh_step1.laz"):
-        data=PL.lastools.readLAS(workspace+i[0:-4]+"_sample_mesh_step1.laz")
+        data=PL.lastools.ReadLAS(workspace + i[0:-4] + "_sample_mesh_step1.laz")
         splitname=i[0:-4].split(sep="_")
         coords_LL=[int(splitname[bbox_place]),int(splitname[bbox_place+1])]
         dictioNeigh=neighbors_4(coords_LL,tile_size)
@@ -191,7 +191,7 @@ for i in liste_noms:
                 selectY=np.logical_and(data.XYZ[:,1]>bbox_cut[1],data.XYZ[:,1]<bbox_cut[3])
                 select=np.logical_and(select,np.logical_not(np.logical_and(selectX,selectY)))
         if any(select):
-            PL.lastools.writeLAS(workspace+i[0:-4]+"_sample_mesh_step1cut.laz",PL.lastools.Filter_LAS(data,select))
+            PL.lastools.WriteLAS(workspace + i[0:-4] + "_sample_mesh_step1cut.laz", PL.lastools.Filter_LAS(data, select))
 #=======================#
 
 #---STEP 2-----#

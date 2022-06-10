@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig()
 
 
-def Filter_LAS(obj,select):
+def Filter_LAS(obj, select):
     """Filtering lasdata
 
     Args:
@@ -24,17 +24,18 @@ def Filter_LAS(obj,select):
     Returns:
         'plateforme_lidar.utils.lasdata': filtering lasdata object
     """
-    if type(select)==list or type(select)==np.ndarray:
-        if not len(select)==len(obj):
-            select=np.array(select)[np.argsort(select)]
 
-    obj_new=utils.lasdata()
-    obj_new['metadata']=obj.metadata
-    listFeatures=list(obj.__dict__.keys())
-    listFeatures.remove("metadata")
+    if type(select) == list or type(select) == np.ndarray:
+        if not len(select) == len(obj):
+            select = np.array(select)[np.argsort(select)]
 
-    for i in listFeatures:
-        setattr(obj_new,i,getattr(obj,i)[select])
+    obj_new = utils.lasdata()
+    obj_new['metadata'] = obj.metadata
+    features = list(obj.__dict__.keys())
+    features.remove("metadata")
+
+    for feature in features:
+        setattr(obj_new, feature, getattr(obj, feature)[select])
     return obj_new
 
 def Merge_LAS(listObj):
@@ -176,9 +177,10 @@ def VLRS_keys(vlrs,geokey):
     vlrs_final[3]=len(vlrs_sort)-1
     vlrs_copy[34735]=tuple(vlrs_final)
     return vlrs_copy
-       
-class writeLAS(object):
-    def __init__(self,filepath,data,format_id=1,extraFields=[],waveforms=[],parallel=True):
+
+
+class WriteLAS(object):
+    def __init__(self, filepath, data, format_id=1, extraFields=[], waveforms=[], parallel=True):
         """Writing LAS 1.3 with LasPy
 
         Args:
@@ -190,7 +192,7 @@ class writeLAS(object):
             waveforms (list, optional): list of waveforms to save in external WDP file. Make sure that format_id is compatible with wave packet (ie. 4,5,9 or 10). Default to []
         """
         # standard : format_id=1 ; fwf : format_id=4
-        print("[Writing LAS file]..",end="")
+        print("[Writing LAS file]..", end="")
         self._start=time.time()
         self.output_data=data
         del data
@@ -201,22 +203,29 @@ class writeLAS(object):
         #     pointFormat.add_extra_dimension(laspy.ExtraBytesParams(name=extraField["name"],type=extraField["type"],description="Extras_fields"))
         # new_points=laspy.PackedPointRecord(points,point_format=pointFormat)
 
-        self.point_record=laspy.LasData(header=self.createHeader("1.3",format_id),points=laspy.ScaleAwarePointRecord.zeros(len(self.output_data),header=self.createHeader("1.3",format_id)))
+        self.point_record=laspy.LasData(header=self.createHeader(
+            "1.3",format_id),
+            points=laspy.ScaleAwarePointRecord.zeros(len(self.output_data), header=self.createHeader("1.3", format_id)))
 
         for extraField in extraFields:
-            self.point_record.add_extra_dim(laspy.ExtraBytesParams(name=extraField["name"],type=getattr(np,extraField["type"]),description="Extras_fields"))
-            setattr(self.point_record,extraField["name"],extraField["data"])
+            name_ = extraField[0][0]
+            type_ = extraField[0][1]
+            data_ = extraField[1]
+            self.point_record.add_extra_dim(laspy.ExtraBytesParams(name=name_,
+                                                                   type=getattr(np, type_),
+                                                                   description="Extra_fields"))
+            setattr(self.point_record, name_, data_)
 
         self.writeAttr()
-        if format_id in [4,5,9,10]:
-            backend=laspy.compression.LazBackend(2)
+        if format_id in [4, 5, 9, 10]:
+            backend = laspy.compression.LazBackend(2)
         else:
-            backend=laspy.compression.LazBackend(int(not parallel))
-        self.point_record.write(filepath,laz_backend=backend)
+            backend = laspy.compression.LazBackend(int(not parallel))
+        self.point_record.write(filepath, laz_backend=backend)
         print("done")
 
-        if len(waveforms)>0 and format_id in [4,5,9,10]:
-            self.waveDataPacket(filepath,waveforms)
+        if len(waveforms) > 0 and format_id in [4, 5, 9, 10]:
+            self.waveDataPacket(filepath, waveforms)
     
     def __repr__(self):
         return "Write "+str(len(self.output_data))+" points in "+str(round(time.time()-self._start,1))+" sec"
@@ -307,7 +316,8 @@ class writeLAS(object):
             except:
                 warnings.warn("Warning: Not possible to write attribute : "+i[0])
 
-def readLAS(filepath, extraField=False, parallel=True):
+
+def ReadLAS(filepath, extraField=False, parallel=True):
     """Reading LAS with PyLas
 
     Args:

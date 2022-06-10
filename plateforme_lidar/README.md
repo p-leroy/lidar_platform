@@ -22,31 +22,32 @@ See more : https://trac.osgeo.org/osgeo4w/
 ### Reading / Writing LAS file :
 
 ```python
->>> from plateforme_lidar import pl
->>> workspace="D:/yourDirectory/"
->>> dataset = pl.lastools.readLAS(workspace+"inFile.laz")
->>> intensity = dataset.intensity
->>> numberOfPoints=len(data)
+>> > from plateforme_lidar import pl
+>> > workspace = "D:/yourDirectory/"
+>> > dataset = pl.lastools.ReadLAS(workspace + "inFile.laz")
+>> > intensity = dataset.intensity
+>> > numberOfPoints = len(data)
 ...
->>> addFieldList=[{"name":"addField1","type":"float32","data":extraField1},
-{"name":"addField2","type":"uint8","data":extraField2}]
->>> pl.lastools.writeLAS(workspace+"outFile.laz",dataset,extraFields=addFieldList)
+>> > addFieldList = [{"name": "addField1", "type": "float32", "data": extraField1},
+                     {"name": "addField2", "type": "uint8", "data": extraField2}]
+>> > pl.lastools.WriteLAS(workspace + "outFile.laz", dataset, extraFields=addFieldList)
 ```
 
 Reading, viewing and filtering fwf LAS file :
+
 ```python
->>> from plateforme_lidar import pl
->>> workspace="D:/yourDirectory/"
->>> dataset = lastools.readLAS(workspace+"inFile_fwf.laz")
->>> waveforms = lastools.readWDP(workspace+"inFile_fwf.laz",dataset)
->>> indexPoint=99
->>> pl.lasfwf.viewerFWF(pl.lastools.Filter_LAS(dataset,indexPoint),waveforms[indexPoint])
->>> listPoints=[12,102,30]
->>> dataExtract=pl.lastools.Filter_LAS(dataset,listPoints)
->>> waveExtract=pl.lastools.Filter_WDP(waveforms,listPoints)
->>> pl.lastools.Update_ByteOffset(dataExtract,waveExtract)
->>> pl.lastools.writeLAS(workspace+"outFile_fwf.laz",
-dataExtract,format_id=4,waveforms=waveExtract)
+>> > from plateforme_lidar import pl
+>> > workspace = "D:/yourDirectory/"
+>> > dataset = lastools.ReadLAS(workspace + "inFile_fwf.laz")
+>> > waveforms = lastools.readWDP(workspace + "inFile_fwf.laz", dataset)
+>> > indexPoint = 99
+>> > pl.lasfwf.viewerFWF(pl.lastools.Filter_LAS(dataset, indexPoint), waveforms[indexPoint])
+>> > listPoints = [12, 102, 30]
+>> > dataExtract = pl.lastools.Filter_LAS(dataset, listPoints)
+>> > waveExtract = pl.lastools.Filter_WDP(waveforms, listPoints)
+>> > pl.lastools.Update_ByteOffset(dataExtract, waveExtract)
+>> > pl.lastools.WriteLAS(workspace + "outFile_fwf.laz",
+                          dataExtract, format_id=4, waveforms=waveExtract)
 ```
 
 

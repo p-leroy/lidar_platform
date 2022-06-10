@@ -2,61 +2,76 @@
 # Baptiste Feldmann
 # Liste de fonctions utilisant CloudCompare (CC)
 from . import utils
-from joblib import Parallel, delayed
-import glob,os
+import glob, os
 
-def c2c_dist(query,XYZ=True,octree_lvl=0):
+from joblib import Parallel, delayed
+
+
+def c2c_dist(query, xyz=True, octree_lvl=0):
     """Run C2C distance
 
     Args:
         query (str): CC query
-        XYZ (bool, optional): save X,Y and Z distance. Defaults to True.
+        xyz (bool, optional): save X,Y and Z distance. Defaults to True.
         octree_lvl (int, optional): force CC to a specific octree level, useful when extent of two clouds are very different,
             0 means that you let CC decide. Defaults to 0.
     """
-    if XYZ :
-        opt_xyz="-split_xyz"
+    if xyz:
+        opt_xyz = "-split_xyz"
     else:
-        opt_xyz=""
+        opt_xyz = ""
         
-    if octree_lvl==0:
-        opt_octree=""
+    if octree_lvl ==0:
+        opt_octree = ""
     else:
-        opt_octree=" -octree_level "+str(octree_lvl)
+        opt_octree = " -octree_level " + str(octree_lvl)
 
     if "-fwf_o" in query:
-        opt_save=" -fwf_save_clouds"
+        opt_save = " -fwf_save_clouds"
     else:
-        opt_save=" -save_clouds"
+        opt_save = " -save_clouds"
         
-    utils.Run_bis(query+" -C2C_DIST "+opt_xyz+opt_octree+opt_save)
-    
-def c2c_files(params,workspace,list_filenameA,filepathB,octree_lvl=9,nbr_job=5):
+    utils.Run_bis(query + " -C2C_DIST " + opt_xyz + opt_octree + opt_save)
+
+
+def c2c_files(params, files, filepath_b, octree_lvl=9, nbr_job=5):
     """Run C2C distance between several pointClouds and a specific pointCloud
 
     Args:
         params (list): CC parameter [QUERY_0,Export_fmt,shiftname]
         workspace (str): directory path (ended by '/')
-        list_filenameA (list): list of files in workspace
-        filepathB (str): file to which the distance is computed
+        files (list): list of files in workspace
+        filepath_b (str): file to which the distance is computed
         octree_lvl (int, optional): force CC to a specific octree level, useful when extent of two clouds are very different,
             0 means that you let CC decide. Defaults to 9.
         nbr_job (int, optional): The number of jobs to run in parallel. Defaults to 5.
     """
 
-    print("[Cloud2Cloud] %i files" %len(list_filenameA))
-    list_query=[]
-    for f in list_filenameA:
-        list_query+=[open_file(params,[workspace+f,filepathB])+" -C2C_DIST -split_xyz -octree_level "+str(octree_lvl)+" -save_clouds"]
+    if files is []:
+        print("[c2c_files] no file to process, stop")
+        return
+    else:
+        print("[c2c_files] %i files to process" % len(files))
 
+    # compute cloud to cloud distances
+    list_query = []
+    for file in files:
+        list_query += [open_file(params, [file, filepath_b])
+                       + " -C2C_DIST -split_xyz -octree_level " + str(octree_lvl) + " -save_clouds"]
     Parallel(n_jobs=nbr_job, verbose=0)(delayed(utils.Run_bis)(cmd) for cmd in list_query)
 
-    for i in list_filenameA:
-        last_file(workspace+i[0:-4]+"_C2C_DIST_*.laz",i[0:-4]+"_C2C.laz")
+    # clean temporary files
+    for file in files:
+        c2c_dist_files = file[0:-4] + "_C2C_DIST_*.laz"
+        last_file(c2c_dist_files, file[0:-4] + "_C2C.laz")
+        for to_delete in glob.glob(c2c_dist_files):
+            os.remove(to_delete)
         
-    for f in glob.glob(filepathB[0:-4]+"_20*.laz"):
-        os.remove(f)
-    print("[Cloud2Cloud] Process done")
+    for file in glob.glob(filepath_b[0:-4] + "_20*.laz"):
+        os.remove(file)
+
+    print("[c2c_files] done")
+
 
 def c2m_dist(commande,max_dist=0,octree_lvl=0,cores=0):
     """
@@ -74,15 +89,18 @@ def c2m_dist(commande,max_dist=0,octree_lvl=0,cores=0):
 
     utils.Run(commande+" -C2M_DIST"+opt+" -save_clouds")
 
-def clip_tile(filepath,bbox):
-    #bbox=[minX,minY,size]
-    query="las2las -i "+filepath+" -keep_tile "+" ".join(bbox)+" -odix _1 -olaz"
+
+def lastools_clip_tile(filepath, bbox):
+    # bbox = [minX, minY, size]
+    query = "las2las -i " + filepath + " -keep_tile " + " ".join(bbox) + " -odix _1 -olaz"
     utils.Run_bis(query)
 
+
 def clip_xy(filepath,bbox):
-    #bbox=[minX,minY,maxX,maxY]
-    query="las2las -i "+filepath+" -keep_xy "+" ".join(bbox)+" -odix _1 -olaz"
+    # bbox = [minX, minY, maxX, maxY]
+    query = "las2las -i " + filepath + " -keep_xy " + " ".join(bbox) + " -odix _1 -olaz"
     utils.Run_bis(query)
+
 
 def compute_normals(filepath,params):
     """Compute normal components and save it in PLY file format
@@ -93,6 +111,7 @@ def compute_normals(filepath,params):
     """    
     query=open_file(["standard","PLY_cloud",params["shiftname"]],filepath)
     utils.Run_bis(query+" -octree_normals "+params["normal_radius"]+" -orient PLUS_Z -model "+params["model"]+" -save_clouds")
+
 
 def compute_normals_dip(filepath,CC_param,radius,model="LS"):
     """Compute normals and save 'dipDegree' attribute in LAS file
@@ -106,12 +125,14 @@ def compute_normals_dip(filepath,CC_param,radius,model="LS"):
     query=open_file(CC_param,filepath)
     utils.Run_bis(query+" -octree_normals "+str(radius)+" -orient PLUS_Z -model "+model+" -normals_to_dip -save_clouds")
 
+
 def compute_feature(query,features_dict):
     for i in features_dict.keys():
         query+=" -feature "+i+" "+str(features_dict[i])
     
     utils.Run_bis(query+" -save_clouds")
-    
+
+
 def create_raster(commande,grid_size,interp=False):
     """
     Commande CC pour le calcul de grille
@@ -124,6 +145,7 @@ def create_raster(commande,grid_size,interp=False):
     commande+=" -output_raster_z -save_clouds"
     utils.Run(commande)  
 
+
 def densite(commande,radius):
     """
     Commande CC pour le calcul de densité
@@ -131,7 +153,8 @@ def densite(commande,radius):
     commande+=" -density "+str(radius)+" -type KNN -save_clouds"
     utils.Run(commande)
 
-def last_file(filepath,new_name=None):
+
+def last_file(filepath, new_name=None):
     """return and modify last file created according to a given pattern
 
     Args:
@@ -144,16 +167,23 @@ def last_file(filepath,new_name=None):
     Returns:
         str: path of searched file
     """
-    liste=glob.glob(filepath)
-    time=[]
-    for i in liste:
-        time+=[os.path.getmtime(i)]
-    file=os.path.split(liste[time.index(max(time))])
-    if new_name != None :
-        os.rename(file[0]+"/"+file[1],file[0]+"/"+new_name)
-        return file[0]+"/"+new_name
-    else :
-        return file[0]+"/"+file[1]
+    files = glob.glob(filepath)
+    time = []
+    for file in files:
+        time += [os.path.getmtime(file)]
+    src = files[time.index(max(time))]
+    head, tail = os.path.split(src)
+    if new_name is not None:
+        dst = os.path.join(head, new_name)
+        if os.path.exists(dst):
+            os.remove(dst)
+            print(f'remove file before renaming: {dst}')
+        os.rename(src, dst)
+        print(f'rename {src} => {dst}')
+        return dst
+    else:
+        return src
+
 
 def merge_clouds(commande):
     """
@@ -167,17 +197,20 @@ def merge_clouds(commande):
     commande+=" -merge_clouds "+opt1
     utils.Run(commande)
 
-def m3c2(query,params_file):
+
+def m3c2(query, params_file):
     """Run M3C2 plugin
 
     Args:
         query (str): CC query
         params_file (str): path to M3C2 parameter textfile
     """
-    query+=" -M3C2 "+params_file+" -save_clouds"
+    query += " -M3C2 " + params_file
+    print(query)
     utils.Run_bis(query)
-    
-def open_file(params,filepath,fwf=False):
+
+
+def open_file(params, filepath, fwf=False):
     """Construct CC query to open file
 
     Args:
@@ -193,20 +226,21 @@ def open_file(params,filepath,fwf=False):
     """
 
     if fwf:
-        opt_fwf=" -fwf_o"
+        opt_fwf = " -fwf_o"
     else:
-        opt_fwf=" -O"
+        opt_fwf = " -O"
     
-    query=utils.QUERY_0[params[0]]+utils.EXPORT_FMT[params[1]]
+    query = utils.QUERY_0[params[0]] + utils.EXPORT_FMT[params[1]]
     if type(filepath) is list:
         for i in filepath:
-            query+=opt_fwf+" -global_shift "+utils.SHIFT[params[2]]+" "+i
+            query += opt_fwf + " -global_shift " + utils.SHIFT[params[2]] + " " + i
     elif type(filepath) is str:
-        query+=opt_fwf+" -global_shift "+utils.SHIFT[params[2]]+" "+filepath
+        query += opt_fwf + " -global_shift " + utils.SHIFT[params[2]] + " " + filepath
     else:
         raise TypeError("filepath must be a string or a list of string !")
         
     return query
+
 
 def ortho_wavefm(query,param_file):
     """Run ortho-waveform plugin

@@ -90,8 +90,8 @@ class PyC2C(object):
 
         else:
             self.compared_file,self.reference_file=compared,reference
-            self.compared=lastools.readLAS(compared,True)
-            self.reference=lastools.readLAS(reference)
+            self.compared=lastools.ReadLAS(compared, True)
+            self.reference=lastools.ReadLAS(reference)
         
         if dim not in [2,3]:
             raise Exception("dim must be in [2,3]")
@@ -117,7 +117,7 @@ class PyC2C(object):
             extra1=[{"name":"dist_plani","type":'float32',"data":self.dist_plani},
                     {"name":"dist_alti","type":'float32',"data":self.dist_alti}]
             extra=extra1+[{"name":i,"type":getattr(self.compared,i).dtype.name,"data":getattr(self.compared,i)} for i in self.compared.metadata['extraField']]
-            lastools.writeLAS(self.compared_file[0:-4]+"_C2C.laz",self.compared,extraFields=extra)
+            lastools.WriteLAS(self.compared_file[0:-4] + "_C2C.laz", self.compared, extraFields=extra)
 
 
 class Alphashape(object):
@@ -185,13 +185,13 @@ def computeDBSCAN(filepath,maxdist=1,minsamples=5):
         mindist (int, optional): Maximum distance between two samples. Defaults to 1.
         minsamples (int, optional): Minimum number of samples in each cluster. Defaults to 5.
     """
-    data=lastools.readLAS(filepath)
+    data=lastools.ReadLAS(filepath)
     model=DBSCAN(eps=maxdist,min_samples=minsamples,algorithm='kd_tree',leaf_size=1000,n_jobs=46).fit(data.XYZ)
     
     if len(np.unique(model.labels_))>1:
         extra=[(("labels","int16"),model.labels_)]
         print(f'Number of clusters : {len(np.unique(model.labels_))-1}')
-        lastools.writeLAS(filepath[0:-4]+"_DBSCAN.laz",data,extraField=extra)
+        lastools.WriteLAS(filepath[0:-4] + "_DBSCAN.laz", data, extraField=extra)
     else:
         print("DBSCAN find only 1 cluster !")
 
@@ -216,8 +216,8 @@ def computeDensity(points,core_points=[],radius=1,p_norm=2):
     return tree.query_ball_point(core_points,r=radius,p=p_norm,return_length=True)
     
 def merge_c2c_fwf(workspace,fichier):
-    tab_fwf,metadata_fwf=lastools.readLAS(workspace+fichier,"fwf")
-    tab_extra,metadata_extra=lastools.readLAS(workspace+fichier[0:-4]+"_extra.laz","standard",True)
+    tab_fwf,metadata_fwf=lastools.ReadLAS(workspace + fichier, "fwf")
+    tab_extra,metadata_extra=lastools.ReadLAS(workspace + fichier[0:-4] + "_extra.laz", "standard", True)
     names_fwf=metadata_fwf['col_names']
     names_extra=metadata_extra['col_names']
     
@@ -232,13 +232,14 @@ def merge_c2c_fwf(workspace,fichier):
     tab_tot=np.hstack([tab_extra[:,0:-4],tab_fwf[:,num::],np.reshape(dist_Z,(len(dist_Z),1)),np.reshape(dist_plani,(len(dist_plani),1))])
     names_tot=names_extra[0:-4]+names_fwf[num::]+['depth','distance_H']
     return tab_tot,names_tot,metadata_fwf['vlrs']
-  
+
+
 def select_pairs_overlap(filepath, shifts):
     files = glob.glob(filepath)
     polygons = []
     num_list = []
     for file in files:
-        data = lastools.readLAS(file)
+        data = lastools.ReadLAS(file)
         head, tail = os.path.split(file)
         num_list += [str(tail[shifts[0] : shifts[0] + shifts[1]])]
         pca_pts = PCA(n_components=2, svd_solver='full')
@@ -254,20 +255,25 @@ def select_pairs_overlap(filepath, shifts):
 
     comparison = {}
     n_polygons = len(polygons)
+    overlaps = []
     for idx_a in range(0, n_polygons - 1):
         polygon_a = polygons[idx_a]
         listing = []
         for idx_b in range(idx_a + 1, n_polygons):
             polygon_b = polygons[idx_b]
-            if polygons_a.overlaps(polygon_b):
+            if polygon_a.overlaps(polygon_b):
                 diff = polygon_a.difference(polygon_b)
-                if diff.area / polygon_a.area < 0.9:
+                remaining = diff.area / polygon_a.area
+                if remaining < 0.9:
                     listing += [num_list[idx_b]]
+                    overlap_pct = (1 - remaining) * 100
+                    overlaps.append((num_list[idx_a], num_list[idx_b], overlap_pct))
+                    print(f'overlap area between line {num_list[idx_a]} and {num_list[idx_b]} = {overlap_pct:.2f} %')
 
         if len(listing) > 0:
             comparison[num_list[idx_a]] = listing
 
-    return comparison
+    return comparison, overlaps
 
 def writeKML(filepath,names,descriptions,coordinates):
     try: assert(len(names)==len(descriptions) and len(names)==len(coordinates) and len(descriptions)==len(coordinates))
