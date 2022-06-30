@@ -99,7 +99,7 @@ if opt_fwf:
         Parallel(n_jobs=cores,verbose=1)(delayed(corbathy_fwf)(workspace+f) for f in list_las_files)
 else:
     print("[Bathymetric correction] : SBET data processes, waiting...",end='\r')
-    sbetTime,sbetCoords=PL.sbet.Sbet_config(workspace+file_sbet)
+    sbetTime,sbetCoords=PL.sbet.sbet_config(workspace + file_sbet)
     print("[Bathymetric correction] : SBET data processes, done !")
     print("[Bathymetric correction] : Discrete mode Waiting...")
     if len(list_las_files)==1:

@@ -65,8 +65,8 @@ class Timing(object):
 QUERY_0 = {"standard" : 'C:\Program Files\CloudCompare\CloudCompare.exe -silent',
            "standard_view" : 'C:\Program Files\CloudCompare\CloudCompare.exe',
            "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon.exe",
-           "cc_ple" : "C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe -silent",
-           "cc_ple_view" : "C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe"
+           "cc_ple" : "C:/opt/CloudCompare_PL_01042022/CloudCompare.exe -silent",
+           "cc_ple_view" : "C:/opt/CloudCompare_PL_01042022/CloudCompare.exe"
            }
 
 EXPORT_FMT = {"LAS" : " -c_export_fmt LAS -ext laz -auto_save OFF",
@@ -118,38 +118,52 @@ class lasdata(object):
 
 class LAS_FORMAT(object):
     def __init__(self):
-        std = [("intensity","uint16"),
-               ("return_number","uint8"),
-               ("number_of_returns","uint8"),
-               ("classification","uint8"),
-               ("scan_angle_rank","int8"),
-               ("user_data","uint8"),
-               ("scan_direction_flag","uint8"),
-               ("point_source_id","uint16")]
+        std = [("intensity", "uint16"),
+               ("return_number", "uint8"),
+               ("number_of_returns", "uint8"),
+               ("classification", "uint8"),
+               ("scan_angle_rank", "int8"),  # scan_angle? scan_angle_rank?
+               ("user_data", "uint8"),
+               ("scan_direction_flag", "uint8"),
+               ("point_source_id", "uint16")]
 
-        gps = [("gps_time","float64")]
+        gps = [("gps_time", "float64")]
 
-        rgb = [("red","uint16"),
-               ("green","uint16"),
-               ("blue","uint16")]
+        rgb = [("red", "uint16"),
+               ("green", "uint16"),
+               ("blue", "uint16")]
         
-        nir = [("nir","uint16")]
+        nir = [("nir", "uint16")]
 
-        fwf = [("wavepacket_index","uint8"),
-               ("wavepacket_offset","uint64"),
-               ("wavepacket_size","uint32"),
-               ("return_point_wave_location","float32"),
-               ("x_t","float32"),
-               ("y_t","float32"),
-               ("z_t","float32")]
+        fwf = [("wavepacket_index", "uint8"),
+               ("wavepacket_offset", "uint64"),
+               ("wavepacket_size", "uint32"),
+               ("return_point_wave_location", "float32"),
+               ("x_t", "float32"),
+               ("y_t", "float32"),
+               ("z_t", "float32")]
 
         systemId = 'ALTM Titan DW 14SEN343'
         softwareId = 'Lidar Platform by Univ. Rennes 1'
 
-        pack = [std, std + gps, std + rgb, std + gps + rgb, std + gps + fwf, std + gps + rgb + fwf,
-                std + gps, std + gps + rgb, std + gps + rgb + nir, std + gps + fwf, std + gps + rgb + nir + fwf]
-        recordLen = [20, 28, 26, 26 + 8, 28 + 29, 26 + 8 + 29,
-                     30, 30 + 6, 30 + 8, 30 + 29, 30 + 6 + 29]
+        pack = [std, std + gps, std + rgb,   # 0 1 2
+                std + gps + rgb,   # 3
+                std + gps + fwf,   # 4
+                std + gps + rgb + fwf,  # 5
+                std + gps,  # 6
+                std + gps + rgb,  # 7
+                std + gps + rgb + nir,  # 8
+                std + gps + fwf,  # 9
+                std + gps + rgb + nir + fwf]  # 10
+        recordLen = [20, 28, 26,  # 0 1 2
+                     26 + 8,  # 3
+                     28 + 29,  # 4
+                     26 + 8 + 29,  # 5
+                     30,  # 6
+                     30 + 6,  # 7
+                     30 + 8,  # 8
+                     30 + 29,  # 9
+                     30 + 6 + 29]  # 10
 
         self.recordFormat = dict(zip(range(0, 11), pack))
         self.dataRecordLen = dict(zip(range(0, 11), recordLen))
@@ -159,21 +173,22 @@ class LAS_FORMAT(object):
         self.fmtNameValue = dict(zip(format_names, range(1, len(format_names) + 1)))
         self.fmtNameSize = dict(zip(format_names, format_sizes))
 
-        self.identifier = {"system_identifier" : systemId + '\x00' * (32 - len(systemId)),
-                           "generating_software" : softwareId + '\x00' * (32 - len(softwareId))}
+        self.identifier = {"system_identifier": systemId + '\x00' * (32 - len(systemId)),
+                           "generating_software": softwareId + '\x00' * (32 - len(softwareId))}
 
-#================#
+# ================#
 
-#---VLRS Geokey---#
-CRS_KEY={"Vertical":4096,"Projected":3072}
-GEOKEY_STANDARD={1:(1,0,4),1024:(0, 1, 1),3076:(0, 1, 9001), 4099:(0, 1, 9001)}
-#=================#
+# ---VLRS Geokey---#
+CRS_KEY = {"Vertical":4096,"Projected":3072}
+GEOKEY_STANDARD = {1:(1, 0, 4),1024:(0, 1, 1),3076:(0, 1, 9001), 4099:(0, 1, 9001)}
+# =================#
 
-#---PoissonRecon---#
-POISSONRECON_PARAMETERS={"bType":{"Free":"1","Dirichlet":"2","Neumann":"3"}}
-#==================#
+# ---PoissonRecon---#
+POISSONRECON_PARAMETERS = {"bType": {"Free": "1","Dirichlet": "2","Neumann": "3"}}
+# ==================#
 
-#---PySBF---#
+
+# ---PySBF---#
 class pointcloud(object):
     """LAS data object
 
@@ -228,36 +243,36 @@ field_names = ('time (s)',
                'y_angular_rate (rad/s)',
                'z_angular (rad/s)')
 
-LIST_OF_ATTR = [('time','float64'),
-                ('latitude','float64'),
-                ('longitude','float64'),
-                ('elevation','float32'),
-                ('x_vel','float32'),
-                ('y_vel','float32'),
-                ('z_vel','float32'),
-                ('roll','float32'),
-                ('pitch','float32'),
-                ('heading','float32'),
-                ('wander_angle','float32'),
-                ('x_acceleration','float32'),
-                ('y_acceleration','float32'),
-                ('z_acceleration','float32'),
-                ('x_angular_rate','float32'),
-                ('y_angular_rate','float32'),
-                ('z_angulare_rate','float32')]
+LIST_OF_ATTR = [('time', 'float64'),
+                ('latitude', 'float64'),
+                ('longitude', 'float64'),
+                ('elevation', 'float32'),
+                ('x_vel', 'float32'),
+                ('y_vel', 'float32'),
+                ('z_vel', 'float32'),
+                ('roll', 'float32'),
+                ('pitch', 'float32'),
+                ('heading', 'float32'),
+                ('wander_angle', 'float32'),
+                ('x_acceleration', 'float32'),
+                ('y_acceleration', 'float32'),
+                ('z_acceleration', 'float32'),
+                ('x_angular_rate', 'float32'),
+                ('y_angular_rate', 'float32'),
+                ('z_angular_rate', 'float32')]
 
 # 17 attributes of 8 bytes each = 136 bytes
-LINE_SIZE=int(136)
+LINE_SIZE = int(136)
 
 # vertical datum folder
-VERTICAL_DATUM_DIR = 'C:\DATA\Vertical_datum'
-#====================#
+VERTICAL_DATUM_DIR = r'C:\DATA\Vertical_datum'
+# ====================#
 
-#---GDAL---#
-GDAL_QUERY_ROOT="osgeo4w "
+# ---GDAL---#
+GDAL_QUERY_ROOT = "osgeo4w "
 #===============#
 
-#---Other---#
+# ---Other---#
 class DATE(object):
     def __init__(self):
         today = datetime.datetime.now().timetuple()

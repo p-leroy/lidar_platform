@@ -17,12 +17,13 @@ import shapely.ops
 from shapely.geometry import Polygon
 from joblib import Parallel,delayed
 
-def correction3D(pt_app, depthApp, pt_shot=[], vectorApp=[], indRefr=1.333):
+
+def correction3D(pt_app, apparent_depth, pt_shot=[], vectorApp=[], indRefr=1.333):
     """Bathymetric correction 3D
 
     Args:
         pt_app (numpy.ndarray): apparent points
-        depthApp (numpy.ndarray): apparent depth
+        apparent_depth (numpy.ndarray): apparent depth
         pt_shot (list, optional): coordinates for each laser shot, useful in discrete mode. Defaults to [].
         vectorApp (list, optional): apparent vector shot, useful in fwf mode. Defaults to [].
         indRefr (float, optional): water refraction indice. Defaults to 1.333.
@@ -34,28 +35,28 @@ def correction3D(pt_app, depthApp, pt_shot=[], vectorApp=[], indRefr=1.333):
         true point coordinates (numpy.ndarray)
         true depth (numpy.ndarray)
     """
-    if len(pt_shot)>0 and len(vectorApp)==0:
-        #discret mode
-        vectApp=pt_shot-pt_app
-    elif len(pt_shot)==0 and len(vectorApp)>0:
-        #fwf mode
-        vectApp=np.copy(vectorApp)
+    if len(pt_shot) > 0 and len(vectorApp) == 0:  # discrete mode
+        print('[calculs.correction3D] discrete mode')
+        vect_app = pt_shot - pt_app
+    elif len(pt_shot) == 0 and len(vectorApp) > 0:  # FWF mode
+        print('[calculs.correction3D] FWF mode')
+        vect_app = np.copy(vectorApp)
     else:
         raise ValueError("pt_shot and vectorApp shouldn't be Null both")
-    vectApp_norm=np.linalg.norm(vectApp,axis=1)
+    vect_app_norm = np.linalg.norm(vect_app, axis=1)
 
     # compute "gisement" with formula that removes ambiguity of pi radians on the calculation of 'arctan'
-    gisement_vect=2*np.arctan(vectApp[:,0]/(np.linalg.norm(vectApp[:,0:2],axis=1)+vectApp[:,1]))
-    thetaApp=np.arccos(vectApp[:,2]/vectApp_norm)
-    thetaTrue=np.arcsin(np.sin(thetaApp)/indRefr)
-    depthTrue=depthApp*np.cos(thetaApp)/(indRefr*np.cos(thetaTrue))
+    gisement_vect = 2 * np.arctan(vect_app[:,0] / (np.linalg.norm(vect_app[:,0:2], axis=1) + vect_app[:,1]))
+    theta_app = np.arccos(vect_app[:,2] / vect_app_norm)
+    theta_true = np.arcsin(np.sin(theta_app) / indRefr)
+    depth_true = apparent_depth * np.cos(theta_app) / (indRefr * np.cos(theta_true))
 
-    distPlan=depthApp*np.tan(thetaApp)-depthTrue*np.tan(thetaTrue)
-    coords=np.vstack([pt_app[:,0]+distPlan*np.sin(gisement_vect),
-                      pt_app[:,1]+distPlan*np.cos(gisement_vect),
-                      pt_app[:,2]+depthTrue-depthApp])
+    dist_plan = apparent_depth * np.tan(theta_app) - depth_true * np.tan(theta_true)
+    coords = np.vstack([pt_app[:,0] + dist_plan * np.sin(gisement_vect),
+                        pt_app[:,1] + dist_plan * np.cos(gisement_vect),
+                        pt_app[:,2] + depth_true - apparent_depth])
 
-    return np.transpose(coords),depthTrue
+    return np.transpose(coords), depth_true
 
 def correction_vect(vectorApp,indRefr=1.333):
     """bathymetric correction only for vector shot (in fwf mode)

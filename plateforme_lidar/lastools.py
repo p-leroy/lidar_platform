@@ -1,6 +1,8 @@
 # coding: utf-8
 # Baptiste Feldmann
-import os, mmap, struct, copy, time, warnings
+
+import copy, enum, os, mmap, struct, time, warnings
+
 from datetime import datetime, timezone
 import logging
 
@@ -305,16 +307,17 @@ class WriteLAS(object):
     def writeAttr(self):
         # point_dtype=[('X','int32'),('Y','int32'),('Z','int32')]+self.LAS_fmt.recordFormat[self.point_record.header.point_format.id]
         #writing conventional fields
-        coords_int=np.array((self.output_data.XYZ-self.point_record.header.offsets)/self.point_record.header.scales,dtype=np.int32)
-        self.point_record.X=coords_int[:,0]
-        self.point_record.Y=coords_int[:,1]
-        self.point_record.Z=coords_int[:,2]
+        coords_int = np.array((self.output_data.XYZ - self.point_record.header.offsets) / self.point_record.header.scales, dtype=np.int32)
+        self.point_record.X = coords_int[:, 0]
+        self.point_record.Y = coords_int[:, 1]
+        self.point_record.Z = coords_int[:, 2]
         for i in self.LAS_fmt.recordFormat[self.point_record.header.point_format.id]:
             try:
-                data=getattr(self.output_data,i[0])
-                setattr(self.point_record,i[0],getattr(np,i[1])(data))
+                data = getattr(self.output_data, i[0])
+                setattr(self.point_record, i[0], getattr(np, i[1])(data))
             except:
-                warnings.warn("Warning: Not possible to write attribute : "+i[0])
+                print(f'[lastools.WriteLAS.writeAttr] {i[0]} {i[1]}')
+                print("[lastools.WriteLAS.writeAttr] Warning: not possible to write attribute: " + i[0])
 
 
 def ReadLAS(filepath, extraField=False, parallel=True):
@@ -329,6 +332,7 @@ def ReadLAS(filepath, extraField=False, parallel=True):
         'plateforme_lidar.utils.lasdata': lasdata object
     """
     pointFormatId = laspy.open(filepath, mode='r', laz_backend=laspy.compression.LazBackend(2)).header.point_format.id
+
     if pointFormatId in [4, 5, 9, 10]:  # Wave packets
         # Point Data Record Format 4 adds Wave Packets to Point Data Record Format 1
         # Point Data Record Format 5 adds Wave Packets to Point Data Record Format 3
@@ -339,6 +343,8 @@ def ReadLAS(filepath, extraField=False, parallel=True):
         backend = laspy.compression.LazBackend(int(not parallel))
 
     f = laspy.read(filepath, laz_backend=backend)
+    gps_time_type = f.header.global_encoding.gps_time_type
+    print(f'[lastools.ReadLAS] gps_time_type {gps_time_type.name}')
     LAS_fmt = utils.LAS_FORMAT()
     
     metadata = {"vlrs" : read_VLRbody(f.vlrs),
@@ -360,6 +366,11 @@ def ReadLAS(filepath, extraField=False, parallel=True):
             logger.info(f'rename extra field {i} to {name}')
             metadata['extraField'] += [name]
             output[name] = f[i]
+
+    if 'GpsTime' in f.point_format.extra_dimension_names:
+        print('[lastools.ReadLAS] WARNING GpsTime found in extra_dimension_names (CloudCompare convention)')
+        print('[lastools.ReadLAS] replace standard field gps_time by extra field GpsTime')
+        output['gps_time'] = f['GpsTime']
 
     output['metadata'] = metadata
     return output
@@ -449,36 +460,39 @@ def read_orthofwf(workspace,lasfile):
         if i in pourcent:
             print("%d%%-" %(25+25*pourcent.index(i)),end='\r')
 
-        line=np.array(struct.unpack(str(length)+'h',data[offset[i]:offset[i]+sizes[i]]))
-        lines+=[np.round_(line*vlr_body[4]+vlr_body[5],decimals=2)]
+        line = np.array(struct.unpack(str(length) + 'h',data[offset[i]:offset[i] + sizes[i]]))
+        lines += [np.round_(line*vlr_body[4] + vlr_body[5], decimals=2)]
     
     wdp.close()
     f.close()
     print("done !")
-    return np.stack([lines,prof]),vlr_body[3],np.round_(step_z,decimals=2)
+    return np.stack([lines,prof]), vlr_body[3], np.round_(step_z, decimals=2)
+
 
 class GPSTime(object):
-    def __init__(self,gpstime:list):
+    def __init__(self, gpstime: list):
         """Manage GPS Time and convert between Adjusted Standard and Week GPS time
         GPS time start on 1980-01-06 00:00:00 UTC
+        Time stamps are either stored in GPS week seconds or Adjusted Standard GPS Time
+        (i.e., Standard GPS Time - 1 * 10**9 sec) depending on the "Global Encoding Bit 0" of the LAS Public Header
         Args:
             gpstime (list): GPS time
         """
-        self.gps_fmt_code=["<GPS week time>","<Adjusted Standard GPS time>","<Standard GPS time>"]
-        self.gps_epoch_datetime=datetime(1980,1,6,tzinfo=timezone.utc)
-        self.offset_time=int(10**9)
-        self.sec_in_week=int(3600*24*7)
-        self.gpstime=np.atleast_1d(gpstime)
-            
-        self.GPSFormat=self.get_format()
+
+        self.gps_epoch_datetime = datetime(1980, 1, 6, tzinfo=timezone.utc)
+        self.offset_time = int(10 ** 9)
+        self.sec_in_week = int(3600 * 24 * 7)
+        self.gpstime = np.atleast_1d(gpstime)
+        self.gps_time_type = self.get_format()
+
     def __repr__(self):
         return self.GPSFormat
 
-    def _get_week_number(self,standardTime):
+    def _get_week_number(self, standard_time):
         """Compute the week number in GPS standard time
 
         Args:
-            standardTime (float or list): timestamp in standard GPS time format
+            standard_time (float or list): timestamp in standard GPS time format
 
         Raises:
             ValueError: if there are GPS time from different week in list
@@ -486,28 +500,28 @@ class GPSTime(object):
         Returns:
             int : week number since GPS epoch starting
         """
-        if np.ndim(standardTime)==0:
-            week_number=int(standardTime//self.sec_in_week)
+        if np.ndim(standard_time) == 0:
+            week_number = int(standard_time // self.sec_in_week)
         else:
-            week_num_first=min(standardTime)//self.sec_in_week
-            week_num_last=max(standardTime)//self.sec_in_week
-            if week_num_first==week_num_last:
-                week_number=int(week_num_first)
+            week_num_first = min(standard_time) // self.sec_in_week
+            week_num_last = max(standard_time) // self.sec_in_week
+            if week_num_first == week_num_last:
+                week_number = int(week_num_first)
             else:
-                raise ValueError("GPS Time values aren't in same week")
+                raise ValueError("[lastools.GPSTime._get_week_number] Time values aren't in same week")
         return week_number
         
     def get_format(self):
-        if all(self.gpstime<self.sec_in_week):
-            result=self.gps_fmt_code[0]
-        elif all(self.gpstime<self.offset_time):
-            result=self.gps_fmt_code[1]
+        if all(self.gpstime < self.sec_in_week):
+            gps_time_type = laspy.header.GpsTimeType.WEEK_TIME
+        elif all(self.gpstime < self.offset_time):
+            gps_time_type = laspy.header.GpsTimeType.STANDARD
         else:
-            result=self.gps_fmt_code[2]
+            raise ValueError("[lastools.GPSTime.get_format] Unexpected gps_time_type, neither WEEK_TIME nor STANDARD")
 
-        return result
+        return gps_time_type
 
-    def adjStd2week(self):
+    def adjusted_standard_2_week_time(self):
         """Conversion from Adjusted Standard GPS time format to week time
 
         Raises:
@@ -517,36 +531,36 @@ class GPSTime(object):
             int: week number
             list: list of GPS time in week time format
         """
-        if self.GPSFormat!=self.gps_fmt_code[1]:
-            raise ValueError("GPS time format is not "+self.gps_fmt_code[1])
+        if self.gps_time_type != laspy.header.GpsTimeType.STANDARD:
+            raise ValueError("GPS time format is not " + laspy.header.GpsTimeType.STANDARD.name)
         else:
-            temp=self.gpstime+self.offset_time
-            week_number=self._get_week_number(temp)
-            return week_number,temp%self.sec_in_week
+            temp = self.gpstime + self.offset_time
+            week_number = self._get_week_number(temp)
+            return week_number, temp % self.sec_in_week
 
-    def week2adjStd(self,date_in_week=[],week_number=0):
+    def week_time_2_adjusted_standard(self, date_in_week=[], week_number=0):
         """Conversion from week GPS time format to Adjusted Standard time
 
         Args:
-            date_in_week (list, optional): date of project in format (year,month,day). Defaults to [].
+            date_in_week (list, optional): date of project in format (year, month, day). Defaults to [].
             week_number (int, optional): week number. Defaults to 0.
 
         Raises:
             ValueError: if your data aren't in Week GPS time format
-            ValueError: You hav to give at least date_in_week or week_number
+            ValueError: You have to give at least date_in_week or week_number
 
         Returns:
             list: list of Adjusted Standard GPS time
         """
-        if self.GPSFormat!=self.gps_fmt_code[0]:
-            raise ValueError("GPS time format is not "+self.gps_fmt_code[0])
+        if self.GPSFormat != laspy.header.GpsTimeType.WEEK_TIME:
+            raise ValueError("GPS time format is not " + laspy.header.GpsTimeType.WEEK_TIME.name)
         
-        elif len(date_in_week)>0:
-            date_datetime=datetime(*date_in_week,tzinfo=timezone.utc)
-            week_number=self._get_week_number(date_datetime.timestamp()-self.gps_epoch_datetime.timestamp())
+        elif len(date_in_week) > 0:
+            date_datetime = datetime(*date_in_week, tzinfo=timezone.utc)
+            week_number = self._get_week_number(date_datetime.timestamp() - self.gps_epoch_datetime.timestamp())
 
-        elif week_number==0:
+        elif week_number == 0:
             raise ValueError("You have to give date_in_week OR week_number")
 
-        adjStd_time=(self.gpstime+week_number*self.sec_in_week)-self.offset_time
-        return adjStd_time
+        adjusted_standard_time = (self.gpstime + week_number * self.sec_in_week) - self.offset_time
+        return adjusted_standard_time

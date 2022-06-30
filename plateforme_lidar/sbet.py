@@ -20,67 +20,86 @@ import pyproj
 ##delta_lat=0.025
 ##delta_long=1/30
 
-def Merge_sbet(listSBET):
-    new=copy.deepcopy(listSBET[0])
-    for i in range(1,len(listSBET)):
-        new.array=np.append(new.array,listSBET[i].array)
 
-    new.gps_time=new.array['time']
-    new.latitude=new.array['latitude']
-    new.longitude=new.array['longitude']
-    new.elevation=new.array['elevation']
+def merge_sbet(sbet_list):
+    new = copy.deepcopy(sbet_list[0])
+
+    for i in range(1, len(sbet_list)):
+        new.array = np.append(new.array, sbet_list[i].array)
+
+    new.gps_time = new.array['time']
+    new.latitude = new.array['latitude']
+    new.longitude = new.array['longitude']
+    new.elevation = new.array['elevation']
+
     return new
-    
-class SBET(object):
-    def __init__(self,filepath):
-        self.filepath=filepath
 
-        if os.path.splitext(self.filepath)!=".out":
-            self.open_file()
-        else:
-            raise OSError("Unknown file extension, can read only .out file !")
+
+class SBET(object):
+    def __init__(self, filepath):
+        self.filepath = filepath
+
+        # load trajectory data
+        self.array = None
+        self.gps_time = None
+        self.latitude = None
+        self.longitude = None
+        self.elevation = None
+        self.load_data()
+
+        self.easting = None
+        self.northing = None
     
     def __str__(self):
         return "\n".join(self.__dict__.keys())
     
-    def open_file(self):
-        f=open(self.filepath,mode='rb')
-        f_size=os.path.getsize(self.filepath)
-        data=mmap.mmap(f.fileno(),f_size,access=mmap.ACCESS_READ)
-        nbr_line=int(len(data)/utils.LINE_SIZE)
+    def load_data(self):
+        if os.path.splitext(self.filepath)[-1] != ".out":
+            raise OSError("Unknown file extension, can read only .out file !")
+        else:
+            print(f'[SBET.load_data] load data from {self.filepath}')
 
-        temp=[]
-        for i in range(0,nbr_line):
-            temp+=[struct.unpack('17d',data[i*utils.LINE_SIZE:(i+1)*utils.LINE_SIZE])]
-        self.array=np.array(temp,dtype=utils.LIST_OF_ATTR)
-        self.array['latitude']*=180/math.pi
-        self.array['longitude']*=180/math.pi
+        f = open(self.filepath, mode='rb')
+        f_size = os.path.getsize(self.filepath)
+        data = mmap.mmap(f.fileno(), f_size, access=mmap.ACCESS_READ)
+        nbr_line = int(len(data) / utils.LINE_SIZE)
+        print(f'[SBET.load_data] number of lines in SBET files: {nbr_line}')
 
-        self.gps_time=self.array['time']
-        self.latitude=self.array['latitude']
-        self.longitude=self.array['longitude']
-        self.elevation=self.array['elevation']
+        temp = []
+        for i in range(0, nbr_line):
+            temp += [struct.unpack('17d', data[i * utils.LINE_SIZE:(i + 1) * utils.LINE_SIZE])]
+
+        self.array = np.array(temp, dtype=utils.LIST_OF_ATTR)
+        self.array['latitude'] *= 180 / math.pi
+        self.array['longitude'] *= 180 / math.pi
+
+        self.gps_time = self.array['time']
+        self.latitude = self.array['latitude']
+        self.longitude = self.array['longitude']
+        self.elevation = self.array['elevation']
     
-    def _compute_undulation(self,geoidgrid):
+    def _compute_undulation(self, geoid_grid):
         # npzfile=np.load("G:/RENNES1/BaptisteFeldmann/Vertical_datum/"+geoidgrid+".npz")
-        npzfile=np.load(utils.VERTICAL_DATUM_DIR+geoidgrid+".npz")
-        grille=npzfile[npzfile.files[0]]
-        undulation=griddata(grille[:,0:2],grille[:,2],(self.longitude,self.latitude),method='linear')
+        npzfile = np.load(utils.VERTICAL_DATUM_DIR + geoid_grid + ".npz")
+        grille = npzfile[npzfile.files[0]]
+        undulation = griddata(grille[:,0:2],grille[:,2],(self.longitude,self.latitude),method='linear')
         return undulation
 
-    def h2He(self,geoidgrid):
+    def h2he(self, geoid_grid):
         # ellipsoidal height to altitude
-        undulation=self._compute_undulation(geoidgrid)
-        alti=self.elevation-undulation
-        self.elevation,self.array['elevation']=alti,alti
+        undulation = self._compute_undulation(geoid_grid)
+        altitude = self.elevation - undulation
+        self.array['elevation'] = altitude
+        self.elevation = self.array['elevation']
     
-    def He2h(self,geoidgrid):
+    def he2h(self, geoid_grid):
         # altitude to ellipsoidal height
-        undulation=self._compute_undulation(geoidgrid)
-        height=self.elevation+undulation
-        self.elevation,self.array['elevation']=height,height
+        undulation = self._compute_undulation(geoid_grid)
+        height = self.elevation + undulation
+        self.array['elevation'] = height
+        self.elevation = self.array['elevation']
 
-    def projection(self,epsg_IN,epsg_OUT):
+    def projection(self, epsg_in, epsg_out):
         #----Conversion coordonnées Géo vers Projetées----------#
         # epsg:4171 -> ETRS89-géo lat,long,h
         # epsg:2154 -> RGF93-L93 E,N,H
@@ -88,20 +107,22 @@ class SBET(object):
         # epsg:32634 -> WGS84-UTM 34N E,N,H
         # epsg:4167 -> NZGD2000 lat,long,h
         # epsg:2193 -> NZTM2000 E,N,H
-        transformer=pyproj.Transformer.from_crs(epsg_IN,epsg_OUT)
-        self.easting,self.northing=transformer.transform(self.latitude,self.longitude)
+        transformer = pyproj.Transformer.from_crs(epsg_in, epsg_out)
+        self.easting, self.northing = transformer.transform(self.latitude, self.longitude)
     
-    def export(self,epsg_in,epsg_out):
+    def export(self, epsg_in, epsg_out):
         if not hasattr(self,"easting"):
-            self.projection(epsg_in,epsg_out)
+            self.projection(epsg_in, epsg_out)
 
-        data=np.array([self.easting,self.northing,self.elevation,self.gps_time])
-        f=np.savetxt(self.filepath[0:-4]+"_ascii.txt",np.transpose(data),fmt="%.3f;%.3f;%.3f;%f",delimiter=";",header="X;Y;Z;gpstime")
+        data = np.array([self.easting, self.northing, self.elevation, self.gps_time])
+        f = np.savetxt(self.filepath[0:-4] + "_ascii.txt", np.transpose(data),
+                       fmt="%.3f;%.3f;%.3f;%f", delimiter=";", header="X;Y;Z;gpstime")
 
-    def interpolate(self,time_ref):
-        temp=np.transpose([self.easting,self.northing,self.elevation])
-        f=interp1d(self.gps_time,temp,axis=0)
+    def interpolate(self, time_ref):
+        temp = np.transpose([self.easting, self.northing, self.elevation])
+        f = interp1d(self.gps_time, temp, axis=0)
         return f(time_ref)
+
 
 def calc_grid(name_geoid,pts0,deltas):
     """
@@ -138,6 +159,7 @@ def calc_grid(name_geoid,pts0,deltas):
     np.savez_compressed("D:/TRAVAIL/Vertical_datum/RAF09.npz",tableau)
     return True
 
+
 def Projection(epsg_in,epsg_out,x,y,z):
     """
     Function for compute the transformation between
@@ -168,26 +190,30 @@ def Projection(epsg_in,epsg_out,x,y,z):
     result : ndarray
             table of the transform data
     """
-    transformer=pyproj.Transformer.from_crs(epsg_in,epsg_out)
-    temp=transformer.transform(x,y,z)
-    result=np.array([temp[0],temp[1],temp[2]])
+    transformer = pyproj.Transformer.from_crs(epsg_in, epsg_out)
+    temp = transformer.transform(x, y, z)
+    result = np.array([temp[0], temp[1], temp[2]])
     return np.transpose(result)
 
-def Sbet_config(filepath):
+
+def sbet_config(filepath):
     sbet_dict = {}
     for i in np.loadtxt(filepath, str, delimiter="="):
         sbet_dict[i[0]] = i[1]
     
-    listObj = []
+    sbet_list = []
     for i in sbet_dict['listFiles'].split(','):
-        listObj += [SBET(sbet_dict['path'] + str(i))]
+        sbet_file = os.path.join(sbet_dict['path'], str(i))
+        sbet_list += [SBET(sbet_file)]
     
-    if len(listObj) > 1:
-        sbet_obj = Merge_sbet(listObj)
+    if len(sbet_list) > 1:
+        sbet_obj = merge_sbet(sbet_list)
     else:
-        sbet_obj = listObj[0]
+        sbet_obj = sbet_list[0]
     
     if sbet_dict['Z'] == 'height':
-        sbet_obj.h2He(sbet_dict['geoidgrid'])
+        sbet_obj.h2he(sbet_dict['geoidgrid'])
+
     sbet_obj.projection(int(sbet_dict['epsg_source']), int(sbet_dict['epsg_target']))
+
     return sbet_obj
