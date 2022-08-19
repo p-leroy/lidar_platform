@@ -26,7 +26,7 @@ def classify(workspace,filename,model,features_file):
     labels_pred=model.predict(data)
     confid_pred=model.predict_proba(data)
     confid_pred=np.max(confid_pred,axis=1)
-    lasdata=pl.lastools.ReadLAS(workspace + filename)
+    lasdata=pl.lastools.read(workspace + filename)
     
     lasdata.classification=labels_pred
     #print(np.shape(lasdata))

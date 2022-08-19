@@ -35,7 +35,7 @@ def readMetadataFile(filepath):
     return metadata
 
 def read(filepath):
-    output=utils.pointcloud()
+    output=utils.PointCloud()
 
     ext=os.path.splitext(filepath)[1]
     if ext==".sbf":

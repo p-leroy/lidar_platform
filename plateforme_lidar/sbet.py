@@ -10,16 +10,6 @@ from scipy.interpolate import griddata
 from scipy.interpolate import interp1d
 import pyproj
 
-# lat : 41.9875 - 51.5125
-# long : -5.5 - 8.5
-# nrows= 381 ; ncols= 421
-##borne_lat=[41.9875,51.5125]
-##borne_long=[-5.5167,8.5167]
-##pts0=[-5.5167,51.5125]
-##
-##delta_lat=0.025
-##delta_long=1/30
-
 
 def merge_sbet(sbet_list):
     new = copy.deepcopy(sbet_list[0])

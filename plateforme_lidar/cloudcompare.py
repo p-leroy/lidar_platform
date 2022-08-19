@@ -31,7 +31,7 @@ def c2c_dist(query, xyz=True, octree_lvl=0):
     else:
         opt_save = " -save_clouds"
         
-    utils.Run_bis(query + " -C2C_DIST " + opt_xyz + opt_octree + opt_save)
+    utils.run_bis(query + " -C2C_DIST " + opt_xyz + opt_octree + opt_save)
 
 
 def c2c_files(params, files, filepath_b, octree_lvl=9, nbr_job=5):
@@ -58,7 +58,7 @@ def c2c_files(params, files, filepath_b, octree_lvl=9, nbr_job=5):
     for file in files:
         list_query += [open_file(params, [file, filepath_b])
                        + " -C2C_DIST -split_xyz -octree_level " + str(octree_lvl) + " -save_clouds"]
-    Parallel(n_jobs=nbr_job, verbose=0)(delayed(utils.Run_bis)(cmd) for cmd in list_query)
+    Parallel(n_jobs=nbr_job, verbose=0)(delayed(utils.run_bis)(cmd) for cmd in list_query)
 
     # clean temporary files
     for file in files:
@@ -87,19 +87,19 @@ def c2m_dist(commande,max_dist=0,octree_lvl=0,cores=0):
     if cores>0:
         opt+=" -max_tcount "+str(cores)
 
-    utils.Run(commande+" -C2M_DIST"+opt+" -save_clouds")
+    utils.run(commande + " -C2M_DIST" + opt + " -save_clouds")
 
 
 def lastools_clip_tile(filepath, bbox):
     # bbox = [minX, minY, size]
     query = "las2las -i " + filepath + " -keep_tile " + " ".join(bbox) + " -odix _1 -olaz"
-    utils.Run_bis(query)
+    utils.run_bis(query)
 
 
 def clip_xy(filepath,bbox):
     # bbox = [minX, minY, maxX, maxY]
     query = "las2las -i " + filepath + " -keep_xy " + " ".join(bbox) + " -odix _1 -olaz"
-    utils.Run_bis(query)
+    utils.run_bis(query)
 
 
 def compute_normals(filepath,params):
@@ -110,7 +110,7 @@ def compute_normals(filepath,params):
         params (list): CC parameters [shiftname,normalRadius,model (LS / TRI / QUADRIC)]
     """    
     query=open_file(["standard","PLY_cloud",params["shiftname"]],filepath)
-    utils.Run_bis(query+" -octree_normals "+params["normal_radius"]+" -orient PLUS_Z -model "+params["model"]+" -save_clouds")
+    utils.run_bis(query + " -octree_normals " + params["normal_radius"] + " -orient PLUS_Z -model " + params["model"] + " -save_clouds")
 
 
 def compute_normals_dip(filepath,CC_param,radius,model="LS"):
@@ -123,14 +123,14 @@ def compute_normals_dip(filepath,CC_param,radius,model="LS"):
         model (str, optional): local model type LS / TRI / QUADRIC. Defaults to "LS".
     """
     query=open_file(CC_param,filepath)
-    utils.Run_bis(query+" -octree_normals "+str(radius)+" -orient PLUS_Z -model "+model+" -normals_to_dip -save_clouds")
+    utils.run_bis(query + " -octree_normals " + str(radius) + " -orient PLUS_Z -model " + model + " -normals_to_dip -save_clouds")
 
 
 def compute_feature(query,features_dict):
     for i in features_dict.keys():
         query+=" -feature "+i+" "+str(features_dict[i])
     
-    utils.Run_bis(query+" -save_clouds")
+    utils.run_bis(query + " -save_clouds")
 
 
 def create_raster(commande,grid_size,interp=False):
@@ -143,7 +143,7 @@ def create_raster(commande,grid_size,interp=False):
         commande+=" -empty_fill INTERP"
 
     commande+=" -output_raster_z -save_clouds"
-    utils.Run(commande)  
+    utils.run(commande)
 
 
 def densite(commande,radius):
@@ -151,7 +151,7 @@ def densite(commande,radius):
     Commande CC pour le calcul de densité
     """
     commande+=" -density "+str(radius)+" -type KNN -save_clouds"
-    utils.Run(commande)
+    utils.run(commande)
 
 
 def last_file(filepath, new_name=None):
@@ -195,7 +195,7 @@ def merge_clouds(commande):
         opt1="-save_clouds"
     
     commande+=" -merge_clouds "+opt1
-    utils.Run(commande)
+    utils.run(commande)
 
 
 def m3c2(query, params_file):
@@ -207,7 +207,7 @@ def m3c2(query, params_file):
     """
     query += " -M3C2 " + params_file
     print(query)
-    utils.Run_bis(query)
+    utils.run_bis(query)
 
 
 def open_file(params, filepath, fwf=False):
@@ -250,7 +250,7 @@ def ortho_wavefm(query,param_file):
         param_file (str): ortho-waveform plugin textfile parameter
     """
     query+=" -fwf_ortho "+param_file+" -fwf_save_clouds"
-    utils.Run(query)
+    utils.run(query)
 
 def peaks(query,param_file):
     """Run ortho-waveform plugin and find peaks
@@ -260,14 +260,14 @@ def peaks(query,param_file):
         param_file (str): ortho-waveform plugin find peaks textfile parameter
     """
     query+=" -fwf_peaks "+param_file+" -fwf_save_clouds"
-    utils.Run(query)
+    utils.run(query)
 
 def pente(commande,indexSF):
     """
     Commande CC pour le calcul de pente (gradient de la composante Z)
     """
     commande+=" -set_active_sf "+str(indexSF)+" -SF_grad TRUE -save_clouds"
-    utils.Run(commande)
+    utils.run(commande)
 
 def poisson(filename,params):
     """Run Poisson Surface Reconstruction
@@ -281,11 +281,11 @@ def poisson(filename,params):
     query=utils.QUERY_0['PoissonRecon']+" --in "+filename+" --out "+filename[0:-4]+"_mesh.ply"
     for i in params.keys():
         query+=" --"+i+int(bool(len(params[i])))*" "
-        if i in utils.POISSONRECON_PARAMETERS.keys():
-            query+=utils.POISSONRECON_PARAMETERS[i][params[i]]
+        if i in utils.POISSON_RECON_PARAMETERS.keys():
+            query+=utils.POISSON_RECON_PARAMETERS[i][params[i]]
         else:
             query+=params[i]
-    utils.Run(query)   
+    utils.run(query)
 
 def rasterize(commande,grid_size,proj,empty):
     """
@@ -298,11 +298,11 @@ def rasterize(commande,grid_size,proj,empty):
     else :
         commande+=" -empty_fill "+empty+\
                    " -output_cloud -save_clouds"
-    utils.Run(commande)
+    utils.run(commande)
 
 def sample_mesh(query,density):
     query+=" -sample_mesh DENSITY "+str(density)+" -save_clouds"
-    utils.Run_bis(query)
+    utils.run_bis(query)
 
 def seuillage(commande,indexSF,mini,maxi):
     """
@@ -310,8 +310,8 @@ def seuillage(commande,indexSF,mini,maxi):
     """
     commande+=" -set_active_sf "+str(indexSF)+" -filter_sf "\
                +str(mini)+" "+str(maxi)+" -save_clouds"
-    utils.Run(commande)
+    utils.run(commande)
 
 def subsampling(commande,min_dist):
     commande+=" -SS SPATIAL "+str(min_dist)+" -save_clouds"
-    utils.Run(commande)
+    utils.run(commande)

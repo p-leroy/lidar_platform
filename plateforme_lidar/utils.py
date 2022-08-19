@@ -1,33 +1,37 @@
 # coding: utf-8
 # Baptiste Feldmann
-from subprocess import Popen,PIPE,STDOUT
-import subprocess,os,struct,datetime,time,re
+
+import datetime, os, re, socket, subprocess, struct, time
+from subprocess import Popen, PIPE, STDOUT
+
 from numpy import loadtxt
 
-def delete_file(liste):
-    for i in liste:
+
+def delete_file(files):
+    for file in files:
         try:
-            os.remove(i)
+            os.remove(file)
         except:
             pass
 
-def Run(query,silent=False,optShell=False,sleeping=0):
-    process=Popen(query,stdout=PIPE,stderr=STDOUT,shell=optShell)
+
+def run(query, silent=False, opt_shell=False, sleeping=0):
+    process = Popen(query, stdout=PIPE, stderr=STDOUT, shell=opt_shell)
     if not silent:
-        print(str(process.stdout.readline(),encoding='utf-8'),end='\r')
+        print(str(process.stdout.readline(), encoding='utf-8'), end='\r')
         while process.poll() is None:
             if len(process.stdout.readline())>0:
-                print(str(process.stdout.readline(),encoding='utf-8'),end='\r')
-        print(str(process.stdout.read(),encoding='utf-8'))
+                print(str(process.stdout.readline(), encoding='utf-8'), end='\r')
+        print(str(process.stdout.read(), encoding='utf-8'))
     else:
         while process.poll() is None:
             continue
     process.wait()
-    if sleeping>0:
+    if sleeping > 0:
         time.sleep(sleeping)
 
 
-def Run_bis(query, shell=False):
+def run_bis(query, shell=False):
     subprocess.run(query, shell=shell)
 
 
@@ -56,18 +60,22 @@ class Timing(object):
             msg=str(idx)+" in "+str(duration)+"sec - remaining "+str(remain)+"sec"
             return msg
 
-#---CloudCompare---#
-# QUERY_0 = {"standard" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare -silent",
-#            "standard_view" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_11022020/CloudCompare",
-#            "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon",
-#            "CC_PL" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare -silent"}
 
-QUERY_0 = {"standard" : 'C:\Program Files\CloudCompare\CloudCompare.exe -silent',
-           "standard_view" : 'C:\Program Files\CloudCompare\CloudCompare.exe',
-           "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon.exe",
-           "cc_ple" : "C:/opt/CloudCompare_PL_01042022/CloudCompare.exe -silent",
-           "cc_ple_view" : "C:/opt/CloudCompare_PL_01042022/CloudCompare.exe"
-           }
+hostname = socket.gethostname()
+if hostname == 'LIDAR-SERVER':
+    QUERY_0 = {"standard" : 'C:\Program Files\CloudCompare\CloudCompare.exe -silent',
+               "standard_view" : 'C:\Program Files\CloudCompare\CloudCompare.exe',
+               "PoissonRecon" : "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon.exe",
+               "cc_ple" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare.exe -silent",
+               "cc_ple_view" : "G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare.exe"
+               }
+else:
+    QUERY_0 = {"standard": 'C:\Program Files\CloudCompare\CloudCompare.exe -silent',
+               "standard_view": 'C:\Program Files\CloudCompare\CloudCompare.exe',
+               "PoissonRecon": "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon.exe",
+               "cc_ple": "G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare.exe -silent",
+               "cc_ple_view": "G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare.exe"
+               }
 
 EXPORT_FMT = {"LAS" : " -c_export_fmt LAS -ext laz -auto_save OFF",
               "LAS_auto_save" : " -c_export_fmt LAS -ext laz",
@@ -81,13 +89,13 @@ SHIFT = {}
 globalShiftFile = os.path.split(os.path.abspath(__file__))[0] + "\\global_shift.txt"
 for i in loadtxt(globalShiftFile, str, delimiter=";"):
     SHIFT[i[0]] = i[1]
-#================#
 
-#---LasFWF---#
+
+# ---LasFWF---#
 HEADER_WDP_BYTE=struct.pack("=H16sHQ32s",*(0,b'LASF_Spec',65535,0,b'WAVEFORM_DATA_PACKETS'))
-#================#
 
-#---Lastools---#
+
+# ---Lastools---#
 class lasdata(object):
     """LAS data object
 
@@ -105,18 +113,23 @@ class lasdata(object):
     """   
     def __len__(self):
         return len(self.XYZ)
+
     def __str__(self):
         return "\n".join(self.__dict__.keys())
+
     def __repr__(self):
-        var=len(self.metadata["extraField"])
+        var = len(self.metadata["extraField"])
         return f'<LAS object of {len(self.XYZ)} points with {var} extra-fields>'
+
     def __getitem__(self,key):
         return self.__dict__[key]
-    def __setitem__(self,key,item):
-        self.__dict__[key]=item
-    pass
 
-class LAS_FORMAT(object):
+    def __setitem__(self,key,item):
+        self.__dict__[key] = item
+        pass
+
+
+class LASFormat(object):
     def __init__(self):
         std = [("intensity", "uint16"),
                ("return_number", "uint8"),
@@ -143,8 +156,8 @@ class LAS_FORMAT(object):
                ("y_t", "float32"),
                ("z_t", "float32")]
 
-        systemId = 'ALTM Titan DW 14SEN343'
-        softwareId = 'Lidar Platform by Univ. Rennes 1'
+        system_id = 'ALTM Titan DW 14SEN343'
+        software_id = 'Lidar Platform by Univ. Rennes 1'
 
         pack = [std, std + gps, std + rgb,   # 0 1 2
                 std + gps + rgb,   # 3
@@ -155,41 +168,44 @@ class LAS_FORMAT(object):
                 std + gps + rgb + nir,  # 8
                 std + gps + fwf,  # 9
                 std + gps + rgb + nir + fwf]  # 10
-        recordLen = [20, 28, 26,  # 0 1 2
-                     26 + 8,  # 3
-                     28 + 29,  # 4
-                     26 + 8 + 29,  # 5
-                     30,  # 6
-                     30 + 6,  # 7
-                     30 + 8,  # 8
-                     30 + 29,  # 9
-                     30 + 6 + 29]  # 10
 
-        self.recordFormat = dict(zip(range(0, 11), pack))
-        self.dataRecordLen = dict(zip(range(0, 11), recordLen))
+        record_len = [20, 28, 26,  # 0 1 2
+                      26 + 8,  # 3
+                      28 + 29,  # 4
+                      26 + 8 + 29,  # 5
+                      30,  # 6
+                      30 + 6,  # 7
+                      30 + 8,  # 8
+                      30 + 29,  # 9
+                      30 + 6 + 29]  # 10
+
+        self.record_format = dict(zip(range(0, 11), pack))
+        self.data_record_len = dict(zip(range(0, 11), record_len))
 
         format_names = ['uint8', 'int8', 'uint16', 'int16', 'uint32', 'int32', 'uint64', 'int64', 'float32', 'float64']
-        format_sizes = [1, 1, 2, 2, 4, 4, 8, 8,4, 8]
-        self.fmtNameValue = dict(zip(format_names, range(1, len(format_names) + 1)))
-        self.fmtNameSize = dict(zip(format_names, format_sizes))
+        format_sizes = [1, 1, 2, 2, 4, 4, 8, 8, 4, 8]
+        self.fmt_name_value = dict(zip(format_names, range(1, len(format_names) + 1)))
+        self.fmt_name_size = dict(zip(format_names, format_sizes))
 
-        self.identifier = {"system_identifier": systemId + '\x00' * (32 - len(systemId)),
-                           "generating_software": softwareId + '\x00' * (32 - len(softwareId))}
+        self.identifier = {"system_identifier": system_id + '\x00' * (32 - len(system_id)),
+                           "generating_software": software_id + '\x00' * (32 - len(software_id))}
 
-# ================#
 
 # ---VLRS Geokey---#
-CRS_KEY = {"Vertical":4096,"Projected":3072}
-GEOKEY_STANDARD = {1:(1, 0, 4),1024:(0, 1, 1),3076:(0, 1, 9001), 4099:(0, 1, 9001)}
-# =================#
+CRS_KEY = {"Vertical": 4096,
+           "Projected": 3072}
+
+GEOKEY_STANDARD = {1: (1, 0, 4),
+                   1024: (0, 1, 1),
+                   3076: (0, 1, 9001),
+                   4099: (0, 1, 9001)}
 
 # ---PoissonRecon---#
-POISSONRECON_PARAMETERS = {"bType": {"Free": "1","Dirichlet": "2","Neumann": "3"}}
-# ==================#
+POISSON_RECON_PARAMETERS = {"bType": {"Free": "1", "Dirichlet": "2", "Neumann": "3"}}
 
 
 # ---PySBF---#
-class pointcloud(object):
+class PointCloud(object):
     """LAS data object
 
     Attributes:
@@ -206,25 +222,29 @@ class pointcloud(object):
     """   
     def __len__(self):
         return len(self.XYZ)
+
     def __str__(self):
         return "\n".join(self.__dict__.keys())
+
     def __repr__(self):
-        var=len(self.metadata["ScalarNames"])
+        var = len(self.metadata["ScalarNames"])
         return f'<SBF object of {len(self.XYZ)} points with {var} attributes>'
+
     def __getitem__(self,key):
         return self.__dict__[key]
+
     def __setitem__(self,key,item):
-        self.__dict__[key]=item
+        self.__dict__[key] = item
     pass
 
-convention = {"gpstime" : "gps_time",
-              "numberofreturns" : "number_of_returns",
-              "returnnumber" : "return_number",
-              "scananglerank" : "scan_angle_rank",
-              "pointsourceid" : "point_source_id"}
-#===================#
 
-#---SBET---#
+convention = {"gpstime": "gps_time",
+              "numberofreturns": "number_of_returns",
+              "returnnumber": "return_number",
+              "scananglerank": "scan_angle_rank",
+              "pointsourceid": "point_source_id"}
+
+# ---SBET---#
 field_names = ('time (s)',
                'latitude (deg)',
                'longitude (deg)',
@@ -265,12 +285,14 @@ LIST_OF_ATTR = [('time', 'float64'),
 LINE_SIZE = int(136)
 
 # vertical datum folder
-VERTICAL_DATUM_DIR = r'C:\DATA\Vertical_datum'
-# ====================#
+if hostname == 'LIDAR-SERVER':
+    VERTICAL_DATUM_DIR = r'G:\RENNES1\BaptisteFeldmann\Vertical_datum'
+else:
+    VERTICAL_DATUM_DIR = r'C:\DATA\Vertical_datum'
 
 # ---GDAL---#
 GDAL_QUERY_ROOT = "osgeo4w "
-#===============#
+
 
 # ---Other---#
 class DATE(object):
@@ -282,5 +304,5 @@ class DATE(object):
         self.date = str(str(self.year) \
                         + "-" + str("0" * (2-len(str(self.month))) \
                                     + str(self.month)) + "-" + str("0" * (2-len(str(self.day)))+str(self.day)))
-        self.time = str("0" * (2 - len(str(today.tm_hour))) + str(today.tm_hour)) + "h" + str("0" * (2 - len(str(today.tm_min)))+str(today.tm_min))
-
+        self.time = str("0" * (2 - len(str(today.tm_hour)))
+                        + str(today.tm_hour)) + "h" + str("0" * (2 - len(str(today.tm_min))) + str(today.tm_min))

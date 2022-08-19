@@ -17,8 +17,8 @@ def extract_bathy(filename, filter_v=[0.25, -10], filter_xy=250):
 
     select = (in_data['c2c_absolute_distances_z'] < filter_v[0]) & (in_data['c2c_absolute_distances_z'] > filter_v[1])
     select &= (dist_xy < filter_xy)
-    in_data_bathy = pl.lastools.Filter_LAS(in_data, select)
-    in_data_topo = pl.lastools.Filter_LAS(in_data, np.logical_not(select))
+    in_data_bathy = pl.lastools.filter_las(in_data, select)
+    in_data_topo = pl.lastools.filter_las(in_data, np.logical_not(select))
     
     extra = [(("depth", "float32"), np.round(in_data_bathy['c2c_absolute_distances_z'], decimals=2))]
     if len(in_data_bathy) > 1:

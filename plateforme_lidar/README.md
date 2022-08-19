@@ -24,7 +24,7 @@ See more : https://trac.osgeo.org/osgeo4w/
 ```python
 >> > from plateforme_lidar import pl
 >> > workspace = "D:/yourDirectory/"
->> > dataset = pl.lastools.ReadLAS(workspace + "inFile.laz")
+>> > dataset = pl.lastools.read(workspace + "inFile.laz")
 >> > intensity = dataset.intensity
 >> > numberOfPoints = len(data)
 ...
@@ -38,14 +38,14 @@ Reading, viewing and filtering fwf LAS file :
 ```python
 >> > from plateforme_lidar import pl
 >> > workspace = "D:/yourDirectory/"
->> > dataset = lastools.ReadLAS(workspace + "inFile_fwf.laz")
->> > waveforms = lastools.readWDP(workspace + "inFile_fwf.laz", dataset)
+>> > dataset = lastools.read(workspace + "inFile_fwf.laz")
+>> > waveforms = lastools.read_wdp(workspace + "inFile_fwf.laz", dataset)
 >> > indexPoint = 99
->> > pl.lasfwf.viewerFWF(pl.lastools.Filter_LAS(dataset, indexPoint), waveforms[indexPoint])
+>> > pl.lasfwf.viewerFWF(pl.lastools.filter_las(dataset, indexPoint), waveforms[indexPoint])
 >> > listPoints = [12, 102, 30]
->> > dataExtract = pl.lastools.Filter_LAS(dataset, listPoints)
->> > waveExtract = pl.lastools.Filter_WDP(waveforms, listPoints)
->> > pl.lastools.Update_ByteOffset(dataExtract, waveExtract)
+>> > dataExtract = pl.lastools.filter_las(dataset, listPoints)
+>> > waveExtract = pl.lastools.filter_wdp(waveforms, listPoints)
+>> > pl.lastools.update_byte_offset(dataExtract, waveExtract)
 >> > pl.lastools.WriteLAS(workspace + "outFile_fwf.laz",
                           dataExtract, format_id=4, waveforms=waveExtract)
 ```

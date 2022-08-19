@@ -155,15 +155,15 @@ def create_reference_waveform(data,wavefm,index_pt=-1,knn=10):
         idx_pt=int(index_pt)
 
     select=np.abs(data.intensity-data.intensity[idx_pt])<500
-    dataSelect=lastools.Filter_LAS(data,select)
-    wavefmSelect=lastools.Filter_WDP(wavefm,select)
+    dataSelect=lastools.filter_las(data, select)
+    wavefmSelect=lastools.filter_wdp(wavefm, select)
 
     neigh=NearestNeighbors(n_neighbors=knn,n_jobs=40)
     neigh.fit(dataSelect.XYZ)
     listSelect=neigh.kneighbors([data.XYZ[idx_pt]],return_distance=False)[0]
     listWavefm=list(np.array(wavefmSelect)[listSelect])
 
-    pt0=lastools.Filter_LAS(dataSelect,listSelect[0])
+    pt0=lastools.filter_las(dataSelect, listSelect[0])
     lineA,indexA,levelA=__func(wavefmSelect[listSelect[0]],pt0)
     lineA*=100/max(lineA[0:50])
     totalLine=np.copy(lineA)
@@ -173,7 +173,7 @@ def create_reference_waveform(data,wavefm,index_pt=-1,knn=10):
         raise ValueError("Temporal spacing doesn't equal to 1000 ns")
 
     for i in listSelect[1::]:
-        ptX=lastools.Filter_LAS(dataSelect,i)
+        ptX=lastools.filter_las(dataSelect, i)
         if ptX.metadata['vlrs'][99+ptX.wave_packet_desc_index][3]!=1000:
             raise ValueError("Temporal spacing doesn't equal to 1000 ns")
 

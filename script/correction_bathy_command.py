@@ -9,11 +9,11 @@ def corbathy_discret(filepath,data_sbet):
     offsetName=-10
     output_suffix="_corbathy"
     # Ouverture du fichier contenant la bathy
-    inData=PL.lastools.ReadLAS(filepath, extraField=True)
+    inData=PL.lastools.read(filepath, extra_field=True)
 
     select=inData.depth<0.01
-    dataUnderWater=PL.lastools.Filter_LAS(inData,select)
-    dataAboveWater=PL.lastools.Filter_LAS(inData,np.logical_not(select))
+    dataUnderWater=PL.lastools.filter_las(inData, select)
+    dataAboveWater=PL.lastools.filter_las(inData, np.logical_not(select))
     del inData
     
     gpsTime=dataUnderWater.gps_time
@@ -27,7 +27,7 @@ def corbathy_discret(filepath,data_sbet):
     depthAll=np.concatenate((np.round(depthTrue,decimals=2),np.array([None]*len(dataAboveWater))))
     extra=[(("depth","float32"),depthAll)]
     dataUnderWater.XYZ=coordsTrue
-    data_corbathy=PL.lastools.Merge_LAS([dataUnderWater,dataAboveWater])
+    data_corbathy=PL.lastools.merge_las([dataUnderWater, dataAboveWater])
     PL.lastools.WriteLAS(filepath[0:offsetName] + output_suffix + ".laz", data_corbathy, format_id=1, extraField=extra)
 
 def corbathy_fwf(filepath):
@@ -41,8 +41,8 @@ def corbathy_fwf(filepath):
     inData.x_t,inData.y_t,inData.z_t=vectTrue_all[:,0],vectTrue_all[:,1],vectTrue_all[:,2]
     
     select=inData.depth<0.01
-    dataUnderWater=PL.lastools.Filter_LAS(inData,select)
-    dataAboveWater=PL.lastools.Filter_LAS(inData,np.logical_not(select))
+    dataUnderWater=PL.lastools.filter_las(inData, select)
+    dataAboveWater=PL.lastools.filter_las(inData, np.logical_not(select))
     vectAppUnderWater=vectApp[select]
     del inData
 
@@ -55,7 +55,7 @@ def corbathy_fwf(filepath):
     extra=[(("depth","float32"),depthAll)]
 
     dataUnderWater.XYZ=coordsTrue
-    dataCorbathy=PL.lastools.Merge_LAS([dataUnderWater,dataAboveWater])
+    dataCorbathy=PL.lastools.merge_las([dataUnderWater, dataAboveWater])
 
     #return data_corbathy,extra,metadata['vlrs']
     #PL.lastools.writeLAS(filepath[0:offsetName]+"_corbathy2.laz",dataCorbathy,format_id=4,extraField=extra)

@@ -71,7 +71,7 @@ class Overlap(object):
             print("[Overlap] M3C2 analyzing...")
             Parallel(n_jobs=20,verbose=1)(delayed(self.WritingFile)(self.workspace+self.listFiles[i][-1]) for i in range(0,len(self.listFiles)))
             query="lasmerge -i "+self.workspace+"*_clean.laz -o "+self.workspace+self.outName
-            PL.utils.Run(query)
+            PL.utils.run(query)
             print("[Overlap] M3C2 analyzing done !")
 
             [os.remove(i) for i in glob.glob(self.workspace+"*_thin.laz")]
@@ -91,11 +91,11 @@ class Overlap(object):
         os.remove(new_file)
 
     def WritingFile(self,filepath):
-        inData=PL.lastools.ReadLAS(filepath, extraField=True)
+        inData=PL.lastools.read(filepath, extra_field=True)
         select1=inData["distance_uncertainty"]<self.filterDistUncertainty
         select2=np.logical_and(inData["m3c2_distance"]<self.m3c2Dist,inData["m3c2_distance"]>-self.m3c2Dist)
         select=np.logical_and(select1,select2)
-        inData2=PL.lastools.Filter_LAS(inData,select)
+        inData2=PL.lastools.filter_las(inData, select)
         extra=[(("m3c2_distance","float32"),inData2["m3c2_distance"]),
                 (("distance_uncertainty","float32"),inData2["distance_uncertainty"])]
 

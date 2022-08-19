@@ -17,8 +17,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     workspace = args.dirpath
     name = args.root
-    calculs.ReverseTiling_mem(workspace,
-                              name,
-                              bool(args.buffer),
-                              args.cores,
-                              bool(args.o_ptsrcid))
+    calculs.ReverseTiling(workspace,
+                          name,
+                          bool(args.buffer),
+                          args.cores,
+                          bool(args.o_ptsrcid))

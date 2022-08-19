@@ -31,31 +31,31 @@ class Deliverable(object):
         os.mkdir(self.workspace+self.rasterDir)
         if "C2" in channel:
             query=f'las2las -i {self.workspace}LAS/C2/*.laz -keep_class 2 -cores 50 -odir {self.workspace+self.rasterDir} -olaz'
-            PL.utils.Run(query)
+            PL.utils.run(query)
         if "C3" in channel:
             query=f'las2las -i {self.workspace}LAS/C3/*.laz -keep_class 2 10 16 -cores 50 -odir {self.workspace+self.rasterDir} -olaz'
-            PL.utils.Run(query)
+            PL.utils.run(query)
 
         outName=[self.rootName,"MNT",self.pixelSizeName+".tif"]
         os.mkdir(self.workspace+self.rasterDir+"/dalles")
-        PL.utils.Run(f'lasindex -i {self.workspace+self.rasterDir}/*.laz -cores 50')
-        PL.utils.Run(f'lastile -i {self.workspace+self.rasterDir}/*.laz -tile_size 1000 -buffer 250 -cores 45 -odir {self.workspace+self.rasterDir}/dalles -o {self.workspace+self.rasterDir}/dalles/{self.rootName}_MNT.laz')
-        PL.utils.Run("blast2dem -i "+self.workspace+self.rasterDir+"/dalles/*.laz -step "+str(self.pixelSize)+" -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
-        PL.gdal.Merge(glob.glob(self.workspace+self.rasterDir+"/dalles/*.tif"),self.workspace+self.rasterDir+"/dalles/"+"_".join(outName))
+        PL.utils.run(f'lasindex -i {self.workspace + self.rasterDir}/*.laz -cores 50')
+        PL.utils.run(f'lastile -i {self.workspace + self.rasterDir}/*.laz -tile_size 1000 -buffer 250 -cores 45 -odir {self.workspace + self.rasterDir}/dalles -o {self.workspace + self.rasterDir}/dalles/{self.rootName}_MNT.laz')
+        PL.utils.run("blast2dem -i " + self.workspace + self.rasterDir + "/dalles/*.laz -step " + str(self.pixelSize) + " -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
+        PL.gdal.merge(glob.glob(self.workspace + self.rasterDir + "/dalles/*.tif"), self.workspace + self.rasterDir + "/dalles/" + "_".join(outName))
         self._clean()
 
     def DTM_bathy(self):
         self.rasterDir="_".join(["MNT_bathy_C3",self.pixelSizeName])
         os.mkdir(self.workspace+self.rasterDir)
         
-        PL.utils.Run("las2las -i "+self.workspace+"LAS/C3/*.laz -keep_class 10 16 -cores 50 -odir "+self.workspace+self.rasterDir+" -olaz")
+        PL.utils.run("las2las -i " + self.workspace + "LAS/C3/*.laz -keep_class 10 16 -cores 50 -odir " + self.workspace + self.rasterDir + " -olaz")
 
         outName=[self.rootName,"MNT",self.pixelSizeName+".tif"]
         os.mkdir(self.workspace+self.rasterDir+"/dalles")
-        PL.utils.Run("lasindex -i "+self.workspace+self.rasterDir+"/*.laz -cores 50")
-        PL.utils.Run("lastile -i "+self.workspace+self.rasterDir+"/*.laz -tile_size 1000 -buffer 250 -cores 45 -odir "+self.workspace+self.rasterDir+"/dalles -o "+self.workspace+self.rasterDir+"/dalles/"+self.rootName+"_MNT.laz")
-        PL.utils.Run("blast2dem -i "+self.workspace+self.rasterDir+"/dalles/*.laz -step "+str(self.pixelSize)+" -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
-        PL.gdal.Merge(glob.glob(self.workspace+self.rasterDir+"/dalles/*.tif"),self.workspace+self.rasterDir+"/dalles/"+"_".join(outName))
+        PL.utils.run("lasindex -i " + self.workspace + self.rasterDir + "/*.laz -cores 50")
+        PL.utils.run("lastile -i " + self.workspace + self.rasterDir + "/*.laz -tile_size 1000 -buffer 250 -cores 45 -odir " + self.workspace + self.rasterDir + "/dalles -o " + self.workspace + self.rasterDir + "/dalles/" + self.rootName + "_MNT.laz")
+        PL.utils.run("blast2dem -i " + self.workspace + self.rasterDir + "/dalles/*.laz -step " + str(self.pixelSize) + " -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
+        PL.gdal.merge(glob.glob(self.workspace + self.rasterDir + "/dalles/*.tif"), self.workspace + self.rasterDir + "/dalles/" + "_".join(outName))
         self._clean()
 
     def DSM(self,channel,opt="vegetation"):
@@ -68,23 +68,23 @@ class Deliverable(object):
 
         if "C2" in channel:
             if opt=="vegetation":
-                PL.utils.Run("las2las -i "+self.workspace+"LAS/C2/*.laz -keep_class 2 5 -cores 50 -odir "+self.workspace+self.rasterDir+" -olaz")
+                PL.utils.run("las2las -i " + self.workspace + "LAS/C2/*.laz -keep_class 2 5 -cores 50 -odir " + self.workspace + self.rasterDir + " -olaz")
             else:
-                PL.utils.Run("las2las -i "+self.workspace+"LAS/C2/*.laz -keep_class 2 5 6 -cores 50 -odir "+self.workspace+self.rasterDir+" -olaz")
+                PL.utils.run("las2las -i " + self.workspace + "LAS/C2/*.laz -keep_class 2 5 6 -cores 50 -odir " + self.workspace + self.rasterDir + " -olaz")
         if "C3" in channel:
             if opt=="vegetation":
-                PL.utils.Run("las2las -i "+self.workspace+"LAS/C3/*.laz -keep_class 2 5 10 16 -cores 50 -odir "+self.workspace+self.rasterDir+" -olaz")
+                PL.utils.run("las2las -i " + self.workspace + "LAS/C3/*.laz -keep_class 2 5 10 16 -cores 50 -odir " + self.workspace + self.rasterDir + " -olaz")
             else:
-                PL.utils.Run("las2las -i "+self.workspace+"LAS/C3/*.laz -keep_class 2 5 6 10 16 -cores 50 -odir "+self.workspace+self.rasterDir+" -olaz")
+                PL.utils.run("las2las -i " + self.workspace + "LAS/C3/*.laz -keep_class 2 5 6 10 16 -cores 50 -odir " + self.workspace + self.rasterDir + " -olaz")
 
         os.mkdir(self.workspace+self.rasterDir+"/dalles")
         os.mkdir(self.workspace+self.rasterDir+"/dalles/thin")
 
-        PL.utils.Run("lasindex -i "+self.workspace+self.rasterDir+"/*.laz -cores 50")
-        PL.utils.Run("lastile -i "+self.workspace+self.rasterDir+"/*.laz -tile_size 1000 -buffer 250 -cores 45 -odir "+self.workspace+self.rasterDir+"/dalles -o "+self.workspace+self.rasterDir+"/dalles/"+self.rootName+"_MNS.laz")
-        PL.utils.Run("lasthin -i "+self.workspace+self.rasterDir+"/dalles/*.laz -step 0.2 -highest -cores 50 -odir "+self.workspace+self.rasterDir+"/dalles/thin -olaz")
-        PL.utils.Run("blast2dem -i "+self.workspace+self.rasterDir+"/dalles/thin/*.laz -step "+str(self.pixelSize)+" -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
-        PL.gdal.Merge(glob.glob(self.workspace+self.rasterDir+"/dalles/thin/*.tif"),self.workspace+self.rasterDir+"/dalles/thin/"+"_".join(outName))
+        PL.utils.run("lasindex -i " + self.workspace + self.rasterDir + "/*.laz -cores 50")
+        PL.utils.run("lastile -i " + self.workspace + self.rasterDir + "/*.laz -tile_size 1000 -buffer 250 -cores 45 -odir " + self.workspace + self.rasterDir + "/dalles -o " + self.workspace + self.rasterDir + "/dalles/" + self.rootName + "_MNS.laz")
+        PL.utils.run("lasthin -i " + self.workspace + self.rasterDir + "/dalles/*.laz -step 0.2 -highest -cores 50 -odir " + self.workspace + self.rasterDir + "/dalles/thin -olaz")
+        PL.utils.run("blast2dem -i " + self.workspace + self.rasterDir + "/dalles/thin/*.laz -step " + str(self.pixelSize) + " -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
+        PL.gdal.merge(glob.glob(self.workspace + self.rasterDir + "/dalles/thin/*.tif"), self.workspace + self.rasterDir + "/dalles/thin/" + "_".join(outName))
         self._clean()
 
     def DCM(self,channel):
@@ -105,7 +105,7 @@ class Deliverable(object):
             listMNT+=[self.rootName+"_MNT_"+"_".join(splitCoords)]
             listMNC+=[self.rootName+"_MNC_"+"_".join(splitCoords)]
         Parallel(n_jobs=50,verbose=2)(delayed(PL.gdal.RasterCalc)("((A-B)<0)*0+((A-B)>=0)*(A-B)",MNCpath+listMNC[i],MNSpath+listMNS[i],MNTpath+listMNT[i]) for i in range(0,len(listMNS)))
-        PL.gdal.Merge(glob.glob(MNCpath+"*.tif"),MNCpath+"_".join(outName))
+        PL.gdal.merge(glob.glob(MNCpath + "*.tif"), MNCpath + "_".join(outName))
 
     def Density(self,channel):
         #not finish
@@ -117,10 +117,10 @@ class Deliverable(object):
         os.mkdir(DTM_path+"density")
         os.mkdir(DTM_path+"density/final")
 
-        PL.utils.Run("lasgrid -i "+DTM_path+"*.laz -step "+str(self.pixelSize)+" -use_tile_bb -counter_16bit -drop_class 10 -cores 50 -epsg 2154 -odir "+DTM_path+"density -odix _density -otif")
+        PL.utils.run("lasgrid -i " + DTM_path + "*.laz -step " + str(self.pixelSize) + " -use_tile_bb -counter_16bit -drop_class 10 -cores 50 -epsg 2154 -odir " + DTM_path + "density -odix _density -otif")
         listMNT=[os.path.split(i)[1] for i in glob.glob(DTM_path+"*00.tif")]
         Parallel(n_jobs=50,verbose=2)(delayed(PL.gdal.HoleFilling)(DTM_path+"density/"+i[0:-4]+"_density.tif",DTM_path+i) for i in listMNT)
-        PL.gdal.Merge(glob.glob(DTM_path+"density/final/*.tif"),DTM_path+"density/final/"+"_".join(outName))
+        PL.gdal.merge(glob.glob(DTM_path + "density/final/*.tif"), DTM_path + "density/final/" + "_".join(outName))
         
         [os.remove(i) for i in glob.glob(DTM_path+"density/*_density.tif")]
         listDir=os.listdir(DTM_path+"density/final")
@@ -141,16 +141,16 @@ class Deliverable(object):
                     "nonground":["5 6","-step "+str(settings[0])+"-random"]}
 
         if "C2" in channel:
-            PL.utils.Run("las2las -i "+self.workspace+"LAS/C2/*.laz -keep_class "+params_dict[mode][0]+" -cores 50 -odir "+self.workspace+self.rasterDir+" -olaz")
+            PL.utils.run("las2las -i " + self.workspace + "LAS/C2/*.laz -keep_class " + params_dict[mode][0] + " -cores 50 -odir " + self.workspace + self.rasterDir + " -olaz")
 
         if "C3" in channel:
-            PL.utils.Run("las2las -i "+self.workspace+"LAS/C3/*.laz -keep_class "+params_dict[mode][0]+" -cores 50 -odir "+self.workspace+self.rasterDir+" -olaz")
+            PL.utils.run("las2las -i " + self.workspace + "LAS/C3/*.laz -keep_class " + params_dict[mode][0] + " -cores 50 -odir " + self.workspace + self.rasterDir + " -olaz")
 
-        PL.utils.Run("lasindex -i "+self.workspace+self.rasterDir+"/*.laz -cores 50")
-        PL.utils.Run("lastile -i "+self.workspace+self.rasterDir+"/*.laz -tile_size 1000 -buffer 25 -cores 45 -odir "+self.workspace+self.rasterDir+"/dalles -o MKP.laz")
-        PL.utils.Run("lasthin -i "+self.workspace+self.rasterDir+"/dalles/*.laz "+params_dict[mode][1]+" -cores 50 -odix _thin -olaz")
-        PL.utils.Run("lastile -i "+self.workspace+self.rasterDir+"/dalles/*_thin.laz -remove_buffer -cores 50 -olaz")
-        PL.utils.Run("lasmerge -i "+self.workspace+self.rasterDir+"/dalles/*_thin_1.laz -o "+self.workspace+"_".join(outName))
+        PL.utils.run("lasindex -i " + self.workspace + self.rasterDir + "/*.laz -cores 50")
+        PL.utils.run("lastile -i " + self.workspace + self.rasterDir + "/*.laz -tile_size 1000 -buffer 25 -cores 45 -odir " + self.workspace + self.rasterDir + "/dalles -o MKP.laz")
+        PL.utils.run("lasthin -i " + self.workspace + self.rasterDir + "/dalles/*.laz " + params_dict[mode][1] + " -cores 50 -odix _thin -olaz")
+        PL.utils.run("lastile -i " + self.workspace + self.rasterDir + "/dalles/*_thin.laz -remove_buffer -cores 50 -olaz")
+        PL.utils.run("lasmerge -i " + self.workspace + self.rasterDir + "/dalles/*_thin_1.laz -o " + self.workspace + "_".join(outName))
         shutil.rmtree(self.workspace+self.rasterDir)
 
         

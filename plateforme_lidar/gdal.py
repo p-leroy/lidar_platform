@@ -29,7 +29,7 @@ def Buildvrt(filepath,nodata=-9999):
     f.close()
     query='gdalbuildvrt -resolution average -r nearest -srcnodata "'+str(nodata)+'" -input_file_list '+filepath[0:-4]+\
            '_buildvrtInputfile.txt '+filepath[0:-4]+'_virtual.vrt'
-    utils.Run(utils.GDAL_QUERY_ROOT+query,True,optShell=True)
+    utils.run(utils.GDAL_QUERY_ROOT + query, True, opt_shell=True)
     os.remove(filepath[0:-4]+"_buildvrtInputfile.txt")
     print("done in %.1f sec" %(time.time()-begin))
 
@@ -49,26 +49,29 @@ def RasterCalc(expression,outFile,fileA,*args):
         letter=chr(66+i)
         query+=' -'+letter+' '+args[i]+' --'+letter+'_band 1'
     query+=" --outfile "+outFile
-    utils.Run("osgeo4w & call "+query,True,optShell=True)
+    utils.run("osgeo4w & call " + query, True, opt_shell=True)
     print("done in %.1f sec" %(time.time()-begin))
 
-def Merge(listFiles,outFile):
+
+def merge(files, out_file):
     """Gdal_merge
 
     Args:
-        listFiles (list): list of input files
-        outFile (str): output file path
+        files (list): list of input files
+        out_file (str): output file path
     """
-    print("[GDAL] raster merge...",end=" ")
-    begin=time.time()
-    f=open(outFile[0:-4]+"_mergeInputFiles.txt",'w')
-    for i in listFiles:
-        f.write(os.path.abspath(i)+"\n")
+    print("[gdal.merge] merge tif files", end=" ")
+    begin = time.time()
+    f = open(out_file[0:-4] + "_mergeInputFiles.txt", 'w')
+    for i in files:
+        f.write(os.path.abspath(i) + "\n")
     f.close()
-    query="gdal_merge -n -9999 -a_nodata -9999 -ot Float32 -of GTiff -o "+outFile+" --optfile "+outFile[0:-4]+"_mergeInputFiles.txt"
-    utils.Run(utils.GDAL_QUERY_ROOT+query,True,optShell=True)
-    os.remove(outFile[0:-4]+"_mergeInputFiles.txt")
-    print("done in %.1f sec" %(time.time()-begin))
+    query = "gdal_merge -n -9999 -a_nodata -9999 -ot Float32 -of GTiff -o " \
+            + out_file + " --optfile " + out_file[0:-4] + "_mergeInputFiles.txt"
+    utils.run(utils.GDAL_QUERY_ROOT + query, True, opt_shell=True)
+    os.remove(out_file[0:-4] + "_mergeInputFiles.txt")
+    print("done in %.1f sec" % (time.time() - begin))
+
 
 def HoleFilling(rasterDensity,rasterDEM):
     """Script to fill holes in density raster
@@ -94,7 +97,7 @@ def HoleFilling(rasterDensity,rasterDEM):
     RasterCalc("(A*9999)-9999",rasterDensity[0:-4]+"_mask3.tif",rasterDensity[0:-4]+"_mask2.tif")
     _exception(rasterDensity[0:-4]+"_mask3.tif")
     
-    Merge([rasterDensity,rasterDensity[0:-4]+"_mask3.tif"],splitname[0]+"/final/"+splitname[1])
+    merge([rasterDensity, rasterDensity[0:-4] + "_mask3.tif"], splitname[0] + "/final/" + splitname[1])
     os.remove(rasterDensity[0:-4]+"_mask1.tif")
     os.remove(rasterDensity[0:-4]+"_mask2.tif")
     os.remove(rasterDensity[0:-4]+"_mask3.tif")

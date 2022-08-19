@@ -7,7 +7,7 @@ import os
 from joblib import Parallel, delayed
 
 def extract_bathy(workspace,filename,filter_V=[0.25,-10],filter_H=250):
-    data,metadata=LT.lastools.ReadLAS(workspace + filename, extra_field=True)
+    data,metadata=LT.lastools.read(workspace + filename, extra_field=True)
     names=metadata['col_names']
     select=np.logical_and(data[:,names.index('c2c_absolute_distances_(z)')]<filter_V[0],
                           data[:,names.index('c2c_absolute_distances_(z)')]>filter_V[1])

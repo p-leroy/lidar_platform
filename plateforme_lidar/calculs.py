@@ -15,7 +15,7 @@ from sklearn.preprocessing import MinMaxScaler
 import shapely
 import shapely.ops
 from shapely.geometry import Polygon
-from joblib import Parallel,delayed
+from joblib import Parallel, delayed
 
 
 def correction3D(pt_app, apparent_depth, pt_shot=[], vectorApp=[], indRefr=1.333):
@@ -91,8 +91,8 @@ class PyC2C(object):
 
         else:
             self.compared_file,self.reference_file=compared,reference
-            self.compared=lastools.ReadLAS(compared, True)
-            self.reference=lastools.ReadLAS(reference)
+            self.compared=lastools.read(compared, True)
+            self.reference=lastools.read(reference)
         
         if dim not in [2,3]:
             raise Exception("dim must be in [2,3]")
@@ -118,7 +118,7 @@ class PyC2C(object):
             extra1=[{"name":"dist_plani","type":'float32',"data":self.dist_plani},
                     {"name":"dist_alti","type":'float32',"data":self.dist_alti}]
             extra=extra1+[{"name":i,"type":getattr(self.compared,i).dtype.name,"data":getattr(self.compared,i)} for i in self.compared.metadata['extraField']]
-            lastools.WriteLAS(self.compared_file[0:-4] + "_C2C.laz", self.compared, extraFields=extra)
+            lastools.WriteLAS(self.compared_file[0:-4] + "_C2C.laz", self.compared, extra_fields=extra)
 
 
 class Alphashape(object):
@@ -186,7 +186,7 @@ def computeDBSCAN(filepath,maxdist=1,minsamples=5):
         mindist (int, optional): Maximum distance between two samples. Defaults to 1.
         minsamples (int, optional): Minimum number of samples in each cluster. Defaults to 5.
     """
-    data=lastools.ReadLAS(filepath)
+    data=lastools.read(filepath)
     model=DBSCAN(eps=maxdist,min_samples=minsamples,algorithm='kd_tree',leaf_size=1000,n_jobs=46).fit(data.XYZ)
     
     if len(np.unique(model.labels_))>1:
@@ -217,8 +217,8 @@ def computeDensity(points,core_points=[],radius=1,p_norm=2):
     return tree.query_ball_point(core_points,r=radius,p=p_norm,return_length=True)
     
 def merge_c2c_fwf(workspace,fichier):
-    tab_fwf,metadata_fwf=lastools.ReadLAS(workspace + fichier, "fwf")
-    tab_extra,metadata_extra=lastools.ReadLAS(workspace + fichier[0:-4] + "_extra.laz", "standard", True)
+    tab_fwf,metadata_fwf=lastools.read(workspace + fichier, "fwf")
+    tab_extra,metadata_extra=lastools.read(workspace + fichier[0:-4] + "_extra.laz", "standard", True)
     names_fwf=metadata_fwf['col_names']
     names_extra=metadata_extra['col_names']
     
@@ -240,7 +240,7 @@ def select_pairs_overlap(filepath, shifts):
     polygons = []
     num_list = []
     for file in files:
-        data = lastools.ReadLAS(file)
+        data = lastools.read(file)
         head, tail = os.path.split(file)
         num_list += [str(tail[shifts[0] : shifts[0] + shifts[1]])]
         pca_pts = PCA(n_components=2, svd_solver='full')
@@ -276,96 +276,120 @@ def select_pairs_overlap(filepath, shifts):
 
     return comparison, overlaps
 
+
 def writeKML(filepath,names,descriptions,coordinates):
-    try: assert(len(names)==len(descriptions) and len(names)==len(coordinates) and len(descriptions)==len(coordinates))
-    except : print("Taille différente pour names, description et coords !!")
-    fichier=simplekml.Kml()
+    try:
+        assert(len(names) == len(descriptions) and len(names) == len(coordinates) and len(descriptions) == len(coordinates))
+    except:
+        print("Different sizes for names, description and coords !!")
+    fichier = simplekml.Kml()
     for i in names:
         fichier.newpoint(name=i,description=descriptions[names.index(i)],coords=[coordinates[names.index(i)]])
     fichier.save(filepath)
     return True
 
-class ReverseTiling_mem(object):
-    def __init__(self,workspace,fileroot,buffer=False,cores=50,write_ptSrcId=True):
+
+class ReverseTiling(object):
+
+    def __init__(self, workspace, rootname, buffer=False, cores=50, pt_src_id_as_line_number=True, id_name={}):
+        # out a written in workspace/line
+        # id_name dictionary: if specified, used to find the name of the output line from the point_source_id
+
         print("[Reverse Tiling memory friendly]")
-        self.workspace=workspace
-        self.cores=cores
-        self.motif=fileroot.split(sep='XX')
-        self.write_ptSrcId=write_ptSrcId
-        
-        print("Remove buffer...",end=" ")
+        self.workspace = workspace
+        self.cores = cores
+        self.motif = rootname.split(sep='XX')
+        self.pt_src_id_as_line_number = pt_src_id_as_line_number
+        self.id_name = id_name
+
+        self.lines_dict = {}
+
         if buffer:
-            self.removeBuffer()
-        print("done !")
-
-        print("Searching flightlines...",end=" ")
-        self.searchingLines()
-        print("done !")
-
-        print("Writing flightlines...",end="")
-        self.writingLines(buffer)
-        print("done !")  
-
-    def _get_ptSrcId(self,filename):
-        f=laspy.read(self.workspace+filename)
-        pts_srcid=np.unique(f.point_source_id)
-        return [filename,pts_srcid]
-
-    def _mergeLines(self,key,maxLen,linenum=0):
-        query="lasmerge -i "
-        for filename in self.linesDict[key]:
-            query+=self.workspace+filename+" "
-
-        if linenum==0:
-            diff=maxLen-len(str(key))
-            numLine=str(key)[0:-2]
+            print("[ReverseTiling_mem] Remove buffer...")
+            self.remove_buffer()
+            print("[ReverseTiling_mem] done")
         else:
-            numLine=str(linenum)
-            diff=maxLen-len(numLine)
+            print('[ReverseTiling_mem] no need to remove buffer')
 
-        name=self.motif[0]+"0"*diff+numLine+self.motif[1]
-        query+="-keep_point_source "+str(key)+" -o "+self.workspace+name
-        utils.Run(query)
+        print("[ReverseTiling_mem] Search flight lines")
+        self.search_lines()
+        print("[ReverseTiling_mem] done")
 
-    def removeBuffer(self):
-        os.mkdir(self.workspace+"new_tile")
-        query="lastile -i "+self.workspace+"*.laz -remove_buffer -cores "+str(self.cores)+" -odir "+self.workspace+"new_tile -olaz"
-        utils.Run(query)
-        self.workspace+="new_tile/"
+        print("[ReverseTiling_mem] Write flight lines")
+        self.write_lines(buffer)
+        print("[ReverseTiling_mem] done")
 
-    def searchingLines(self):
-        listNames=[os.path.split(i)[1] for i in glob.glob(self.workspace+"*.laz")]
-        result=Parallel(n_jobs=self.cores,verbose=0)(delayed(self._get_ptSrcId)(i) for i in listNames)
-        self.linesDict={}
+    def _get_pt_src_id(self, filename):
+        f = laspy.read(filename)
+        pts_src_id = np.unique(f.point_source_id)
+        head, tail = os.path.split(filename)
+        print(f'[_get_pt_src_id] {tail}')
+        return [tail, pts_src_id]
+
+    def _merge_lines(self, src_id, max_len, line_num=0):
+        query = "lasmerge -i "
+        for filename in self.lines_dict[src_id]:
+            query += os.path.join(self.workspace,  filename) + " "
+
+        if line_num == 0:
+            diff = max_len - len(str(src_id))
+            num_line = str(src_id)[0:-2]
+        else:
+            num_line = str(line_num)
+            diff = max_len - len(num_line)
+
+        if line_num != -1:
+            name = self.motif[0] + "0" * diff + num_line + self.motif[1]
+        else:
+            name = self.id_name[src_id]
+        odir = os.path.join(self.workspace, 'lines')
+        os.makedirs(odir, exist_ok=True)
+        o = os.path.join(odir, name)
+        query += "-keep_point_source " + str(src_id) + " -o " + o
+        utils.run(query)
+        print(f'id {src_id}, name {o}')
+
+    def remove_buffer(self):
+        os.mkdir(self.workspace + "new_tile")
+        query = "lastile -i " + self.workspace + "*.laz -remove_buffer -cores " + str(self.cores) + " -odir " + self.workspace + "new_tile -olaz"
+        utils.run(query)
+        self.workspace += "new_tile/"
+
+    def search_lines(self):
+        tiles = glob.glob(os.path.join(self.workspace, "*.laz"))
+        result = Parallel(n_jobs=self.cores, verbose=0)(
+            delayed(self._get_pt_src_id)(line)
+            for line in tiles)
+        self.lines_dict = {}
         for i in result:
             for c in i[1]:
-                if c not in self.linesDict.keys():
-                    self.linesDict[c]=[i[0]]
+                if c not in self.lines_dict.keys():
+                    self.lines_dict[c] = [i[0]]
                 else:
-                    self.linesDict[c]+=[i[0]]
+                    self.lines_dict[c] += [i[0]]
 
-    def writingLines(self,buffer):
-        maxPtSrcId=len(str(max(self.linesDict.keys())))
-        maxNumberLines=len(str(len(self.linesDict.keys())+1))
-        if self.write_ptSrcId:
-            for i in self.linesDict.keys():
-                print(i)
-                self._mergeLines(i,maxPtSrcId)
+    def write_lines(self, buffer):
+        max_pt_src_id = len(str(max(self.lines_dict.keys())))
+        max_number_lines = len(str(len(self.lines_dict.keys()) + 1))
+        if self.pt_src_id_as_line_number:
+            for i in self.lines_dict.keys():
+                self._merge_lines(i, max_pt_src_id)
         else:
-            num=1
-            list_ptsrcid=list(self.linesDict.keys())
-            list_ptsrcid.sort()
-            for i in list_ptsrcid:
-                print(i)
-                self._mergeLines(i,maxNumberLines,num)
-                num+=1
+            num = 1
+            list_pt_src_id = list(self.lines_dict.keys())
+            list_pt_src_id.sort()
+            for src_id in list_pt_src_id:
+                if self.id_name:
+                    self._merge_lines(src_id, max_number_lines, -1)
+                else:
+                    self._merge_lines(src_id, max_number_lines, num)
+                num += 1
 
         if buffer:
-            listNames=[os.path.split(i)[1] for i in glob.glob(self.workspace+self.motif[0])]
-            for filename in listNames:
-                os.rename(self.workspace+filename,self.workspace[0:-9]+filename)
-
-            for filepath in glob.glob(self.workspace+"*_1.laz"):
+            list_names = [os.path.split(i)[1] for i in glob.glob(self.workspace + self.motif[0])]
+            for filename in list_names:
+                os.rename(self.workspace + filename, self.workspace[0:-9] + filename)
+            for filepath in glob.glob(self.workspace + "*_1.laz"):
                 os.remove(filepath)
             os.rmdir(self.workspace)
 

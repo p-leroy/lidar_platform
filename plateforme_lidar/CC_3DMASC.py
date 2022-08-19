@@ -31,7 +31,7 @@ def compute_features(query0_params,workspace,params,training_file):
         compt+=1
 
     query=query[0:-1]+'" -save_clouds'
-    utils.Run(query,sleeping=2)
+    utils.run(query, sleeping=2)
     
     today=utils.DATE()
     if query0_params[1]=="SBF":
