@@ -104,7 +104,7 @@ class Deliverable(object):
             splitCoords=i.split(sep="_")[-2::]
             listMNT+=[self.rootName+"_MNT_"+"_".join(splitCoords)]
             listMNC+=[self.rootName+"_MNC_"+"_".join(splitCoords)]
-        Parallel(n_jobs=50,verbose=2)(delayed(PL.gdal.RasterCalc)("((A-B)<0)*0+((A-B)>=0)*(A-B)",MNCpath+listMNC[i],MNSpath+listMNS[i],MNTpath+listMNT[i]) for i in range(0,len(listMNS)))
+        Parallel(n_jobs=50,verbose=2)(delayed(PL.gdal.raster_calc)("((A-B)<0)*0+((A-B)>=0)*(A-B)", MNCpath + listMNC[i], MNSpath + listMNS[i], MNTpath + listMNT[i]) for i in range(0, len(listMNS)))
         PL.gdal.merge(glob.glob(MNCpath + "*.tif"), MNCpath + "_".join(outName))
 
     def Density(self,channel):
@@ -119,7 +119,7 @@ class Deliverable(object):
 
         PL.utils.run("lasgrid -i " + DTM_path + "*.laz -step " + str(self.pixelSize) + " -use_tile_bb -counter_16bit -drop_class 10 -cores 50 -epsg 2154 -odir " + DTM_path + "density -odix _density -otif")
         listMNT=[os.path.split(i)[1] for i in glob.glob(DTM_path+"*00.tif")]
-        Parallel(n_jobs=50,verbose=2)(delayed(PL.gdal.HoleFilling)(DTM_path+"density/"+i[0:-4]+"_density.tif",DTM_path+i) for i in listMNT)
+        Parallel(n_jobs=50,verbose=2)(delayed(PL.gdal.hole_filling)(DTM_path + "density/" + i[0:-4] + "_density.tif", DTM_path + i) for i in listMNT)
         PL.gdal.merge(glob.glob(DTM_path + "density/final/*.tif"), DTM_path + "density/final/" + "_".join(outName))
         
         [os.remove(i) for i in glob.glob(DTM_path+"density/*_density.tif")]

@@ -72,9 +72,9 @@ if hostname == 'LIDAR-SERVER':
 else:
     QUERY_0 = {"standard": 'C:\Program Files\CloudCompare\CloudCompare.exe -silent',
                "standard_view": 'C:\Program Files\CloudCompare\CloudCompare.exe',
-               "PoissonRecon": "G:/RENNES1/BaptisteFeldmann/AdaptiveSolvers/PoissonRecon.exe",
-               "cc_ple": "G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare.exe -silent",
-               "cc_ple_view": "G:/RENNES1/BaptisteFeldmann/CloudCompare_PL_01042022/CloudCompare.exe"
+               "PoissonRecon": 'C:\opt\AdaptiveSolvers.x64\PoissonRecon.exe',
+               "cc_ple": 'C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe -silent',
+               "cc_ple_view": 'C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe'
                }
 
 EXPORT_FMT = {"LAS" : " -c_export_fmt LAS -ext laz -auto_save OFF",
