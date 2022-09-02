@@ -12,17 +12,17 @@ from . import utils
 
 def _exception(filepath):
     if not os.path.exists(filepath):
-        sys.exit(os.path.split(filepath)[1]+" doesn't exists !")
+        sys.exit(os.path.split(filepath)[1] + " doesn't exists !")
         
-def Buildvrt(filepath,nodata=-9999):
+def build_vrt(filepath, nodata=-9999):
     """Gdal build VRT
 
     Args:
         filepath (str): path to raster file
         nodata (int, optional): if you want to modify No data value. Defaults to -9999.
     """
-    print("[GDAL] build VRT...",end=" ")
-    begin=time.time()
+    print("[GDAL] build VRT...", end=" ")
+    begin = time.time()
     #splitname=os.path.split(filepath)
     f=open(filepath[0:-4]+"_buildvrtInputfile.txt",'w')
     f.write(filepath)
@@ -33,7 +33,8 @@ def Buildvrt(filepath,nodata=-9999):
     os.remove(filepath[0:-4]+"_buildvrtInputfile.txt")
     print("done in %.1f sec" %(time.time()-begin))
 
-def RasterCalc(expression,outFile,fileA,*args):
+
+def raster_calc(expression, outFile, fileA, *args):
     """Gdal_calc
 
     Args:
@@ -73,34 +74,33 @@ def merge(files, out_file):
     print("done in %.1f sec" % (time.time() - begin))
 
 
-def HoleFilling(rasterDensity,rasterDEM):
+def hole_filling(raster_density, raster_dem):
     """Script to fill holes in density raster
     fill pixel with 0 value when pixels are in the area of DEM
 
     Args:
-        rasterDensity (str): density raster path
-        rasterDEM (str): DEM raster path
+        raster_density (str): density raster path
+        raster_dem (str): DEM raster path
     """
-    splitname=os.path.split(rasterDensity)
-    Buildvrt(rasterDensity,-99)
-    _exception(rasterDensity[0:-4]+"_virtual.vrt")
+    splitname=os.path.split(raster_density)
+    build_vrt(raster_density, -99)
+    _exception(raster_density[0:-4] + "_virtual.vrt")
     
-    RasterCalc('A<0',rasterDensity[0:-4]+"_mask1.tif",rasterDensity[0:-4]+"_virtual.vrt")
-    _exception(rasterDensity[0:-4]+"_mask1.tif")
+    raster_calc('A<0', raster_density[0:-4] + "_mask1.tif", raster_density[0:-4] + "_virtual.vrt")
+    _exception(raster_density[0:-4] + "_mask1.tif")
     
-    RasterCalc("A>-9999",rasterDEM[0:-4]+"_mask1.tif",rasterDEM)
-    _exception(rasterDEM[0:-4]+"_mask1.tif")
+    raster_calc("A>-9999", raster_dem[0:-4] + "_mask1.tif", raster_dem)
+    _exception(raster_dem[0:-4] + "_mask1.tif")
     
-    RasterCalc("logical_and(A,B)",rasterDensity[0:-4]+"_mask2.tif",rasterDensity[0:-4]+"_mask1.tif",rasterDEM[0:-4]+"_mask1.tif")
-    _exception(rasterDensity[0:-4]+"_mask2.tif")
+    raster_calc("logical_and(A,B)", raster_density[0:-4] + "_mask2.tif", raster_density[0:-4] + "_mask1.tif", raster_dem[0:-4] + "_mask1.tif")
+    _exception(raster_density[0:-4] + "_mask2.tif")
     
-    RasterCalc("(A*9999)-9999",rasterDensity[0:-4]+"_mask3.tif",rasterDensity[0:-4]+"_mask2.tif")
-    _exception(rasterDensity[0:-4]+"_mask3.tif")
+    raster_calc("(A*9999)-9999", raster_density[0:-4] + "_mask3.tif", raster_density[0:-4] + "_mask2.tif")
+    _exception(raster_density[0:-4] + "_mask3.tif")
     
-    merge([rasterDensity, rasterDensity[0:-4] + "_mask3.tif"], splitname[0] + "/final/" + splitname[1])
-    os.remove(rasterDensity[0:-4]+"_mask1.tif")
-    os.remove(rasterDensity[0:-4]+"_mask2.tif")
-    os.remove(rasterDensity[0:-4]+"_mask3.tif")
-    os.remove(rasterDensity[0:-4]+"_virtual.vrt")
-    os.remove(rasterDEM[0:-4]+"_mask1.tif")
-
+    merge([raster_density, raster_density[0:-4] + "_mask3.tif"], splitname[0] + "/final/" + splitname[1])
+    os.remove(raster_density[0:-4] + "_mask1.tif")
+    os.remove(raster_density[0:-4] + "_mask2.tif")
+    os.remove(raster_density[0:-4] + "_mask3.tif")
+    os.remove(raster_density[0:-4] + "_virtual.vrt")
+    os.remove(raster_dem[0:-4] + "_mask1.tif")
