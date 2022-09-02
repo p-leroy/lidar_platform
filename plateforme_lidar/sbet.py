@@ -70,9 +70,9 @@ class SBET(object):
     
     def _compute_undulation(self, geoid_grid):
         # npzfile=np.load("G:/RENNES1/BaptisteFeldmann/Vertical_datum/"+geoidgrid+".npz")
-        npzfile = np.load(utils.VERTICAL_DATUM_DIR + geoid_grid + ".npz")
-        grille = npzfile[npzfile.files[0]]
-        undulation = griddata(grille[:,0:2],grille[:,2],(self.longitude,self.latitude),method='linear')
+        npz = np.load(utils.VERTICAL_DATUM_DIR + geoid_grid + ".npz")
+        grille = npz[npz.files[0]]
+        undulation = griddata(grille[:, 0: 2],grille[:, 2], (self.longitude, self.latitude), method='linear')
         return undulation
 
     def h2he(self, geoid_grid):

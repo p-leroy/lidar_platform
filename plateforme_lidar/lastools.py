@@ -37,6 +37,7 @@ def filter_las(obj, select):
 
     for feature in features:
         setattr(obj_new, feature, getattr(obj, feature)[select])
+
     return obj_new
 
 
@@ -210,7 +211,6 @@ class WriteLAS(object):
         print("[Writing LAS file]..", end="")
         self._start = time.time()
         self.output_data = data
-        del data
         self.LAS_fmt = utils.LASFormat()
         # new_header=self.createHeader("1.3",format_id)
         # pointFormat=laspy.PointFormat(format_id)
@@ -218,10 +218,11 @@ class WriteLAS(object):
         #     pointFormat.add_extra_dimension(laspy.ExtraBytesParams(name=extraField["name"],type=extraField["type"],description="Extras_fields"))
         # new_points=laspy.PackedPointRecord(points,point_format=pointFormat)
 
-        self.point_record = laspy.LasData(header=self.create_header(
-            "1.3", format_id),
-            points = laspy.ScaleAwarePointRecord.zeros(len(self.output_data),
-                                                       header=self.create_header("1.3", format_id)))
+        self.point_record = laspy.LasData(header=self.create_header("1.3", format_id),
+                                          points=laspy.ScaleAwarePointRecord.zeros(
+                                              len(self.output_data),
+                                              header=self.create_header("1.3", format_id))
+                                          )
 
         for extraField in extra_fields:
             name_ = extraField[0][0]

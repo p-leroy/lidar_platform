@@ -1,8 +1,10 @@
 # coding: utf-8
-# Baptiste Feldmann
-# Liste de fonctions utilisant CloudCompare (CC)
+# Baptiste Feldmann, Paul Leroy
+# CloudCompare calls
+
 from . import utils
-import glob, os
+import glob
+import os
 
 from joblib import Parallel, delayed
 
@@ -13,7 +15,8 @@ def c2c_dist(query, xyz=True, octree_lvl=0):
     Args:
         query (str): CC query
         xyz (bool, optional): save X,Y and Z distance. Defaults to True.
-        octree_lvl (int, optional): force CC to a specific octree level, useful when extent of two clouds are very different,
+        octree_lvl (int, optional): force CC to a specific octree level,
+        useful when extent of two clouds are very different,
             0 means that you let CC decide. Defaults to 0.
     """
     if xyz:
@@ -21,7 +24,7 @@ def c2c_dist(query, xyz=True, octree_lvl=0):
     else:
         opt_xyz = ""
         
-    if octree_lvl ==0:
+    if octree_lvl == 0:
         opt_octree = ""
     else:
         opt_octree = " -octree_level " + str(octree_lvl)
@@ -38,11 +41,11 @@ def c2c_files(params, files, filepath_b, octree_lvl=9, nbr_job=5):
     """Run C2C distance between several pointClouds and a specific pointCloud
 
     Args:
-        params (list): CC parameter [QUERY_0,Export_fmt,shiftname]
-        workspace (str): directory path (ended by '/')
+        params (list): CC parameter [QUERY_0, Export_fmt, global_shift]
         files (list): list of files in workspace
         filepath_b (str): file to which the distance is computed
-        octree_lvl (int, optional): force CC to a specific octree level, useful when extent of two clouds are very different,
+        octree_lvl (int, optional): force CC to a specific octree level,
+        useful when extent of two clouds are very different,
             0 means that you let CC decide. Defaults to 9.
         nbr_job (int, optional): The number of jobs to run in parallel. Defaults to 5.
     """
@@ -73,88 +76,95 @@ def c2c_files(params, files, filepath_b, octree_lvl=9, nbr_job=5):
     print("[c2c_files] done")
 
 
-def c2m_dist(commande,max_dist=0,octree_lvl=0,cores=0):
+def c2m_dist(command, max_dist=0, octree_lvl=0, cores=0):
     """
     Cloud-to-Mesh distances between the first cloud (compared) and the first loaded mesh (reference).
     """
-    opt=""
-    if max_dist>0:
-        opt+=" -max_dist "+str(max_dist)
+    opt = ""
+    if max_dist > 0:
+        opt += " -max_dist " + str(max_dist)
     
-    if octree_lvl>0:
-        opt+=" -octree_level "+str(octree_lvl)
+    if octree_lvl > 0:
+        opt += " -octree_level " + str(octree_lvl)
 
-    if cores>0:
-        opt+=" -max_tcount "+str(cores)
+    if cores > 0:
+        opt += " -max_tcount " + str(cores)
 
-    utils.run(commande + " -C2M_DIST" + opt + " -save_clouds")
+    utils.run(command + " -C2M_DIST" + opt + " -save_clouds")
 
 
-def lastools_clip_tile(filepath, bbox):
-    # bbox = [minX, minY, size]
-    query = "las2las -i " + filepath + " -keep_tile " + " ".join(bbox) + " -odix _1 -olaz"
+def las2las_keep_tile(filepath, lowerleft_x_lowerleft_y_size):
+    # lowerleft_x_lowerleft_y_size = [lowerleft_x, lowerleft_y, size]
+    # keeps a size by size tile with a lower left coordinate of x=lowerleft_x and y=lowerleft and stores as a
+    # compressed LAZ file *_1.laz (an added '_1' in the name).
+    query = "las2las -i " + filepath + " -keep_tile " + " ".join(lowerleft_x_lowerleft_y_size) + " -odix _1 -olaz"
     utils.run_bis(query)
 
 
-def clip_xy(filepath,bbox):
-    # bbox = [minX, minY, maxX, maxY]
-    query = "las2las -i " + filepath + " -keep_xy " + " ".join(bbox) + " -odix _1 -olaz"
+def las2las_clip_xy(filepath, min_x_min_y_max_x_max_y):
+    # min_x_min_y_max_x_max_y = [min_x, min_y, max_x, max_y]
+    query = "las2las -i " + filepath + " -keep_xy " + " ".join(min_x_min_y_max_x_max_y) + " -odix _1 -olaz"
     utils.run_bis(query)
 
 
-def compute_normals(filepath,params):
+def compute_normals(filepath, params):
     """Compute normal components and save it in PLY file format
 
     Args:
         filepath (str): path to input LAS file
-        params (list): CC parameters [shiftname,normalRadius,model (LS / TRI / QUADRIC)]
+        params (list): CC parameters [shiftname, normalRadius,model (LS / TRI / QUADRIC)]
     """    
-    query=open_file(["standard","PLY_cloud",params["shiftname"]],filepath)
-    utils.run_bis(query + " -octree_normals " + params["normal_radius"] + " -orient PLUS_Z -model " + params["model"] + " -save_clouds")
+    query = open_file(["standard", "PLY_cloud", params["shiftname"]], filepath)
+    utils.run_bis(query +
+                  " -octree_normals " + params["normal_radius"] +
+                  " -orient PLUS_Z -model " + params["model"] +
+                  " -save_clouds")
 
 
-def compute_normals_dip(filepath,CC_param,radius,model="LS"):
+def compute_normals_dip(filepath, cc_param, radius, model="LS"):
     """Compute normals and save 'dipDegree' attribute in LAS file
 
     Args:
         filepath (str): path ot input LAS file
-        CC_param (list): CC parameters [QUERY_0,Export_fmt,shiftname]
+        cc_param (list): CC parameters [QUERY_0,Export_fmt,shiftname]
         radius (float): 
         model (str, optional): local model type LS / TRI / QUADRIC. Defaults to "LS".
     """
-    query=open_file(CC_param,filepath)
-    utils.run_bis(query + " -octree_normals " + str(radius) + " -orient PLUS_Z -model " + model + " -normals_to_dip -save_clouds")
+    query = open_file(cc_param, filepath)
+    utils.run_bis(query +
+                  " -octree_normals " + str(radius) +
+                  " -orient PLUS_Z -model " + model +
+                  " -normals_to_dip -save_clouds")
 
 
-def compute_feature(query,features_dict):
+def compute_feature(query, features_dict):
     for i in features_dict.keys():
-        query+=" -feature "+i+" "+str(features_dict[i])
+        query += " -feature " + i + " " + str(features_dict[i])
     
     utils.run_bis(query + " -save_clouds")
 
 
-def create_raster(commande,grid_size,interp=False):
+def create_raster(command, grid_size, interp=False):
     """
-    Commande CC pour le calcul de grille
+    CloudCompare command for rasterization
     """
-    commande+=" -rasterize -grid_step "+str(grid_size)+\
-                " -vert_dir 2 -proj AVG -SF_proj AVG"
+    command += " -rasterize -grid_step " + str(grid_size) + " -vert_dir 2 -proj AVG -SF_proj AVG"
     if interp:
-        commande+=" -empty_fill INTERP"
+        command += " -empty_fill INTERP"
 
-    commande+=" -output_raster_z -save_clouds"
-    utils.run(commande)
+    command += " -output_raster_z -save_clouds"
+    utils.run(command)
 
 
-def densite(commande,radius):
+def density(command, radius):
     """
-    Commande CC pour le calcul de densité
+    CloudCompare command for density computation
     """
-    commande+=" -density "+str(radius)+" -type KNN -save_clouds"
-    utils.run(commande)
+    command += " -density " + str(radius) + " -type KNN -save_clouds"
+    utils.run(command)
 
 
-def last_file(filepath, new_name=None):
+def last_file(filepath, new_name=None, verbose=False):
     """return and modify last file created according to a given pattern
 
     Args:
@@ -163,6 +173,7 @@ def last_file(filepath, new_name=None):
             if new_name=str : rename searched file and return new path
             otherwise : return path of searched file.
             Defaults to None.
+        verbose
 
     Returns:
         str: path of searched file
@@ -177,25 +188,27 @@ def last_file(filepath, new_name=None):
         dst = os.path.join(head, new_name)
         if os.path.exists(dst):
             os.remove(dst)
-            print(f'remove file before renaming: {dst}')
+            if verbose:
+                print(f'remove file before renaming: {dst}')
         os.rename(src, dst)
-        print(f'rename {src} => {dst}')
+        if verbose:
+            print(f'rename {src} => {dst}')
         return dst
     else:
         return src
 
 
-def merge_clouds(commande):
+def merge_clouds(command):
     """
-    Commande CC pour la fusion de plusieurs fichiers
+    CloudCompare command for merging clouds
     """
-    if "-fwf_o" in commande:
-        opt1="-fwf_save_clouds"
+    if "-fwf_o" in command:
+        opt1 = "-fwf_save_clouds"
     else:
-        opt1="-save_clouds"
+        opt1 = "-save_clouds"
     
-    commande+=" -merge_clouds "+opt1
-    utils.run(commande)
+    command += " -merge_clouds " + opt1
+    utils.run(command)
 
 
 def m3c2(query, params_file):
@@ -242,76 +255,83 @@ def open_file(params, filepath, fwf=False):
     return query
 
 
-def ortho_wavefm(query,param_file):
+def ortho_wfm(query, param_file):
     """Run ortho-waveform plugin
 
     Args:
         query (str): CC query
         param_file (str): ortho-waveform plugin textfile parameter
     """
-    query+=" -fwf_ortho "+param_file+" -fwf_save_clouds"
+    query += " -fwf_ortho "+param_file+" -fwf_save_clouds"
     utils.run(query)
 
-def peaks(query,param_file):
+
+def wfw_peaks(query, param_file):
     """Run ortho-waveform plugin and find peaks
 
     Args:
         query (str): 
         param_file (str): ortho-waveform plugin find peaks textfile parameter
     """
-    query+=" -fwf_peaks "+param_file+" -fwf_save_clouds"
+    query += " -fwf_peaks " + param_file + " -fwf_save_clouds"
     utils.run(query)
 
-def pente(commande,indexSF):
-    """
-    Commande CC pour le calcul de pente (gradient de la composante Z)
-    """
-    commande+=" -set_active_sf "+str(indexSF)+" -SF_grad TRUE -save_clouds"
-    utils.run(commande)
 
-def poisson(filename,params):
+def sf_grad(command, sf_index):
+    """
+    CloudCompare command for the calculation of the gradient of a scalar field
+    """
+    command += " -set_active_sf " + str(sf_index) + " -SF_grad TRUE -save_clouds"
+    utils.run(command)
+
+
+def poisson(filename, params):
     """Run Poisson Surface Reconstruction
-    See docs http://www.cs.jhu.edu/~misha/Code/PoissonRecon/
+    See docs https://www.cs.jhu.edu/~misha/Code/PoissonRecon/
     
     Args:
         filename (str): path ot input PLY file
         params (dict): parameter dictionary
             ex: {"bType":"Neumann","degree":"2",...}
     """
-    query=utils.QUERY_0['PoissonRecon']+" --in "+filename+" --out "+filename[0:-4]+"_mesh.ply"
+    query = utils.QUERY_0['PoissonRecon'] + " --in " + filename + " --out " + filename[0:-4] + "_mesh.ply"
     for i in params.keys():
-        query+=" --"+i+int(bool(len(params[i])))*" "
+        query += " --" + i + int(bool(len(params[i]))) * " "
         if i in utils.POISSON_RECON_PARAMETERS.keys():
-            query+=utils.POISSON_RECON_PARAMETERS[i][params[i]]
+            query += utils.POISSON_RECON_PARAMETERS[i][params[i]]
         else:
-            query+=params[i]
+            query += params[i]
     utils.run(query)
 
-def rasterize(commande,grid_size,proj,empty):
-    """
-    Commande CC pour le calcul de grille
-    """
-    commande+=" -rasterize -grid_step "+str(grid_size)+" -vert_dir 2 -proj "\
-               +proj+" -SF_proj "+proj
-    if empty=="empty":
-        commande+=" -output_cloud -save_clouds"
-    else :
-        commande+=" -empty_fill "+empty+\
-                   " -output_cloud -save_clouds"
-    utils.run(commande)
 
-def sample_mesh(query,density):
-    query+=" -sample_mesh DENSITY "+str(density)+" -save_clouds"
+def rasterize(command, grid_size, proj, empty):
+    """
+    CloudCompare command for rasterization
+    """
+    command += " -rasterize -grid_step " + str(grid_size) + " -vert_dir 2 -proj " \
+               + proj + " -SF_proj " + proj
+    if empty == "empty":
+        command += " -output_cloud -save_clouds"
+    else:
+        command += " -empty_fill " + empty + \
+                   " -output_cloud -save_clouds"
+    utils.run(command)
+
+
+def sample_mesh(query, density):
+    query += f" -sample_mesh DENSITY {density} -save_clouds"
     utils.run_bis(query)
 
-def seuillage(commande,indexSF,mini,maxi):
-    """
-    Commande CC pour le seuillage d'un Scalar Field
-    """
-    commande+=" -set_active_sf "+str(indexSF)+" -filter_sf "\
-               +str(mini)+" "+str(maxi)+" -save_clouds"
-    utils.run(commande)
 
-def subsampling(commande,min_dist):
-    commande+=" -SS SPATIAL "+str(min_dist)+" -save_clouds"
-    utils.run(commande)
+def filter_sf(command, sf_index, mini, maxi):
+    """
+    CC command for SF filtering
+    """
+    command += " -set_active_sf " + str(sf_index) + " -filter_sf " \
+               + str(mini) + " " + str(maxi) + " -save_clouds"
+    utils.run(command)
+
+
+def subsampling(command, min_dist):
+    command += " -SS SPATIAL " + str(min_dist) + " -save_clouds"
+    utils.run(command)

@@ -20,7 +20,7 @@ def interpolation(workspace,filename,surface_water,params):
     # os.remove(workspace+filename[0:-4]+"_normals_mesh.ply")
 
     bbox=np.array(filename[0:-4].split(sep="_")[params['bbox']:params['bbox']+2]+[params['tile_size']],dtype=str)
-    PL.cloudcompare.lastools_clip_tile(workspace + filename[0:-4] + "_sample_mesh.laz", bbox)
+    PL.cloudcompare.las2las_keep_tile(workspace + filename[0:-4] + "_sample_mesh.laz", bbox)
     
     query=PL.cloudcompare.open_file(params['CC'],[workspace+filename[0:-4]+"_sample_mesh_1.laz",workspace+surface_water])
     PL.cloudcompare.c2c_dist(query,True,10)
@@ -67,7 +67,7 @@ def interp_step2(workspace,filename,surface_water,params):
     PL.cloudcompare.poisson(workspace+filename[0:-4]+"_normals.ply",params['interpolation'])
     PL.cloudcompare.sample_mesh(PL.cloudcompare.open_file(params['CC'],workspace+filename[0:-4]+"_normals_mesh.ply"),5)
     PL.cloudcompare.last_file(workspace+filename[0:-4]+"_normals_mesh_SAMPLED_POINTS_20*.laz",filename[0:-4]+"_sample_mesh.laz")
-    PL.cloudcompare.clip_xy(workspace+filename[0:-4]+"_sample_mesh.laz",params['window'])
+    PL.cloudcompare.las2las_clip_xy(workspace + filename[0:-4] + "_sample_mesh.laz", params['window'])
     os.remove(workspace+filename[0:-4]+"_normals_mesh.ply")
     os.remove(workspace+filename[0:-4]+"_normals.ply")
     os.remove(workspace+filename[0:-4]+"_sample_mesh.laz")

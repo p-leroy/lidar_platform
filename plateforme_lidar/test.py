@@ -6,6 +6,7 @@ from . import utils
 logger = logging.getLogger(__name__)
 logging.basicConfig()
 
+
 class check(object):
     def __init__(self):
         self.check_utils()
@@ -28,5 +29,3 @@ class check(object):
 
         if not os.path.isdir(utils.VERTICAL_DATUM_DIR):
             self._utils_exception(utils.VERTICAL_DATUM_DIR)
-
-    
