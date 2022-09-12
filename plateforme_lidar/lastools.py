@@ -341,7 +341,7 @@ def read(filepath, extra_fields=False, parallel=True):
 
     Args:
         filepath (str): input LAS file (extensions: .las or .laz)
-        extra_field (bool, optional): True if you want to load additional fields. Defaults to False.
+        extra_fields (bool, optional): True if you want to load additional fields. Defaults to False.
         parallel
         backend (str, optional): 'multi' for parallel backend, 'single' for single-thread mode, 'laszip' to use laszip for LAS fwf
 

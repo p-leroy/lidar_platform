@@ -1,7 +1,13 @@
 # coding: utf-8
 # Baptiste Feldmann
 
-import datetime, os, re, socket, subprocess, struct, time
+import datetime
+import os
+import re
+import socket
+import subprocess
+import struct
+import time
 from subprocess import Popen, PIPE, STDOUT
 
 from numpy import loadtxt

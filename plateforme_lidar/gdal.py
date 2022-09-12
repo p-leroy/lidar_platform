@@ -7,15 +7,21 @@ See more : https://trac.osgeo.org/osgeo4w/
 Because of complexity to install (and run) properly gdal in python environment, this script use OSGEO4W to interects with by command-line
 """
 
-import time,os,sys
+import time
+import os
+import subprocess
+import sys
+
 from . import utils
+
 
 def _exception(filepath):
     if not os.path.exists(filepath):
         sys.exit(os.path.split(filepath)[1] + " doesn't exists !")
-        
+
+
 def build_vrt(filepath, nodata=-9999):
-    """Gdal build VRT
+    """Gdal build VRT, VRT = GDAL Virtual Format
 
     Args:
         filepath (str): path to raster file
@@ -23,35 +29,65 @@ def build_vrt(filepath, nodata=-9999):
     """
     print("[GDAL] build VRT...", end=" ")
     begin = time.time()
-    #splitname=os.path.split(filepath)
-    f=open(filepath[0:-4]+"_buildvrtInputfile.txt",'w')
+    buildvrt_input = filepath[0:-4] + "_buildvrtInputfile.txt"
+    f = open(buildvrt_input, 'w')
     f.write(filepath)
     f.close()
-    query='gdalbuildvrt -resolution average -r nearest -srcnodata "'+str(nodata)+'" -input_file_list '+filepath[0:-4]+\
-           '_buildvrtInputfile.txt '+filepath[0:-4]+'_virtual.vrt'
-    utils.run(utils.GDAL_QUERY_ROOT + query, True, opt_shell=True)
-    os.remove(filepath[0:-4]+"_buildvrtInputfile.txt")
-    print("done in %.1f sec" %(time.time()-begin))
+    out = filepath[0:-4] + '_virtual.vrt'
+    # gdalbuildvrt builds a VRT (Virtual) Dataset from a list of datasets.
+    # In case the resolution of all input files is not the same,
+    # -resolution
+    # enables the user to control the way the output resolution is computed.
+    # average is the default and will compute an average of pixel dimensions within the set of source rasters.
+    # -r
+    # Select a resampling algorithm. {nearest (default),bilinear,cubic,cubicspline,lanczos,average,mode}
+
+    # query = 'gdalbuildvrt -resolution average -r nearest -srcnodata "' + str(nodata) + \
+    #         '" -input_file_list ' + buildvrt_input + ' ' + out
+    # utils.run(utils.GDAL_QUERY_ROOT + query, True, opt_shell=True)
+
+    other_query = "C:\\Users\\pleroy\\miniconda3\\Library\\bin\\gdalbuildvrt -resolution average -r nearest" + \
+                  ' -srcnodata "' + str(nodata) + '" -input_file_list ' + buildvrt_input + ' ' + out
+    os.system(other_query)
+
+    os.remove(buildvrt_input)
+    print("done in %.1f sec" % (time.time() - begin))
+
+    return out
 
 
-def raster_calc(expression, outFile, fileA, *args):
+def raster_calc(expression, out_file, file_a, *args):
     """Gdal_calc
 
     Args:
         expression (str): ex:'A+B'
-        outFile (str): output file path
-        fileA (str): input file path A
+        out_file (str): output file path
+        file_a (str): input file path A
         *args (str): extra input path (B,C,D,...)
     """
-    print("[GDAL] raster calc...",end=" ")
-    begin=time.time()
-    query='gdal_calc --calc "'+expression+'" --format GTiff --type Float32 --NoDataValue -9999.0 -A '+fileA+' --A_band 1'
-    for i in range(0,len(args)):
-        letter=chr(66+i)
-        query+=' -'+letter+' '+args[i]+' --'+letter+'_band 1'
-    query+=" --outfile "+outFile
-    utils.run("osgeo4w & call " + query, True, opt_shell=True)
-    print("done in %.1f sec" %(time.time()-begin))
+    print("[GDAL] raster calc...", end=" ")
+    begin = time.time()
+    # NO QUOTES AROUND THE CALC OPTION!!! AT LEAST IN JUPYTER NOTEBOOKS
+    query = 'osgeo4w gdal_calc --format=GTiff --type=Float32 --NoDataValue=-9999.0 -A ' + \
+            file_a + ' --A_band=1'
+    for i in range(0, len(args)):
+        letter = chr(66 + i)
+        query += ' -' + letter + ' ' + args[i] + ' --' + letter + '_band=1'
+    query += " --outfile " + out_file + ' --calc=' + expression
+    # utils.run(query, True, opt_shell=True)
+    #os.system(query)
+    other_query = 'C:\\Users\\pleroy\\miniconda3\\Scripts\\gdal_calc.py' + \
+                  ' --calc "' + expression + '"' + \
+                  ' --format GTiff --type Float32 --NoDataValue -9999.0 -A ' + \
+                  file_a + ' --A_band 1' + " --outfile " + out_file
+    for i in range(0, len(args)):
+        letter = chr(66 + i)
+        other_query += ' -' + letter + ' ' + args[i] + ' --' + letter + '_band=1'
+    os.system(other_query)
+    #subprocess.call(other_query, shell=True)
+    print("done in %.1f sec" % (time.time() - begin))
+
+    return other_query
 
 
 def merge(files, out_file):
@@ -76,31 +112,47 @@ def merge(files, out_file):
 
 def hole_filling(raster_density, raster_dem):
     """Script to fill holes in density raster
-    fill pixel with 0 value when pixels are in the area of DEM
+    fill pixels with 0 when they are in the area of the DEM
 
     Args:
         raster_density (str): density raster path
         raster_dem (str): DEM raster path
     """
-    splitname=os.path.split(raster_density)
+
+    head, tail = os.path.split(raster_density)
+
+    raster_density_vrt = raster_density[0:-4] + "_virtual.vrt"
+    raster_density_mask1 = raster_density[0:-4] + "_mask1.tif"
+    raster_density_mask2 = raster_density[0:-4] + "_mask2.tif"
+    raster_density_mask3 = raster_density[0:-4] + "_mask3.tif"
+    raster_dem_mask1 = raster_dem[0:-4] + "_mask1.tif"
+
+    # build a VRT (Virtual Dataset) using the density raster
     build_vrt(raster_density, -99)
-    _exception(raster_density[0:-4] + "_virtual.vrt")
-    
-    raster_calc('A<0', raster_density[0:-4] + "_mask1.tif", raster_density[0:-4] + "_virtual.vrt")
-    _exception(raster_density[0:-4] + "_mask1.tif")
-    
-    raster_calc("A>-9999", raster_dem[0:-4] + "_mask1.tif", raster_dem)
-    _exception(raster_dem[0:-4] + "_mask1.tif")
-    
-    raster_calc("logical_and(A,B)", raster_density[0:-4] + "_mask2.tif", raster_density[0:-4] + "_mask1.tif", raster_dem[0:-4] + "_mask1.tif")
-    _exception(raster_density[0:-4] + "_mask2.tif")
-    
-    raster_calc("(A*9999)-9999", raster_density[0:-4] + "_mask3.tif", raster_density[0:-4] + "_mask2.tif")
-    _exception(raster_density[0:-4] + "_mask3.tif")
-    
-    merge([raster_density, raster_density[0:-4] + "_mask3.tif"], splitname[0] + "/final/" + splitname[1])
-    os.remove(raster_density[0:-4] + "_mask1.tif")
-    os.remove(raster_density[0:-4] + "_mask2.tif")
-    os.remove(raster_density[0:-4] + "_mask3.tif")
-    os.remove(raster_density[0:-4] + "_virtual.vrt")
-    os.remove(raster_dem[0:-4] + "_mask1.tif")
+    _exception(raster_density_vrt)
+
+    raster_calc("A<0", raster_density_mask1, raster_density_vrt)
+    _exception(raster_density_mask1)
+
+    raster_calc("A>-9999", raster_dem_mask1, raster_dem)
+    _exception(raster_dem_mask1)
+
+    raster_calc("logical_and(A,B)",
+                raster_density_mask2,
+                raster_density_mask1,
+                raster_dem_mask1)
+    _exception(raster_density_mask2)
+
+    raster_calc("(A*9999)-9999", raster_density_mask3, raster_density_mask2)
+    _exception(raster_density_mask3)
+
+    out = os.path.join(head, 'final', tail)
+    merge([raster_density, raster_density_mask3], out)
+
+    os.remove(raster_density_vrt)
+    os.remove(raster_density_mask1)
+    os.remove(raster_density_mask2)
+    os.remove(raster_density_mask3)
+    os.remove(raster_dem_mask1)
+
+    return out

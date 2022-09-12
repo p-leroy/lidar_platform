@@ -301,6 +301,7 @@ def poisson(filename, params):
             query += utils.POISSON_RECON_PARAMETERS[i][params[i]]
         else:
             query += params[i]
+    print(f'[poisson] query: {query}')
     utils.run(query)
 
 
