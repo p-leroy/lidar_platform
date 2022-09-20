@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import mmap,struct,os,time
+import mmap
+import os
+import struct
+import time
 from . import utils
+
 
 def readMetadataFile(filepath):
     f=open(filepath,mode='r')
@@ -34,6 +38,7 @@ def readMetadataFile(filepath):
     metadata["ShiftPrecision"]=listShiftPrec
     return metadata
 
+
 def read(filepath):
     output=utils.PointCloud()
 
@@ -56,7 +61,8 @@ def read(filepath):
     for i in output.metadata['ScalarNames']:
         output[i]=np.copy(reader.points[i])
     return output
-    
+
+
 class Reader(object):
     def __init__(self,pathFileData,metadata={}):
         self.metadata=metadata
@@ -87,7 +93,8 @@ class Reader(object):
         
         self.points=np.frombuffer(self._buffer,dtype=np.dtype(temp),count=self.header['NbPoints'],offset=64)
 
-class write(object):
+
+class Write(object):
     def __init__(self,filepath,data):
         print("[Writing LAS file]..",end="")
         self._start=time.time()
@@ -147,4 +154,3 @@ class write(object):
             tab+=[tuple(i)]
         points=np.array(tab,dtype=dt)
         self.output.write(points.tobytes())
-        

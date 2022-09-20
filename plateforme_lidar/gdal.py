@@ -1,18 +1,26 @@
 # coding: utf-8
+# Paul Leroy
 # Baptiste Feldmann
 
 """GDAL package
-Need to have downloaded OSGEO4W and added 'osgeo4w' in environment variable
-See more : https://trac.osgeo.org/osgeo4w/
-Because of complexity to install (and run) properly gdal in python environment, this script use OSGEO4W to interects with by command-line
+There are two ways to get gdal, the recommended way being to use conda: https://gdal.org/download.html#
+It is also possible to use OSGeo4W and to add 'osgeo4w' to the path
+https://trac.osgeo.org/osgeo4w/
+The following script makes external calls to gdalbuildvrt, gdal_calc and gdal_merge
+with gdal_calc, be careful with expressions like "A<0" as the < character can be misinterpreted by the subprocess
 """
 
 import time
 import os
-import subprocess
 import sys
 
 from . import utils
+
+
+gdal_bin = "C:\\Users\\pleroy\\miniconda3\\Library\\bin"
+gdal_scripts = "C:\Users\pleroy\miniconda3\Scripts"
+gdalbuilddvrt = os.path.join(gdal_bin, "gdalbuildvrt")
+gdal_calc = os.path.join(gdal_scripts, "gdal_cal.py")
 
 
 def _exception(filepath):
@@ -42,13 +50,9 @@ def build_vrt(filepath, nodata=-9999):
     # -r
     # Select a resampling algorithm. {nearest (default),bilinear,cubic,cubicspline,lanczos,average,mode}
 
-    # query = 'gdalbuildvrt -resolution average -r nearest -srcnodata "' + str(nodata) + \
-    #         '" -input_file_list ' + buildvrt_input + ' ' + out
-    # utils.run(utils.GDAL_QUERY_ROOT + query, True, opt_shell=True)
-
-    other_query = "C:\\Users\\pleroy\\miniconda3\\Library\\bin\\gdalbuildvrt -resolution average -r nearest" + \
+    query = f"{gdalbuilddvrt} -resolution average -r nearest" + \
                   ' -srcnodata "' + str(nodata) + '" -input_file_list ' + buildvrt_input + ' ' + out
-    os.system(other_query)
+    os.system(query)
 
     os.remove(buildvrt_input)
     print("done in %.1f sec" % (time.time() - begin))
@@ -67,27 +71,19 @@ def raster_calc(expression, out_file, file_a, *args):
     """
     print("[GDAL] raster calc...", end=" ")
     begin = time.time()
-    # NO QUOTES AROUND THE CALC OPTION!!! AT LEAST IN JUPYTER NOTEBOOKS
-    query = 'osgeo4w gdal_calc --format=GTiff --type=Float32 --NoDataValue=-9999.0 -A ' + \
-            file_a + ' --A_band=1'
+    # be careful with the calc option, quotes, no quotes, special characters as <... there are traps
+    # especially in the case calc='A<0', the < character can be misinterpreted by the subprocess module
+    # when launching the command (interpreted as an input redirect)
+    query = gdal_calc + ' --calc "' + expression + '"' + \
+            ' --format GTiff --type Float32 --NoDataValue -9999.0 -A ' + \
+            file_a + ' --A_band 1' + " --outfile " + out_file
     for i in range(0, len(args)):
         letter = chr(66 + i)
         query += ' -' + letter + ' ' + args[i] + ' --' + letter + '_band=1'
-    query += " --outfile " + out_file + ' --calc=' + expression
-    # utils.run(query, True, opt_shell=True)
-    #os.system(query)
-    other_query = 'C:\\Users\\pleroy\\miniconda3\\Scripts\\gdal_calc.py' + \
-                  ' --calc "' + expression + '"' + \
-                  ' --format GTiff --type Float32 --NoDataValue -9999.0 -A ' + \
-                  file_a + ' --A_band 1' + " --outfile " + out_file
-    for i in range(0, len(args)):
-        letter = chr(66 + i)
-        other_query += ' -' + letter + ' ' + args[i] + ' --' + letter + '_band=1'
-    os.system(other_query)
-    #subprocess.call(other_query, shell=True)
+    os.system(query)
     print("done in %.1f sec" % (time.time() - begin))
 
-    return other_query
+    return query
 
 
 def merge(files, out_file):
@@ -110,7 +106,7 @@ def merge(files, out_file):
     print("done in %.1f sec" % (time.time() - begin))
 
 
-def hole_filling(raster_density, raster_dem):
+def hole_filling(raster_density, raster_dem, debug=False):
     """Script to fill holes in density raster
     fill pixels with 0 when they are in the area of the DEM
 
@@ -118,6 +114,8 @@ def hole_filling(raster_density, raster_dem):
         raster_density (str): density raster path
         raster_dem (str): DEM raster path
     """
+
+    print("[gdal.hole_filling] this function is deprecated, use fill_holes instead")
 
     head, tail = os.path.split(raster_density)
 
@@ -149,10 +147,11 @@ def hole_filling(raster_density, raster_dem):
     out = os.path.join(head, 'final', tail)
     merge([raster_density, raster_density_mask3], out)
 
-    os.remove(raster_density_vrt)
-    os.remove(raster_density_mask1)
-    os.remove(raster_density_mask2)
-    os.remove(raster_density_mask3)
-    os.remove(raster_dem_mask1)
+    if not debug:
+        os.remove(raster_density_vrt)
+        os.remove(raster_density_mask1)
+        os.remove(raster_density_mask2)
+        os.remove(raster_density_mask3)
+        os.remove(raster_dem_mask1)
 
     return out
