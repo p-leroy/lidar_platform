@@ -2,7 +2,7 @@
 Python package for topo-bathymetric airborne LiDAR processing
 """
 
-from . import calculs, CC_3DMASC, classification, cloudcompare, lasfwf, lastools, PySBF, sbet, gdal, utils, test
+from . import calculs, cc_3dmasc, classification, cloudcompare, lasfwf, lastools, PySBF, sbet, gdal, utils, test
 
 __title__="plateforme_lidar"
 __author__="Baptiste Feldmann"

@@ -1,51 +1,18 @@
 # Paul Leroy
 # Baptiste Feldman
 
-import importlib
 import glob
 import os
 import pickle
 import time
 
-import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-
 import plateforme_lidar as pl
 
-importlib.reload(pl)
-
-
-def compute_features(workspace, PCX_filename, params_cc, params_features):
-    params_training = {"PC1": "_".join(["PC1"] + PCX_filename.split("_")[1::]),
-                       "PCX": PCX_filename,
-                       "CTX": "_".join(["CTX"] + PCX_filename.split("_")[1::])}
-    
-    pl.CC_3DMASC.compute_features(params_cc, workspace, params_training, params_features)
-    os.rename(workspace + PCX_filename[0:-4]+"_features.sbf", workspace + "features/" + PCX_filename[0:-4] + "_features.sbf")
-    os.rename(workspace + PCX_filename[0:-4]+"_features.sbf.data", workspace + "features/" + PCX_filename[0:-4] + "_features.sbf.data")
-
-
-def classify(workspace, filename, model, features_file):
-    dictio = pl.CC_3DMASC.load_features(workspace + "features/" + filename[0:-4] + "_features.sbf", features_file)
-    #Normalize by (0,1) and replace nan by -1
-    data = MinMaxScaler((0,1)).fit_transform(dictio['features'])
-    data = np.nan_to_num(data, nan=-1)
-    
-    labels_pred = model.predict(data)
-    confid_pred = model.predict_proba(data)
-    confid_pred = np.max(confid_pred,axis=1)
-    lasdata = pl.lastools.read(workspace + filename)
-    
-    lasdata.classification = labels_pred
-    # print(np.shape(lasdata))
-    # print(np.shape(data))
-    extra = [(("ind_confid", "float32"), np.round(confid_pred * 100, decimals=1))]
-    pl.lastools.WriteLAS(workspace + filename[0:-4] + "_class.laz", lasdata, format_id=1, extra_fields=extra)
 
 workspace = r'G:\RENNES1\Loire_totale_automne2019\Loire_Briare-Sully-sur-Loire\05-Traitements\C3\classification\bathy\haute_resolution' + '//'
-liste = glob.glob(workspace + "PCX_*00.laz")
-liste_noms = [os.path.split(i)[1] for i in liste]
-print("%i files found !" %(len(liste_noms)))
+list_ = glob.glob(workspace + "PCX_*00.laz")
+names = [os.path.split(i)[1] for i in list_]
+print("%i files found !" % (len(names)))
 
 classifier = {
     "path": r'G:\RENNES1\BaptisteFeldmann\Python\training\Loire\juin2019\classif_C3_withSS'+'//',
@@ -57,10 +24,10 @@ queryCC_param = ['standard','SBF','Loire45-4']
 
 
 deb = time.time()
-for i in liste_noms:
-    print(i + " " + str(liste_noms.index(i) + 1) + "/" + str(len(liste_noms)))
+for i in names:
+    print(i + " " + str(names.index(i) + 1) + "/" + str(len(names)))
     if not os.path.exists(workspace+"features/" + i[0:-4] + "_features.sbf"):
-        compute_features(workspace, i, queryCC_param, classifier["path"] + classifier["features_file"])
+        pl.cc_3dmasc.compute_features(workspace, i, queryCC_param, classifier["path"] + classifier["features_file"])
     print("================================")
 print("Time duration: %.1f sec" % (time.time() - deb))
 
@@ -72,10 +39,10 @@ tree.n_jobs = 50
 
 #classify(workspace,"PCX_660000_6739000.laz",tree,classifier["path"]+classifier["features_file"])
 
-for i in liste_noms:
+for i in names:
     print(i)
     if not os.path.exists(workspace + i[0:-4] + "_class.laz"):
-        classify(workspace, i, tree, classifier["path"] + classifier["features_file"])
+        pl.cc_3dmasc.classify(workspace, i, tree, classifier["path"] + classifier["features_file"])
 
 #Parallel(n_jobs=10,verbose=2)(delayed(classify)(workspace,i,tree,classifier["path"]+classifier["features_file"]) for i in liste_noms)
 #=============================#

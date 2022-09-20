@@ -2,13 +2,17 @@
 # Paul Leroy
 # Baptiste Feldmann
 
-from . import cloudcompare, PySBF, utils
-import sklearn.metrics as metrics
-import numpy as np
 import os
 
+import numpy as np
+import sklearn.metrics as metrics
+from sklearn.preprocessing import MinMaxScaler
 
-def compute_features(query0_params, workspace, params, training_file):
+from . import cloudcompare, PySBF, utils
+import plateforme_lidar as pl
+
+
+def compute_features_work(query0_params, workspace, params, training_file):
     """
     Call 3DMASC plugin (from CloudCompare) to compute geometric features
     
@@ -25,7 +29,7 @@ def compute_features(query0_params, workspace, params, training_file):
 
     query = utils.QUERY_0[query0_params[0]] + utils.EXPORT_FMT[query0_params[1]]
     for i in params.keys():
-        query += " -o -global_shift "+utils.SHIFT[query0_params[2]] + " " + workspace + params[i]
+        query += " -o -global_shift " + utils.SHIFT[query0_params[2]] + " " + workspace + params[i]
 
     query += " -3dmasc_classify -only_features " + training_file + ' "'
     compt = 1
@@ -57,6 +61,19 @@ def compute_features(query0_params, workspace, params, training_file):
 
     else:
         raise NotImplementedError("Features can only be exported in SBF or LAS format for now")
+
+
+def compute_features(workspace, pcx, params_cc, params_features):
+    params_training = {"PC1": "_".join(["PC1"] + pcx.split("_")[1::]),
+                       "PCX": pcx,
+                       "CTX": "_".join(["CTX"] + pcx.split("_")[1::])}
+
+    compute_features_work(params_cc, workspace, params_training, params_features)
+
+    os.rename(workspace + pcx[0:-4] + "_features.sbf",
+              workspace + "features/" + pcx[0:-4] + "_features.sbf")
+    os.rename(workspace + pcx[0:-4] + "_features.sbf.data",
+              workspace + "features/" + pcx[0:-4] + "_features.sbf.data")
 
 
 def load_features(pcx_filepath, training_filepath, labels=False):
@@ -205,3 +222,42 @@ def correlation(data, names, save=""):
         list_ += [temp]
     if len(save) > 0:
         np.savetxt(save, list_, fmt='%.4f', delimiter=";")
+
+
+def classify(workspace, filename, model, features_file):
+    dictio = load_features(workspace + "features/" + filename[0:-4] + "_features.sbf", features_file)
+    # Normalize by (0,1) and replace nan by -1
+    data = MinMaxScaler((0, 1)).fit_transform(dictio['features'])
+    data = np.nan_to_num(data, nan=-1)
+
+    labels_pred = model.predict(data)
+    confid_pred = model.predict_proba(data)
+    confid_pred = np.max(confid_pred, axis=1)
+    lasdata = pl.lastools.read(workspace + filename)
+
+    lasdata.classification = labels_pred
+    # print(np.shape(lasdata))
+    # print(np.shape(data))
+    extra = [(("ind_confid", "float32"), np.round(confid_pred * 100, decimals=1))]
+    pl.lastools.WriteLAS(workspace + filename[0:-4] + "_class.laz", lasdata, format_id=1, extra_fields=extra)
+
+
+def cross_validation(model, cv, X, y_true):
+    scores1 = dict(zip(list(np.unique(y_true)) + ['all'], [[] for i in range(0,len(np.unique(y_true)) + 1)]))
+    scores2 = dict(zip(list(np.unique(y_true)) + ['all'], [[] for i in range(0,len(np.unique(y_true)) + 1)]))
+    feat_import = []
+    compt = 1
+    print("Cross Validation test with %i folds:" %cv.get_n_splits())
+    for train_idx,test_idx in cv.split(X,y_true):
+        print(str(compt) + "...", end="\r")
+        compt += 1
+        model.fit(X[train_idx,:], y_true[train_idx])
+        y_pred = model.predict(X[test_idx, :])
+        scores1['all'] += [metrics.cohen_kappa_score(y_pred,y_true[test_idx])]
+        scores2['all'] += [metrics.accuracy_score(y_true[test_idx],y_pred)]
+        feat_import += [model.feature_importances_*100]
+        for label in np.unique(y_true):
+            scores1[label] += [metrics.cohen_kappa_score(y_pred == label, y_true[test_idx] == label)]
+            scores2[label] += [metrics.accuracy_score(y_true[test_idx] == label, y_pred == label)]
+    print("done!")
+    return scores1, scores2, np.mean(feat_import, axis=0)
