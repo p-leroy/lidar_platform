@@ -25,7 +25,7 @@ outData = pl.lastools.filter_las(C3_data,
                                                 C3_data.c2c_absolute_distances_z < filterVert[1])
                                  )
 
-density = pl.calculs.computeDensity(outData.XYZ, radius=5)
+density = pl.calculs.compute_density(outData.XYZ, radius=5)
 outData = pl.lastools.filter_las(outData, density > 15)
 
 pl.lastools.WriteLAS(workspace + C3_filename[0:-4] + "_rawbathy.laz", outData)
@@ -60,7 +60,7 @@ select_all = np.logical_and(np.logical_and(select1, select2),
                             select3)
 
 outData = pl.lastools.filter_las(C2_data, select_all)
-density = pl.calculs.computeDensity(outData.XYZ, radius=5)
+density = pl.calculs.compute_density(outData.XYZ, radius=5)
 outData = pl.lastools.filter_las(outData, density > 15)
 
 pl.lastools.WriteLAS(workspace + C2_filename[0:-4] + "_watersurface.laz", outData)

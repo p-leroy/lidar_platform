@@ -31,8 +31,8 @@ for i in list_pcx:
     print("================================")
 print("Time duration: %.1f sec" % (time.time()-deb))
 
-liste_sbf = glob.glob(workspace+"features/*_features.sbf")
-query = pl.cloudcompare.open_file(query0_CC,liste_sbf)
+list_sbf = glob.glob(workspace + "features/*_features.sbf")
+query = pl.cloudcompare.open_file(query0_CC, list_sbf)
 pl.cloudcompare.merge_clouds(query)
 pl.cloudcompare.last_file(workspace + "features/*_MERGED_*.sbf",
                           "PCX_all_features.sbf")
@@ -45,7 +45,6 @@ print("Compute features time duration: %.1f sec" % (time.time()-deb))
 dictio = pl.cc_3dmasc.load_features(workspace + "features/PCX_all_features.sbf", workspace + features_file, True)
 # features normalization :
 # NaN are replaced by -1 and for each feature min=0 and max=1
-#Normalize by (0,1) and replace nan by -1
 data = MinMaxScaler((0,1)).fit_transform(dictio['features'])
 data = np.nan_to_num(data, nan=-1)
 
@@ -64,7 +63,9 @@ print("CV time duration: %.1f sec" %(time.time()-deb))
 print(kappa, OA, feat_import, sep="\n")
 
 outFile = open(workspace + "test_CrossValidation_3.pkl", 'wb')
-pickle.dump({"kappa": kappa,"OA": OA,"feat_import": feat_import}, outFile)
+pickle.dump(
+    {"kappa": kappa, "OA": OA, "feat_import": feat_import},
+    outFile)
 outFile.close()
 
 # ---Training---#

@@ -1,24 +1,33 @@
 # coding: utf-8
+# Paul Leroy
 # Baptiste Feldmann
 # Liste de fonctions pour la correction bathy
-from . import lastools,utils
-import laspy
 
+import os
+import glob
+import itertools
+
+import laspy
 import numpy as np
-import glob,os,simplekml,itertools
 import matplotlib.pyplot as plt
 import scipy.spatial as scp
 from scipy.spatial import cKDTree
+
 from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import MinMaxScaler
+
 import shapely
 import shapely.ops
 from shapely.geometry import Polygon
+
+import simplekml
+
 from joblib import Parallel, delayed
 
+from . import lastools, utils
 
-def correction3D(pt_app, apparent_depth, pt_shot=[], vectorApp=[], indRefr=1.333):
+
+def correction_3d(pt_app, apparent_depth, pt_shot=[], vectorApp=[], indRefr=1.333):
     """Bathymetric correction 3D
 
     Args:
@@ -52,13 +61,14 @@ def correction3D(pt_app, apparent_depth, pt_shot=[], vectorApp=[], indRefr=1.333
     depth_true = apparent_depth * np.cos(theta_app) / (indRefr * np.cos(theta_true))
 
     dist_plan = apparent_depth * np.tan(theta_app) - depth_true * np.tan(theta_true)
-    coords = np.vstack([pt_app[:,0] + dist_plan * np.sin(gisement_vect),
-                        pt_app[:,1] + dist_plan * np.cos(gisement_vect),
-                        pt_app[:,2] + depth_true - apparent_depth])
+    coords = np.vstack([pt_app[:, 0] + dist_plan * np.sin(gisement_vect),
+                        pt_app[:, 1] + dist_plan * np.cos(gisement_vect),
+                        pt_app[:, 2] + depth_true - apparent_depth])
 
     return np.transpose(coords), depth_true
 
-def correction_vect(vectorApp,indRefr=1.333):
+
+def correction_vect(vectorApp, indRefr=1.333):
     """bathymetric correction only for vector shot (in fwf mode)
 
     Args:
@@ -81,7 +91,6 @@ def correction_vect(vectorApp,indRefr=1.333):
                          vectTrue_norm*np.cos(thetaTrue)])
     return np.transpose(vectTrue)
 
-#======================================#
 
 class PyC2C(object):
     def __init__(self,compared,reference,dim=3,neighbors=1,cores=20):
@@ -177,7 +186,8 @@ class Alphashape(object):
                 plt.fill(a[0],a[1],alpha=2,edgecolor="red",facecolor="blue")
         plt.show()
 
-def computeDBSCAN(filepath,maxdist=1,minsamples=5):
+
+def compute_dbscan(filepath, maxdist=1, minsamples=5):
     """make Scikit-Learn DBSCAN clustering
     (see docs: https://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html)
 
@@ -196,7 +206,8 @@ def computeDBSCAN(filepath,maxdist=1,minsamples=5):
     else:
         print("DBSCAN find only 1 cluster !")
 
-def computeDensity(points,core_points=[],radius=1,p_norm=2):
+
+def compute_density(points, core_points=[], radius=1, p_norm=2):
     """counting points in neighborhood
     With scipy.spatial.cKDTree
 
@@ -215,7 +226,8 @@ def computeDensity(points,core_points=[],radius=1,p_norm=2):
         core_points=np.copy(points)
 
     return tree.query_ball_point(core_points,r=radius,p=p_norm,return_length=True)
-    
+
+
 def merge_c2c_fwf(workspace,fichier):
     tab_fwf,metadata_fwf=lastools.read(workspace + fichier, "fwf")
     tab_extra,metadata_extra=lastools.read(workspace + fichier[0:-4] + "_extra.laz", "standard", True)
@@ -396,36 +408,3 @@ class ReverseTiling(object):
             for filepath in glob.glob(os.path.join(self.workspace, '*_1.laz')):
                 os.remove(filepath)
             os.rmdir(self.workspace)
-
-'''class ReverseTiling_fast(object):
-    def __init__(self,workspace,fileroot,buffer=False,cores=50):
-        print("[Reverse Tiling fastest version]")
-        self.workspace=workspace
-        self.cores=cores
-        self.motif=fileroot.split(sep='XX')
-
-        print("Remove buffer...",end=" ")
-        if buffer:
-            self.removeBuffer()
-        print("done !")
-
-        print("Searching flightlines...",end=" ")
-        self.searchingLines()
-        print("done !")
-
-        print("Writing flightlines...",end="")
-        self.writingLines(buffer)
-        print("done !") 
-
-    def removeBuffer(self):
-        query="lastile -i "+self.workspace+"*.laz -remove_buffer -cores "+str(self.cores)+" -olaz"
-        utils.Run(query)
-        for filepath in glob.glob(workspace+"*_1.laz"):
-            nom=os.path.split(filepath)[-1]
-            os.rename(workspace+nom,workspace+"new_tile/"+nom)
-        workspace+="new_tile/"
-
-    def searchingLines(self):
-        self.linesDict={}
-        listData=[lastools.readLAS(i) for i in glob.glob(workspace+"*.laz")]'''
-

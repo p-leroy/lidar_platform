@@ -16,7 +16,7 @@ def func(filepath):
     lowerleft=np.int_(np.amin(data.XYZ[:,0:2],axis=0))
     sizes=np.int_(np.amax(data.XYZ[:,0:2],axis=0))-lowerleft
     grid=defineGrid(1,sizes[0],sizes[1],*lowerleft)
-    result=pl.calculs.computeDensity(data.XYZ[:,0:2],grid,0.5,np.inf)
+    result=pl.calculs.compute_density(data.XYZ[:, 0:2], grid, 0.5, np.inf)
     np.savez_compressed(filepath[0:-4]+"_density.npz",result)
 
 workspace=r'G:\RENNES1\Loire_octobre2020_Rtemus\05-Traitements\C2\classification\final'+'//'

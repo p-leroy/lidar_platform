@@ -21,7 +21,7 @@ def corbathy_discret(filepath,data_sbet):
     
     # Calcul des nouvelles positions
     dataInterp=PL.sbet.interpolate(data_sbet[0],data_sbet[1],gpsTime)
-    coordsTrue,depthTrue=PL.calculs.correction3D(dataUnderWater.XYZ,depthApp,dataInterp[:,0:3])
+    coordsTrue,depthTrue=PL.calculs.correction_3d(dataUnderWater.XYZ, depthApp, dataInterp[:, 0:3])
     
     # Ecriture des résultats dans les fichiers LAS
     depthAll=np.concatenate((np.round(depthTrue,decimals=2),np.array([None]*len(dataAboveWater))))
@@ -48,7 +48,7 @@ def corbathy_fwf(filepath):
 
     depthApp=dataUnderWater.depth
     # Calcul des nouvelles positions
-    coordsTrue,depthTrue=PL.calculs.correction3D(dataUnderWater.XYZ,depthApp,vectorApp=vectAppUnderWater)
+    coordsTrue,depthTrue=PL.calculs.correction_3d(dataUnderWater.XYZ, depthApp, vectorApp=vectAppUnderWater)
     
     # Ecriture des résultats dans les fichiers LAS
     depthAll=np.concatenate((np.round(depthTrue,decimals=2),np.array([None]*len(dataAboveWater))))
