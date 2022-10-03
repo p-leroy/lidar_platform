@@ -8,7 +8,7 @@ import logging
 import numpy as np
 import laspy
 
-from tools import misc
+from . import misc
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()

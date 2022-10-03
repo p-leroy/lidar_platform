@@ -7,14 +7,14 @@ import copy
 import math
 import mmap
 import os
-import structmmap
+import struct
 
-from plateforme_lidar import utils
 import numpy as np
 from scipy.interpolate import griddata
 from scipy.interpolate import interp1d
 import pyproj
 
+from ..config.config import VERTICAL_DATUM_DIR
 
 LIST_OF_ATTR = [('time', 'float64'),
                 ('latitude', 'float64'),
@@ -97,12 +97,12 @@ class SBET(object):
         f = open(self.filepath, mode='rb')
         f_size = os.path.getsize(self.filepath)
         data = mmap.mmap(f.fileno(), f_size, access=mmap.ACCESS_READ)
-        nbr_line = int(len(data) / utils.LINE_SIZE)
+        nbr_line = int(len(data) / LINE_SIZE)
         print(f'[SBET.load_data] number of lines in SBET files: {nbr_line}')
 
         temp = []
         for i in range(0, nbr_line):
-            temp += [struct.unpack('17d', data[i * utils.LINE_SIZE:(i + 1) * utils.LINE_SIZE])]
+            temp += [struct.unpack('17d', data[i * LINE_SIZE:(i + 1) * LINE_SIZE])]
 
         self.array = np.array(temp, dtype=LIST_OF_ATTR)
         self.array['latitude'] *= 180 / math.pi
@@ -115,7 +115,7 @@ class SBET(object):
     
     def _compute_undulation(self, geoid_grid):
         # npzfile=np.load("G:/RENNES1/BaptisteFeldmann/Vertical_datum/"+geoidgrid+".npz")
-        npz = np.load(utils.VERTICAL_DATUM_DIR + geoid_grid + ".npz")
+        npz = np.load(VERTICAL_DATUM_DIR + geoid_grid + ".npz")
         grille = npz[npz.files[0]]
         undulation = griddata(grille[:, 0: 2],grille[:, 2], (self.longitude, self.latitude), method='linear')
         return undulation
@@ -135,7 +135,7 @@ class SBET(object):
         self.elevation = self.array['elevation']
 
     def projection(self, epsg_in, epsg_out):
-        #----Conversion coordonnées Géo vers Projetées----------#
+        # Conversion geo coordinates tp projected coordinates
         # epsg:4171 -> ETRS89-géo lat,long,h
         # epsg:2154 -> RGF93-L93 E,N,H
         # epsg:4326 -> WGS84-géo lat,long,h
@@ -146,12 +146,14 @@ class SBET(object):
         self.easting, self.northing = transformer.transform(self.latitude, self.longitude)
     
     def export(self, epsg_in, epsg_out):
-        if not hasattr(self,"easting"):
+        if not hasattr(self, "easting"):
             self.projection(epsg_in, epsg_out)
 
         data = np.array([self.easting, self.northing, self.elevation, self.gps_time])
-        f = np.savetxt(self.filepath[0:-4] + "_ascii.txt", np.transpose(data),
+        out = self.filepath[0:-4] + "_ascii.txt"
+        f = np.savetxt(out , np.transpose(data),
                        fmt="%.3f;%.3f;%.3f;%f", delimiter=";", header="X;Y;Z;gpstime")
+        return out
 
     def interpolate(self, time_ref):
         temp = np.transpose([self.easting, self.northing, self.elevation])
@@ -180,18 +182,18 @@ def calc_grid(name_geoid,pts0,deltas):
     ------
     Register a formalize geoid grid in NPZ file
     """
-    npzfile=np.load("D:/TRAVAIL/Vertical_datum/"+name_geoid+"_brut.npz")
-    grille=npzfile[npzfile.files[0]]
-    taille=np.shape(grille)
-    tableau=np.zeros((taille[0]*taille[1],3))
-    compteur=0
+    npzfile = np.load("D:/TRAVAIL/Vertical_datum/" + name_geoid + "_brut.npz")
+    grille = npzfile[npzfile.files[0]]
+    taille = np.shape(grille)
+    tableau = np.zeros((taille[0]*taille[1],3))
+    compteur = 0
     for lig in range(0,taille[0]):
         for col in range(0,taille[1]):
-            tableau[compteur,0]=round(pts0[0]+deltas[0]*col,6)
-            tableau[compteur,1]=round(pts0[1]-deltas[1]*lig,6)
-            tableau[compteur,2]=grille[lig,col]
-            compteur+=1
-    np.savez_compressed("D:/TRAVAIL/Vertical_datum/RAF09.npz",tableau)
+            tableau[compteur,0] = round(pts0[0]+deltas[0]*col,6)
+            tableau[compteur,1] = round(pts0[1]-deltas[1]*lig,6)
+            tableau[compteur,2] = grille[lig,col]
+            compteur += 1
+    np.savez_compressed("D:/TRAVAIL/Vertical_datum/RAF09.npz", tableau)
     return True
 
 

@@ -3,14 +3,14 @@ import logging
 
 from joblib import delayed, Parallel
 
-from config import common_ple as ple
+from ..tools import misc
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
 def thin_line(line, odir):
-    ple.exe(f'lasthin -i {line} -step 1 -lowest -last_only -odir {odir} -odix _thin -olaz')
+    misc.exe(f'lasthin -i {line} -step 1 -lowest -last_only -odir {odir} -odix _thin -olaz')
 
 
 def thin_lines(idir, pattern, odir, n_jobs=None):

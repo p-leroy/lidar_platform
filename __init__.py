@@ -4,7 +4,7 @@ Python package for point clouds data processing
 
 from . import classification, config, fwf, qc, scripts_bfe, tools, topo_bathymetry
 from .tools import cc, las, misc
-from .topo_bathymetry import bathymetry, water_surface
+from .topo_bathymetry import bathymetry, sbet, water_surface
 from .config import global_shifts
 
 __title__ = "lidar_platform"

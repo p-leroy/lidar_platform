@@ -1,4 +1,5 @@
 # coding: utf-8
+# Paul Leroy
 # Baptiste Feldmann
 
 
@@ -10,7 +11,8 @@ import laspy
 from joblib import Parallel, delayed
 import numpy as np
 
-import lidar_platform as lp
+from lidar_platform import las, sbet
+from .refraction_correction_helper_functions import correction_3d, correction_vect
 
 
 def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1):
@@ -18,13 +20,13 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1):
     out = os.path.join(root + "_ref_corr.laz")
 
     # open bathymetry file and filter data by depth
-    in_data = lp.lastools.read(filepath, extra_fields=True)
+    in_data = las.read(filepath, extra_fields=True)
     select = in_data.depth < minimum_depth
-    data_under_water = lp.lastools.filter_las(in_data, select)
-    data_above_water = lp.lastools.filter_las(in_data, np.logical_not(select))
+    data_under_water = las.filter_las(in_data, select)
+    data_above_water = las.filter_las(in_data, np.logical_not(select))
 
     # GPS time format handling
-    my_gps_time = lp.lastools.GPSTime(in_data['gps_time'])
+    my_gps_time = las.GPSTime(in_data['gps_time'])
     detected_gps_time_format = my_gps_time.gps_time_type.name
     las_header_gps_time_format = laspy.open(filepath).header.global_encoding.gps_time_type.name
 
@@ -46,14 +48,14 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1):
     apparent_depth = data_under_water.depth
     # data_interp = lp.sbet.interpolate(sbet_obj[0], sbet_obj[1], gps_time)
     data_interp = sbet_obj.interpolate(gps_time)
-    coords_true, true_depth = lp.calculs.correction_3d(data_under_water.XYZ, apparent_depth, data_interp[:, 0:3])
+    coords_true, true_depth = correction_3d(data_under_water.XYZ, apparent_depth, data_interp[:, 0:3])
     
     # write results in las files
     depth_all = np.concatenate((np.round(true_depth, decimals=2), np.array([None] * len(data_above_water))))
     extra = [(("depth", "float32"), depth_all)]
     data_under_water.XYZ = coords_true
-    data_corbathy = lp.lastools.merge_las([data_under_water, data_above_water])
-    lp.lastools.WriteLAS(out, data_corbathy, format_id=1, extra_fields=extra)
+    data_corbathy = las.merge_las([data_under_water, data_above_water])
+    las.WriteLAS(out, data_corbathy, format_id=1, extra_fields=extra)
 
     return out
 
@@ -63,35 +65,35 @@ def refraction_correction_fwf(filepath, minimum_depth=-0.1):
     output_suffix = "_corbathy"
 
     # open bathymetry file
-    in_data = lp.lastools.read(filepath, True)
+    in_data = las.read(filepath, True)
     vect_app = np.vstack([in_data.x_t, in_data.y_t, in_data.z_t]).transpose()
-    vect_true_all = lp.calculs.correction_vect(vect_app)
+    vect_true_all = correction_vect(vect_app)
     in_data.x_t, in_data.y_t, in_data.z_t = vect_true_all[:, 0], vect_true_all[:, 1], vect_true_all[:, 2]
     
     select = in_data.depth < minimum_depth
-    data_under_water = lp.lastools.filter_las(in_data, select)
-    data_above_water = lp.lastools.filter_las(in_data, np.logical_not(select))
+    data_under_water = las.filter_las(in_data, select)
+    data_above_water = las.filter_las(in_data, np.logical_not(select))
     vect_app_under_water = vect_app[select]
     del in_data
 
     # compute new positions
     depth_app = data_under_water.depth
-    coords_true, depth_true = lp.calculs.correction_3d(data_under_water.XYZ, depth_app, vectorApp=vect_app_under_water)
+    coords_true, depth_true = correction_3d(data_under_water.XYZ, depth_app, vectorApp=vect_app_under_water)
     
     # write results in las files
     depth_all = np.concatenate((np.round(depth_true, decimals=2), np.array([None] * len(data_above_water))))
     extra = [(("depth", "float32"), depth_all)]
 
     data_under_water.XYZ = coords_true
-    data_corbathy = lp.lastools.merge_las([data_under_water, data_above_water])
+    data_corbathy = las.merge_las([data_under_water, data_above_water])
 
     #return data_corbathy, extra, metadata['vlrs']
     #PL.lastools.writeLAS(filepath[0:offsetName] + "_corbathy2.laz", dataCorbathy, format_id=4, extraField=extra)
-    lp.lastools.WriteLAS(filepath[0:offset_name] + output_suffix + ".laz", data_corbathy, format_id=9)
+    las.WriteLAS(filepath[0:offset_name] + output_suffix + ".laz", data_corbathy, format_id=9)
     shutil.copyfile(filepath[0:-4] + ".wdp", filepath[0:offset_name] + output_suffix + ".wdp")
 
 
-def do_work(files, sbet, n_jobs, fwf=False):
+def do_work(files, sbet_params, n_jobs, fwf=False):
     start = time.time()
 
     if fwf:
@@ -101,7 +103,7 @@ def do_work(files, sbet, n_jobs, fwf=False):
             for f in files)
     else:
         print("[Refraction correction] SBET data processing: start")
-        sbet_obj = lp.sbet.sbet_config(sbet)
+        sbet_obj = sbet.sbet_config(sbet_params)
         print("[Refraction correction] SBET data processing: done")
         print("[Refraction correction] normal mode")
         results = Parallel(n_jobs=n_jobs, verbose=1)(
