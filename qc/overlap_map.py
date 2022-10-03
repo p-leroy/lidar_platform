@@ -4,7 +4,9 @@ import glob, logging, os, pickle
 
 from joblib import delayed, Parallel
 
-import lidar_platform as lp
+from lidar_platform import las, misc
+from lidar_platform.tools import cloudcompare
+from lidar_platform.topo_bathymetry.refraction_correction_helper_functions import select_pairs_overlap
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -38,7 +40,7 @@ class Overlap(object):
         else:
             lines = os.path.join(self.workspace, pattern)  # only consider thin lines to investigate overlaps
             logger.info(f'self.root_length {self.root_length}, self.line_nb_digits {self.line_nb_digits}')
-            self.overlapping_pairs, overlaps = lp.calculs.select_pairs_overlap(lines, [self.root_length, self.line_nb_digits])
+            self.overlapping_pairs, overlaps = select_pairs_overlap(lines, [self.root_length, self.line_nb_digits])
             pickle.dump(self.overlapping_pairs, open(overlapping_pairs_pkl, 'wb'))
             overlaps_pkl = os.path.join(self.workspace, "overlaps.pkl")
             pickle.dump(overlaps, open(overlaps_pkl, 'wb'))
@@ -93,7 +95,7 @@ class Overlap(object):
             out = os.path.join(self.workspace, self.out_name)
             print("[Overlap.processing] merge M3C2 data")
             query = "lasmerge -i " + os.path.join(self.workspace, "*_clean.laz") + " -o " + out
-            lp.utils.run(query)
+            misc.run(query)
             print("[Overlap.processing] M3C2 analyzes done")
         else:
             raise OSError("[Overlap.processing] preprocessing not done!")
@@ -109,9 +111,9 @@ class Overlap(object):
         path_b = os.path.join(self.workspace, line_b)
         path_core_pts = os.path.join(self.workspace, core_pts)
 
-        query = lp.cloudcompare.open_file(self.cc_options, [path_a, path_b, path_core_pts])
+        query = cloudcompare.open_file(self.cc_options, [path_a, path_b, path_core_pts])
         m3c2_params = os.path.join(self.workspace, self.m3c2File)
-        lp.cloudcompare.m3c2(query, m3c2_params)
+        cloudcompare.m3c2(query, m3c2_params)
         root, ext = os.path.splitext(path_a)
         m3c2_expected_out = root + '_M3C2.laz'
         head, tail = os.path.split(path_a)
@@ -123,7 +125,7 @@ class Overlap(object):
             print(error)
 
     def filter_m3c2_data(self, filepath):
-        data = lp.lastools.read(filepath, extra_field=True)
+        data = las.read(filepath, extra_field=True)
         extra_fields = [key for key in data.metadata['extraField']]
 
         try:  # filter distance uncertainty
@@ -138,7 +140,7 @@ class Overlap(object):
             raise KeyError(f"m3c2__distance is not in the extra_fields list: {extra_fields}")
 
         # save filtered data => *_clean.laz
-        selected_data = lp.lastools.filter_las(data, selection)
+        selected_data = las.filter_las(data, selection)
         extra = [(("m3c2_distance", "float32"), selected_data["m3c2__distance"]),
                  (("distance_uncertainty", "float32"), selected_data["distance__uncertainty"])]
-        lp.lastools.WriteLAS(filepath[0:-4] + "_clean.laz", selected_data, extra_fields=extra)
+        las.WriteLAS(filepath[0:-4] + "_clean.laz", selected_data, extra_fields=extra)

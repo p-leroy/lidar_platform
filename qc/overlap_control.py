@@ -11,8 +11,10 @@ import pickle
 import numpy as np
 from joblib import Parallel, delayed
 
-import lidar_platform as lp
-from tools import cc
+from lidar_platform  import las
+from lidar_platform.tools import cloudcompare
+from lidar_platform.topo_bathymetry.refraction_correction_helper_functions import select_pairs_overlap
+from ..tools import cc
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -50,7 +52,7 @@ class Overlap(object):
         else:
             lines = os.path.join(self.odir, pattern)  # only consider thin lines to investigate overlaps
             logger.info(f'self.root_length {self.root_length}, line_nb_digits {self.line_nb_digits}')
-            self.overlapping_pairs, overlaps = lp.calculs.select_pairs_overlap(lines, [self.root_length, self.line_nb_digits])
+            self.overlapping_pairs, overlaps = select_pairs_overlap(lines, [self.root_length, self.line_nb_digits])
             pickle.dump(self.overlapping_pairs, open(overlapping_pairs_pkl, 'wb'))
             overlaps_pkl = os.path.join(self.odir, "overlaps.pkl")
             pickle.dump(overlaps, open(overlaps_pkl, 'wb'))
@@ -84,7 +86,7 @@ class Overlap(object):
 
     def _filtering_c2c(self, in_file, out_file, c2c=50, c2c_z=0.2):
         head, tail = os.path.split(in_file)
-        data = lp.lastools.read(in_file, extra_field=True)
+        data = las.read(in_file, extra_field=True)
 
         try:  # C2C absolute distances
             select_c2c = data["c2c__absolute__distances"] > c2c
@@ -96,9 +98,9 @@ class Overlap(object):
             raise KeyError(f"c2c__absolute__distances__z is not in the extra_fields list")
         select = select_c2c | select_c2c_z
 
-        out_data = lp.lastools.filter_las(data, select)
+        out_data = las.filter_las(data, select)
         out = os.path.join(head, out_file)
-        lp.lastools.WriteLAS(out, out_data)
+        las.WriteLAS(out, out_data)
         return out
 
     def select_points_away_from_water_surface(self, pattern):
@@ -106,7 +108,7 @@ class Overlap(object):
         thin_files = glob.glob(os.path.join(self.odir, pattern))
         octree_lvl = 10
         nbr_job = 10
-        lp.cloudcompare.c2c_files(self.cc_options,
+        cloudcompare.c2c_files(self.cc_options,
                                   thin_files,
                                   self.water_surface,
                                   octree_lvl=octree_lvl,
@@ -187,8 +189,8 @@ class Overlap(object):
 
         # compute M3C2
         cc_options = [self.cc_options[0], 'SBF_auto_save', self.cc_options[-1]]
-        query = lp.cloudcompare.open_file(cc_options, [path_a, path_b, path_core_pts])
-        lp.cloudcompare.m3c2(query, m3c2_params)
+        query = cloudcompare.open_file(cc_options, [path_a, path_b, path_core_pts])
+        cloudcompare.m3c2(query, m3c2_params)
         root, ext = os.path.splitext(path_a)
         expected_sbf = root + '_M3C2.sbf'
         head, tail = os.path.split(path_a)
