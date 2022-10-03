@@ -10,7 +10,7 @@ logger.setLevel(logging.INFO)
 
 
 def thin_line(line, odir):
-    misc.exe(f'lasthin -i {line} -step 1 -lowest -last_only -odir {odir} -odix _thin -olaz')
+    misc.run(f'lasthin -i {line} -step 1 -lowest -last_only -odir {odir} -odix _thin -olaz')
 
 
 def thin_lines(idir, pattern, odir, n_jobs=None):

@@ -5,13 +5,9 @@
 import datetime
 import os
 import re
-import socket
 import subprocess
-import struct
+import sys
 import time
-from subprocess import Popen, PIPE, STDOUT
-
-from numpy import loadtxt
 
 
 def exists(path):
@@ -58,7 +54,7 @@ def pyuic5(ui, debug=False):
     out = os.path.join(head, 'Ui_' + root + '.py')
     cmd = [sys.executable(), '-m', 'PyQt5.uic.pyuic', ui, '-o', out]
     print(cmd)
-    exe(cmd, debug=debug)
+    run(cmd, debug=debug)
 
 
 def run(cmd, shell=False, advanced=True, verbose=True):
