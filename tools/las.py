@@ -8,7 +8,8 @@ import logging
 import numpy as np
 import laspy
 
-from . import misc
+from . import las_fmt
+from ..tools import misc
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
@@ -41,7 +42,7 @@ def filter_las(obj, select):
         if not len(select) == len(obj):
             select = np.array(select)[np.argsort(select)]
 
-    obj_new = utils.lasdata()
+    obj_new = las_fmt.lasdata()
     obj_new['metadata'] = obj.metadata
     features = list(obj.__dict__.keys())
     features.remove("metadata")
@@ -63,7 +64,7 @@ def merge_las(obj_list):
     Returns:
         'plateforme_lidar.utils.lasdata': lasdata merged
     """
-    merge = utils.lasdata()
+    merge = las_fmt.lasdata()
     merge['metadata'] = copy.deepcopy(obj_list[0].metadata)
     merge['metadata']['extraField'] = []
     feature_list = list(obj_list[0].__dict__.keys())
@@ -191,10 +192,10 @@ def vlrs_keys(vlrs, geokey):
             num = i * 4
             vlrs_dict[vlrs[34735][num]] = vlrs[34735][num + 1: num + 4]
     else:
-        vlrs_dict = utils.GEOKEY_STANDARD
+        vlrs_dict = GEOKEY_STANDARD
 
     for i in list(geokey.keys()):
-        vlrs_dict[utils.CRS_KEY[i]] = [0, 1, geokey[i]]
+        vlrs_dict[CRS_KEY[i]] = [0, 1, geokey[i]]
 
     vlrs_sort = np.sort(list(vlrs_dict.keys()))
     vlrs_final = []
@@ -222,7 +223,7 @@ class WriteLAS(object):
         print("[Writing LAS file]..", end="")
         self._start = time.time()
         self.output_data = data
-        self.LAS_fmt = utils.LASFormat()
+        self.LAS_fmt = las_fmt.LASFormat()
         # new_header=self.createHeader("1.3",format_id)
         # pointFormat=laspy.PointFormat(format_id)
         # for extraField in extraFields:
@@ -272,9 +273,9 @@ class WriteLAS(object):
         
         start = time.time()
         print("[Writing waveform data packet] %d waveforms" %len(waveforms))
-        displayer= utils.Timing(nbrPoints, 20)
+        displayer = misc.Timing(nbrPoints, 20)
         with open(filepath[0:-4]+".wdp","wb") as wdpFile :
-            wdpFile.write(utils.HEADER_WDP_BYTE)
+            wdpFile.write(HEADER_WDP_BYTE)
             for i in range(0,nbrPoints):
                 msg=displayer.timer(i)
                 if msg is not None:
@@ -374,12 +375,11 @@ def read(filepath, extra_fields=False, parallel=True):
     las = laspy.read(filepath, laz_backend=backend)
     gps_time_type = las.header.global_encoding.gps_time_type
     print(f'[lastools.ReadLAS] gps_time_type read in header: {gps_time_type.name}')
-    las_fmt = utils.LASFormat()
     
     metadata = {"vlrs": read_vlr_body(las.vlrs),
                 "extraField": [],
                 'filepath': filepath}
-    output = utils.lasdata()
+    output = las_fmt.lasdata()
 
     for field, dtype in las_fmt.record_format[point_format]:
         try:
@@ -431,7 +431,7 @@ def read_wdp(las_data):
                             access=mmap.ACCESS_READ)
 
     lines = []
-    displayer = utils.Timing(point_number, 20)
+    displayer = misc.Timing(point_number, 20)
     for i in range(0,point_number):
         msg = displayer.timer(i)
         if msg is not None:

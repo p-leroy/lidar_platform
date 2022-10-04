@@ -2,7 +2,7 @@
 # Baptiste Feldmann, Paul Leroy
 # CloudCompare calls
 
-from tools import misc
+from ..tools import misc
 import glob
 import os
 
