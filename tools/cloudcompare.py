@@ -224,7 +224,6 @@ def m3c2(query, params_file):
         params_file (str): path to M3C2 parameter textfile
     """
     query += " -M3C2 " + params_file
-    print(query)
     misc.run(query)
 
 

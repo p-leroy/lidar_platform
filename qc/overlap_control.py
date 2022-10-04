@@ -48,8 +48,10 @@ class Overlap(object):
         self.overlapping_pairs = []
         overlapping_pairs_pkl = os.path.join(self.odir, "overlapping_pairs.pkl")
         if os.path.exists(overlapping_pairs_pkl):
+            print("[_set_overlapping_pairs] overlapping_pairs.pkl file found, do not run select_pairs_overlap")
             self.overlapping_pairs = pickle.load(open(overlapping_pairs_pkl, 'rb'))
         else:
+            print("[_set_overlapping_pairs] compute overlapping pairs")
             lines = os.path.join(self.odir, pattern)  # only consider thin lines to investigate overlaps
             logger.info(f'self.root_length {self.root_length}, line_nb_digits {self.line_nb_digits}')
             self.overlapping_pairs, overlaps = select_pairs_overlap(lines, [self.root_length, self.line_nb_digits])
@@ -249,7 +251,7 @@ class Overlap(object):
                 self.measure_distances_with_m3c2(*self.file_list[i])
                     
             print("[Overlap.processing] filter M3C2 results and compute statistics (mean, standard deviation)")
-            self.results = Parallel(n_jobs=25, verbose=1)(
+            self.results = Parallel(n_jobs=10, verbose=1)(
                 delayed(self.filter_m3c2_data_sbf)(
                     os.path.join(self.odir, elem[-1]), self.pair_list[count])
                 for count, elem in enumerate(self.file_list)
@@ -258,11 +260,17 @@ class Overlap(object):
                        fmt='%s', delimiter=';', header='Comparaison;moyenne (m);ecart-type (m)')
 
             cleaned_m3c2_results = glob.glob(os.path.join(self.odir, '*_clean.sbf'))
-            overlap_control_src = cc.merge(cleaned_m3c2_results, export_fmt='sbf')
-            overlap_control_dst = os.path.join(self.workspace, f'{self.folder}_overlap_control.sbf')
-            os.rename(overlap_control_src, overlap_control_dst)
-            os.rename(overlap_control_src + '.data', overlap_control_dst + '.data')
-            print(f"[Overlap.processing] results merged in {overlap_control_dst}")
+            # if there are several files, merge them
+            if len(cleaned_m3c2_results) == 1:
+                print(f"[Overlap.processing] only one output file: {cleaned_m3c2_results[0]}")
+            elif len(cleaned_m3c2_results) == 0:
+                print(f"[Overlap.processing] no output file, this is quite unexpected")
+            else:
+                overlap_control_src = cc.merge(cleaned_m3c2_results, export_fmt='sbf')
+                overlap_control_dst = os.path.join(self.workspace, f'{self.folder}_overlap_control.sbf')
+                os.rename(overlap_control_src, overlap_control_dst)
+                os.rename(overlap_control_src + '.data', overlap_control_dst + '.data')
+                print(f"[Overlap.processing] results merged in {overlap_control_dst}")
 
             print("[Overlap.processing] M3C2 analyzes done")
         else:

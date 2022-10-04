@@ -26,7 +26,6 @@ elif hostname == 'DESKTOP-0T01J23' or hostname == 'DESKTOP-0L5SMT4':
     cc_custom = 'C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe'
 else:
     cc_custom = None
-print(f'hostname {hostname} => cc_custom: {cc_custom}')
 
 ## fill in the QUERY_0 dictionary for legacy calls to helper applications
 if hostname == 'LIDAR-SERVER':
