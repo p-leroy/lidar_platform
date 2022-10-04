@@ -7,7 +7,6 @@ import os
 import glob
 import itertools
 
-import laspy
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.spatial as scp
@@ -22,10 +21,7 @@ from shapely.geometry import Polygon
 
 import simplekml
 
-from joblib import Parallel, delayed
-
-from plateforme_lidar import utils
-from tools import las
+from ..tools import las, misc
 
 
 def correction_3d(pt_app, apparent_depth, pt_shot=[], vectorApp=[], indRefr=1.333):
@@ -56,8 +52,8 @@ def correction_3d(pt_app, apparent_depth, pt_shot=[], vectorApp=[], indRefr=1.33
     vect_app_norm = np.linalg.norm(vect_app, axis=1)
 
     # compute "gisement" with formula that removes ambiguity of pi radians on the calculation of 'arctan'
-    gisement_vect = 2 * np.arctan(vect_app[:,0] / (np.linalg.norm(vect_app[:,0:2], axis=1) + vect_app[:,1]))
-    theta_app = np.arccos(vect_app[:,2] / vect_app_norm)
+    gisement_vect = 2 * np.arctan(vect_app[:, 0] / (np.linalg.norm(vect_app[:, 0:2], axis=1) + vect_app[:, 1]))
+    theta_app = np.arccos(vect_app[:, 2] / vect_app_norm)
     theta_true = np.arcsin(np.sin(theta_app) / indRefr)
     depth_true = apparent_depth * np.cos(theta_app) / (indRefr * np.cos(theta_true))
 
@@ -80,35 +76,35 @@ def correction_vect(vectorApp, indRefr=1.333):
         true vector shot (numpy.ndarray)
     """
     # bathymetric laser shot correction for fwf lidar data 
-    vectApp_norm=np.linalg.norm(vectorApp,axis=1)
-    vectTrue_norm=vectApp_norm/indRefr
+    vectApp_norm = np.linalg.norm(vectorApp, axis=1)
+    vectTrue_norm = vectApp_norm / indRefr
 
     # compute "gisement" with formula that removes ambiguity of pi radians on the calculation of 'arctan'
-    gisement_vect=2*np.arctan(vectorApp[:,0]/(np.linalg.norm(vectorApp[:,0:2],axis=1)+vectorApp[:,1]))
-    thetaApp=np.arccos(vectorApp[:,2]/vectApp_norm)
-    thetaTrue=np.arcsin(np.sin(thetaApp)/indRefr)
-    vectTrue=np.vstack([vectTrue_norm*np.sin(thetaTrue)*np.sin(gisement_vect),
-                         vectTrue_norm*np.sin(thetaTrue)*np.cos(gisement_vect),
-                         vectTrue_norm*np.cos(thetaTrue)])
+    gisement_vect = 2 * np.arctan(vectorApp[:, 0] / (np.linalg.norm(vectorApp[:, 0:2], axis=1) + vectorApp[:, 1]))
+    thetaApp = np.arccos(vectorApp[:, 2]/vectApp_norm)
+    thetaTrue = np.arcsin(np.sin(thetaApp)/indRefr)
+    vectTrue= np.vstack([vectTrue_norm * np.sin(thetaTrue)*np.sin(gisement_vect),
+                         vectTrue_norm * np.sin(thetaTrue)*np.cos(gisement_vect),
+                         vectTrue_norm * np.cos(thetaTrue)])
     return np.transpose(vectTrue)
 
 
 class PyC2C(object):
-    def __init__(self,compared,reference,dim=3,neighbors=1,cores=20):
-        if type(compared)== utils.lasdata and type(reference)== utils.lasdata:
-            self.compared,self.reference=compared,reference
-            self.compared_file,self.reference_file=None,None
+    def __init__(self, compared, reference, dim=3,neighbors=1, cores=20):
+        if type(compared) == las.lasdata and type(reference) == las.lasdata:
+            self.compared, self.reference=compared, reference
+            self.compared_file, self.reference_file = None, None
 
         else:
-            self.compared_file,self.reference_file=compared,reference
-            self.compared= lastools.read(compared, True)
-            self.reference= lastools.read(reference)
+            self.compared_file, self.reference_file = compared, reference
+            self.compared = las.read(compared, True)
+            self.reference = las.read(reference)
         
         if dim not in [2,3]:
             raise Exception("dim must be in [2,3]")
         self.compute(self.compared.XYZ,self.reference.XYZ,dim,cores,neighbors)
 
-    def compute(self,comp,ref,dim,nb_cores,neigh):
+    def compute(self, comp, ref, dim, nb_cores, neigh):
         tree=cKDTree(ref[:,0:dim],leafsize=250)
         index=tree.query(comp[:,0:dim],k=neigh,p=2,n_jobs=nb_cores)[1]
 
@@ -128,7 +124,7 @@ class PyC2C(object):
             extra1=[{"name":"dist_plani","type":'float32',"data":self.dist_plani},
                     {"name":"dist_alti","type":'float32',"data":self.dist_alti}]
             extra=extra1+[{"name":i,"type":getattr(self.compared,i).dtype.name,"data":getattr(self.compared,i)} for i in self.compared.metadata['extraField']]
-            lastools.WriteLAS(self.compared_file[0:-4] + "_C2C.laz", self.compared, extra_fields=extra)
+            las.WriteLAS(self.compared_file[0:-4] + "_C2C.laz", self.compared, extra_fields=extra)
 
 
 class Alphashape(object):
@@ -142,11 +138,11 @@ class Alphashape(object):
         # More you increase alpha factor, more the alphashape will be a convex hull
         print("[Alphashape] Delaunay triangulation...",end='')
         tri=scp.Delaunay(self.points)
-        nbrVertices=len(tri.vertices)
+        nbrVertices = len(tri.vertices)
         print("done !")
 
         print(f'[Alphashape] Cleaning {nbrVertices} triangles :')
-        displayer= utils.Timing(nbrVertices, 20)
+        displayer = misc.Timing(nbrVertices, 20)
         
         edges=set()
         edge_points=[]
@@ -197,13 +193,13 @@ def compute_dbscan(filepath, maxdist=1, minsamples=5):
         mindist (int, optional): Maximum distance between two samples. Defaults to 1.
         minsamples (int, optional): Minimum number of samples in each cluster. Defaults to 5.
     """
-    data= lastools.read(filepath)
+    data= las.read(filepath)
     model=DBSCAN(eps=maxdist,min_samples=minsamples,algorithm='kd_tree',leaf_size=1000,n_jobs=46).fit(data.XYZ)
     
     if len(np.unique(model.labels_))>1:
         extra=[(("labels","int16"),model.labels_)]
         print(f'Number of clusters : {len(np.unique(model.labels_))-1}')
-        lastools.WriteLAS(filepath[0:-4] + "_DBSCAN.laz", data, extraField=extra)
+        las.WriteLAS(filepath[0:-4] + "_DBSCAN.laz", data, extraField=extra)
     else:
         print("DBSCAN find only 1 cluster !")
 
@@ -230,8 +226,8 @@ def compute_density(points, core_points=[], radius=1, p_norm=2):
 
 
 def merge_c2c_fwf(workspace,fichier):
-    tab_fwf,metadata_fwf= lastools.read(workspace + fichier, "fwf")
-    tab_extra,metadata_extra= lastools.read(workspace + fichier[0:-4] + "_extra.laz", "standard", True)
+    tab_fwf,metadata_fwf= las.read(workspace + fichier, "fwf")
+    tab_extra,metadata_extra= las.read(workspace + fichier[0:-4] + "_extra.laz", "standard", True)
     names_fwf=metadata_fwf['col_names']
     names_extra=metadata_extra['col_names']
     
@@ -240,12 +236,12 @@ def merge_c2c_fwf(workspace,fichier):
     except:
         raise Exception("LAS_FWF file and LAS file don't match exactly!\nPlease check your files...")
 
-    dist_Z=tab_extra[:,names_extra.index('c2c_absolute_distances_(z)')]
-    dist_plani=np.sqrt(np.power(tab_extra[:,names_extra.index('c2c_absolute_distances_(x)')],2)+np.power(tab_extra[:,names_extra.index('c2c_absolute_distances_(y)')],2))
-    num=names_fwf.index("wave_packet_desc_index")
-    tab_tot=np.hstack([tab_extra[:,0:-4],tab_fwf[:,num::],np.reshape(dist_Z,(len(dist_Z),1)),np.reshape(dist_plani,(len(dist_plani),1))])
-    names_tot=names_extra[0:-4]+names_fwf[num::]+['depth','distance_H']
-    return tab_tot,names_tot,metadata_fwf['vlrs']
+    dist_Z = tab_extra[:,names_extra.index('c2c_absolute_distances_(z)')]
+    dist_plani = np.sqrt(np.power(tab_extra[:,names_extra.index('c2c_absolute_distances_(x)')],2)+np.power(tab_extra[:,names_extra.index('c2c_absolute_distances_(y)')],2))
+    num = names_fwf.index("wave_packet_desc_index")
+    tab_tot = np.hstack([tab_extra[:,0:-4],tab_fwf[:,num::],np.reshape(dist_Z,(len(dist_Z),1)),np.reshape(dist_plani,(len(dist_plani),1))])
+    names_tot = names_extra[0:-4]+names_fwf[num::]+['depth','distance_H']
+    return tab_tot, names_tot, metadata_fwf['vlrs']
 
 
 def select_pairs_overlap(filepath, shifts):
@@ -253,17 +249,17 @@ def select_pairs_overlap(filepath, shifts):
     polygons = []
     num_list = []
     for file in files:
-        data = lastools.read(file)
+        data = las.read(file)
         head, tail = os.path.split(file)
-        num_list += [str(tail[shifts[0] : shifts[0] + shifts[1]])]
+        num_list += [str(tail[shifts[0]: shifts[0] + shifts[1]])]
         pca_pts = PCA(n_components=2, svd_solver='full')
         dat_new = pca_pts.fit_transform(data.XYZ[:, 0:2])
         del data
         
-        boundaries = np.array([[min(dat_new[:,0]), min(dat_new[:,1])],
-                               [min(dat_new[:,0]), max(dat_new[:,1])],
-                               [max(dat_new[:,0]), max(dat_new[:,1])],
-                               [max(dat_new[:,0]), min(dat_new[:,1])]])
+        boundaries = np.array([[min(dat_new[:, 0]), min(dat_new[:, 1])],
+                               [min(dat_new[:, 0]), max(dat_new[:, 1])],
+                               [max(dat_new[:, 0]), max(dat_new[:, 1])],
+                               [max(dat_new[:, 0]), min(dat_new[:, 1])]])
         new_boundaries = pca_pts.inverse_transform(boundaries)
         polygons += [Polygon(new_boundaries)]
 
