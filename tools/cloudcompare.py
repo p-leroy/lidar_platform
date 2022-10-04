@@ -2,12 +2,13 @@
 # Baptiste Feldmann, Paul Leroy
 # CloudCompare calls
 
-from ..tools import misc
 import glob
 import os
 
 from joblib import Parallel, delayed
 
+from ..config.config import EXPORT_FMT, SHIFT, QUERY_0
+from ..tools import misc
 
 # Poisson reconstruction parameters
 POISSON_RECON_PARAMETERS = {"bType": {"Free": "1", "Dirichlet": "2", "Neumann": "3"}}
@@ -38,7 +39,7 @@ def c2c_dist(query, xyz=True, octree_lvl=0):
     else:
         opt_save = " -save_clouds"
         
-    utils.run_bis(query + " -C2C_DIST " + opt_xyz + opt_octree + opt_save)
+    misc.run(query + " -C2C_DIST " + opt_xyz + opt_octree + opt_save)
 
 
 def c2c_files(params, files, filepath_b, octree_lvl=9, nbr_job=5):
@@ -65,7 +66,7 @@ def c2c_files(params, files, filepath_b, octree_lvl=9, nbr_job=5):
     for file in files:
         list_query += [open_file(params, [file, filepath_b])
                        + " -C2C_DIST -split_xyz -octree_level " + str(octree_lvl) + " -save_clouds"]
-    Parallel(n_jobs=nbr_job, verbose=0)(delayed(utils.run_bis)(cmd) for cmd in list_query)
+    Parallel(n_jobs=nbr_job, verbose=0)(delayed(misc.run)(cmd) for cmd in list_query)
 
     # clean temporary files
     for file in files:
@@ -94,7 +95,7 @@ def c2m_dist(command, max_dist=0, octree_lvl=0, cores=0):
     if cores > 0:
         opt += " -max_tcount " + str(cores)
 
-    utils.run(command + " -C2M_DIST" + opt + " -save_clouds")
+    misc.run(command + " -C2M_DIST" + opt + " -save_clouds")
 
 
 def las2las_keep_tile(filepath, lowerleft_x_lowerleft_y_size):
@@ -102,13 +103,13 @@ def las2las_keep_tile(filepath, lowerleft_x_lowerleft_y_size):
     # keeps a size by size tile with a lower left coordinate of x=lowerleft_x and y=lowerleft and stores as a
     # compressed LAZ file *_1.laz (an added '_1' in the name).
     query = "las2las -i " + filepath + " -keep_tile " + " ".join(lowerleft_x_lowerleft_y_size) + " -odix _1 -olaz"
-    utils.run_bis(query)
+    misc.run(query)
 
 
 def las2las_clip_xy(filepath, min_x_min_y_max_x_max_y):
     # min_x_min_y_max_x_max_y = [min_x, min_y, max_x, max_y]
     query = "las2las -i " + filepath + " -keep_xy " + " ".join(min_x_min_y_max_x_max_y) + " -odix _1 -olaz"
-    utils.run_bis(query)
+    misc.run(query)
 
 
 def compute_normals(filepath, params):
@@ -119,7 +120,7 @@ def compute_normals(filepath, params):
         params (list): CC parameters [shiftname, normalRadius,model (LS / TRI / QUADRIC)]
     """    
     query = open_file(["standard", "PLY_cloud", params["shiftname"]], filepath)
-    utils.run_bis(query +
+    misc.run(query +
                   " -octree_normals " + params["normal_radius"] +
                   " -orient PLUS_Z -model " + params["model"] +
                   " -save_clouds")
@@ -135,7 +136,7 @@ def compute_normals_dip(filepath, cc_param, radius, model="LS"):
         model (str, optional): local model type LS / TRI / QUADRIC. Defaults to "LS".
     """
     query = open_file(cc_param, filepath)
-    utils.run_bis(query +
+    misc.run(query +
                   " -octree_normals " + str(radius) +
                   " -orient PLUS_Z -model " + model +
                   " -normals_to_dip -save_clouds")
@@ -145,7 +146,7 @@ def compute_feature(query, features_dict):
     for i in features_dict.keys():
         query += " -feature " + i + " " + str(features_dict[i])
     
-    utils.run_bis(query + " -save_clouds")
+    misc.run(query + " -save_clouds")
 
 
 def create_raster(command, grid_size, interp=False):
@@ -157,7 +158,7 @@ def create_raster(command, grid_size, interp=False):
         command += " -empty_fill INTERP"
 
     command += " -output_raster_z -save_clouds"
-    utils.run(command)
+    misc.run(command)
 
 
 def density(command, radius):
@@ -165,7 +166,7 @@ def density(command, radius):
     CloudCompare command for density computation
     """
     command += " -density " + str(radius) + " -type KNN -save_clouds"
-    utils.run(command)
+    misc.run(command)
 
 
 def last_file(filepath, new_name=None, verbose=False):
@@ -212,7 +213,7 @@ def merge_clouds(command):
         opt1 = "-save_clouds"
     
     command += " -merge_clouds " + opt1
-    utils.run(command)
+    misc.run(command)
 
 
 def m3c2(query, params_file):
@@ -224,7 +225,7 @@ def m3c2(query, params_file):
     """
     query += " -M3C2 " + params_file
     print(query)
-    utils.run_bis(query)
+    misc.run(query)
 
 
 def open_file(params, filepath, fwf=False):
@@ -247,12 +248,12 @@ def open_file(params, filepath, fwf=False):
     else:
         opt_fwf = " -O"
     
-    query = utils.QUERY_0[params[0]] + utils.EXPORT_FMT[params[1]]
+    query = QUERY_0[params[0]] + EXPORT_FMT[params[1]]
     if type(filepath) is list:
         for i in filepath:
-            query += opt_fwf + " -global_shift " + utils.SHIFT[params[2]] + " " + i
+            query += opt_fwf + " -global_shift " + SHIFT[params[2]] + " " + i
     elif type(filepath) is str:
-        query += opt_fwf + " -global_shift " + utils.SHIFT[params[2]] + " " + filepath
+        query += opt_fwf + " -global_shift " + SHIFT[params[2]] + " " + filepath
     else:
         raise TypeError("filepath must be a string or a list of string !")
         
@@ -267,7 +268,7 @@ def ortho_wfm(query, param_file):
         param_file (str): ortho-waveform plugin textfile parameter
     """
     query += " -fwf_ortho "+param_file+" -fwf_save_clouds"
-    utils.run(query)
+    misc.run(query)
 
 
 def wfw_peaks(query, param_file):
@@ -278,7 +279,7 @@ def wfw_peaks(query, param_file):
         param_file (str): ortho-waveform plugin find peaks textfile parameter
     """
     query += " -fwf_peaks " + param_file + " -fwf_save_clouds"
-    utils.run(query)
+    misc.run(query)
 
 
 def sf_grad(command, sf_index):
@@ -286,7 +287,7 @@ def sf_grad(command, sf_index):
     CloudCompare command for the calculation of the gradient of a scalar field
     """
     command += " -set_active_sf " + str(sf_index) + " -SF_grad TRUE -save_clouds"
-    utils.run(command)
+    misc.run(command)
 
 
 def poisson(filename, params):
@@ -298,15 +299,15 @@ def poisson(filename, params):
         params (dict): parameter dictionary
             ex: {"bType":"Neumann","degree":"2",...}
     """
-    query = utils.QUERY_0['PoissonRecon'] + " --in " + filename + " --out " + filename[0:-4] + "_mesh.ply"
+    query = QUERY_0['PoissonRecon'] + " --in " + filename + " --out " + filename[0:-4] + "_mesh.ply"
     for i in params.keys():
         query += " --" + i + int(bool(len(params[i]))) * " "
-        if i in utils.POISSON_RECON_PARAMETERS.keys():
-            query += utils.POISSON_RECON_PARAMETERS[i][params[i]]
+        if i in POISSON_RECON_PARAMETERS.keys():
+            query += POISSON_RECON_PARAMETERS[i][params[i]]
         else:
             query += params[i]
     print(f'[poisson] query: {query}')
-    utils.run(query)
+    misc.run(query)
 
 
 def rasterize(command, grid_size, proj, empty):
@@ -320,12 +321,12 @@ def rasterize(command, grid_size, proj, empty):
     else:
         command += " -empty_fill " + empty + \
                    " -output_cloud -save_clouds"
-    utils.run(command)
+    misc.run(command)
 
 
 def sample_mesh(query, density):
     query += f" -sample_mesh DENSITY {density} -save_clouds"
-    utils.run_bis(query)
+    misc.run(query)
 
 
 def filter_sf(command, sf_index, mini, maxi):
@@ -334,9 +335,9 @@ def filter_sf(command, sf_index, mini, maxi):
     """
     command += " -set_active_sf " + str(sf_index) + " -filter_sf " \
                + str(mini) + " " + str(maxi) + " -save_clouds"
-    utils.run(command)
+    misc.run(command)
 
 
 def subsampling(command, min_dist):
     command += " -SS SPATIAL " + str(min_dist) + " -save_clouds"
-    utils.run(command)
+    misc.run(command)
