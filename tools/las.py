@@ -381,7 +381,9 @@ def read(filepath, extra_fields=False, parallel=True):
                 'filepath': filepath}
     output = las_fmt.lasdata()
 
-    for field, dtype in las_fmt.record_format[point_format]:
+    LAS_fmt = las_fmt.LASFormat()
+
+    for field, dtype in LAS_fmt.record_format[point_format]:
         try:
             output[field] = np.array(getattr(las, field), dtype=dtype)
         except:
