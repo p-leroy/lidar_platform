@@ -1,6 +1,9 @@
 # formerly known as carteRecouvrement.py [Baptiste Feldmann]
 
-import glob, logging, os, pickle
+import glob
+import logging
+import os
+import pickle
 
 from joblib import delayed, Parallel
 
@@ -32,12 +35,16 @@ class Overlap(object):
         self.pair_list = []
         self.overlapping_pairs = []
 
+    # PREPROCESSING
+
     def _set_overlapping_pairs(self, pattern="*_thin.laz"):
         self.overlapping_pairs = []
         overlapping_pairs_pkl = os.path.join(self.workspace, "overlapping_pairs.pkl")
         if os.path.exists(overlapping_pairs_pkl):
+            print("[_set_overlapping_pairs] overlapping_pairs.pkl file found, do not run select_pairs_overlap")
             self.overlapping_pairs = pickle.load(open(overlapping_pairs_pkl, 'rb'))
         else:
+            print("[_set_overlapping_pairs] compute overlapping pairs")
             lines = os.path.join(self.workspace, pattern)  # only consider thin lines to investigate overlaps
             logger.info(f'self.root_length {self.root_length}, self.line_nb_digits {self.line_nb_digits}')
             self.overlapping_pairs, overlaps = select_pairs_overlap(lines, [self.root_length, self.line_nb_digits])

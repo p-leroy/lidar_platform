@@ -212,16 +212,11 @@ class Overlap(object):
         print(f'[Overlap.filter_m3c2_data_sbf] {filepath} [{compare_id}]')
         pc, sf, config = cc.read_sbf(filepath)
 
-        # SF1 = Npoints_cloud1
-        # SF2 = Npoints_cloud2
-        # SF3 = STD_cloud1
-        # SF4 = STD_cloud2
-        # SF5 = significant change
-        # SF6 = distance uncertainty
-        # SF7 = M3C2 distance
-
-        uncertainty = sf[:, 5]
-        distance = sf[:, 6]
+        name_index_dict = cc.get_name_index_dict(config)
+        i_uncertainty = name_index_dict['distance uncertainty']
+        i_distance = name_index_dict['M3C2 distance']
+        uncertainty = sf[:, i_uncertainty]
+        distance = sf[:, i_distance]
 
         # filter distance uncertainty
         selection = ~(np.isnan(uncertainty))
