@@ -155,7 +155,7 @@ class Overlap(object):
             core_files = glob.glob(os.path.join(self.odir, "*_thin.laz"))
         for file_core in core_files:
             head, tail = os.path.split(file_core)
-            num_a = tail[self.root_length:self.root_length + self.line_nb_digits]
+            num_a = tail[self.root_length: self.root_length + self.line_nb_digits]
             file_a = os.path.join(self.lines_dir_a, self.line_template_a[0] + num_a + self.line_template_a[-1])
             file_b = os.path.join(lines_dir_b, line_template_b[0] + num_a + line_template_b[-1])
             file_result = file_core[0:-4] + "_m3c2_C2C3.sbf"

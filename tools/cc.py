@@ -773,29 +773,45 @@ def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
 ##########
 
 
-def c2c_dist(compared, reference, max_dist=None, odir=None, silent=True, debug=False):
+def c2c_dist(compared, reference, global_shift=None, max_dist=None, odir=None, silent=True, debug=False, export_fmt='SBF'):
     # cloud to cloud distance + filtering using the distance maxDist
     args = ''
     if silent is True:
         args += ' -SILENT -NO_TIMESTAMP'
     else:
         args += ' -NO_TIMESTAMP'
-    args += ' -C_EXPORT_FMT SBF'
-    args += f' -o {compared}'
-    args += f' -o {reference}'
+    if export_fmt == 'LAZ':
+        args += f' -C_EXPORT_FMT LAS -EXT laz'
+    else:
+        args += f' -C_EXPORT_FMT {export_fmt}'
+
+    if global_shift is not None:
+        x, y, z = global_shift
+        args += f' -o -GLOBAL_SHIFT {x} {y} {z} {compared}'
+        args += f' -o -GLOBAL_SHIFT {x} {y} {z} {reference}'
+    else:
+        args += f' -o {compared}'
+        args += f' -o {reference}'
+
     args += ' -c2c_dist'
     if max_dist:
-        args += f' -FILTER_SF 0. {max_dist:.3f}'
+        args += f' -MAX_DIST {max_dist}'
 
     misc.run(cc_custom + args, verbose=debug)
 
     root, ext = os.path.splitext(compared)
-    output = root + '_C2C_DIST.sbf'
+    if max_dist:
+        output = root + f'_C2C_DIST_{max_dist}.sbf'
+    else:
+        output = root + '_C2C_DIST.sbf'
     head, tail = os.path.split(output)
-    if os.path.exists(odir):
+
+    # move the result if odir has been set
+    if os.path.exists(odir) and odir is not None:
         overlap = os.path.join(odir, tail)
         shutil.move(output, overlap)
-        shutil.move(output + '.data', overlap + '.data')
+        if export_fmt.lower() == 'sbf':  # move .sbf.data also in cas of sbf export format
+            shutil.move(output + '.data', overlap + '.data')
         output = overlap
     
     return output
