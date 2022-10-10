@@ -773,7 +773,7 @@ def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
 ##########
 
 
-def c2c_dist(compared, reference, global_shift=None, max_dist=None, odir=None, silent=True, debug=False, export_fmt='SBF'):
+def c2c_dist(compared, reference, global_shift=None, max_dist=None, split_XYZ=False, odir=None, silent=True, debug=False, export_fmt='SBF'):
     # cloud to cloud distance + filtering using the distance maxDist
     args = ''
     if silent is True:
@@ -794,6 +794,9 @@ def c2c_dist(compared, reference, global_shift=None, max_dist=None, odir=None, s
         args += f' -o {reference}'
 
     args += ' -c2c_dist'
+
+    if split_XYZ is True:
+        args += ' -SPLIT_XYZ'
     if max_dist:
         args += f' -MAX_DIST {max_dist}'
 
@@ -801,7 +804,7 @@ def c2c_dist(compared, reference, global_shift=None, max_dist=None, odir=None, s
 
     root, ext = os.path.splitext(compared)
     if max_dist:
-        output = root + f'_C2C_DIST_{max_dist}.sbf'
+        output = root + f'_C2C_DIST_MAX_DIST_{max_dist}.sbf'
     else:
         output = root + '_C2C_DIST.sbf'
     head, tail = os.path.split(output)
