@@ -11,7 +11,7 @@ import pyproj
 import simplekml
 from sklearn.decomposition import PCA
 
-import lidar_platform as lp
+from lidar_platform import las
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -72,7 +72,7 @@ def from_lines(lines, odir, epsg_src="epsg:2154", epsg_dst="epsg:4171"):
 
     for line in lines:
         print(line)
-        data = lp.lastools.read(line)
+        data = las.read(line)
         pca_pts = PCA(n_components=2, svd_solver='full')
         data_new = pca_pts.fit_transform(data.XYZ[:, 0:2])
         boundaries = np.array([[min(data_new[:, 0]), min(data_new[:, 1])],
