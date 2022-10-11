@@ -430,19 +430,22 @@ def to_sbf(fullname, debug=False, cc=cc_std):
 ##############
 
 
-def ss(fullname, cc_exe=cc_std_alt, algorithm='OCTREE', parameter=8, debug=False, odir=None, fmt='SBF'):
+def ss(fullname, algorithm='OCTREE', parameter=8, debug=False, odir=None, fmt='SBF',
+       cc_exe=cc_std_alt):
     """
     Use CloudCompare to subsample a cloud.
 
     :param fullname: the full name of the cloud to subsample
-    :param cc_exe: CloudCompare executable
     :param algorithm: RANDOM SPATIAL OCTREE
     :param parameter: number of points / distance between points / subdivision level
     :param debug:
     :param odir: output directory
     :param fmt: output format
+    :param cc_exe: CloudCompare executable
     :return: the name of the output file
     """
+
+    print(f'[cc.ss] subsample {fullname}')
 
     if not os.path.exists(fullname):
         raise FileNotFoundError
@@ -501,20 +504,20 @@ def get_inverse_transformation(transformation):
     return inv
 
 
-def save_trans(transfile, R, T):
+def save_trans(transformation, R, T):
     transformation = np.zeros((4, 4))
     transformation[:3, :3] = R
     transformation[:3, 3, None] = T
     transformation[3, 3] = 1
-    np.savetxt(transfile, transformation, fmt='%.8f')
-    logger.debug(f'{transfile} saved')
+    np.savetxt(transformation, transformation, fmt='%.8f')
+    logger.debug(f'{transformation} saved')
 
 
-def apply_trans_alt(cloudfile, transfile):
+def apply_trans_alt(cloudfile, transformation):
     args = ''
     args += ' -SILENT -NO_TIMESTAMP'
     args += ' -o ' + cloudfile
-    args += ' -APPLY_TRANS ' + transfile
+    args += ' -APPLY_TRANS ' + transformation
     ret = misc.run(cc_custom + args)
     if ret == EXIT_FAILURE:
         raise CloudCompareError
@@ -522,40 +525,52 @@ def apply_trans_alt(cloudfile, transfile):
     return root + '_TRANSFORMED.bin'
 
 
-def apply_trans(cloudfile, transfile, outfile=None, silent=True, debug=False, shift=(0, 0, 0)):
+def apply_transformation(cloudfile, transformation, fmt='SBF',
+                         global_shift=None, silent=True, debug=False):
+    """
+    Transform a point cloud using CloudCompare using a transformation specified in a text file.
+
+    :param cloudfile:
+    :param transformation:
+    :param fmt:
+    :param global_shift:
+    :param silent:
+    :param debug:
+    :return:
+    """
+
+    print(f'[cc.apply_transformation] apply transformation to {cloudfile}')
+    if not os.path.exists(cloudfile):
+        raise FileNotFoundError
+
     root, ext = os.path.splitext(cloudfile)
+    out = root + f'_TRANSFORMED.{fmt.lower()}'
     level = logger.getEffectiveLevel()
     if debug is True:
         logger.setLevel(logging.DEBUG)
-    # Transform a point cloud using CloudCompare
-    logger.debug(f'IN___ {os.path.split(cloudfile)[-1]}')
-    logger.debug(f'TRANS {os.path.split(transfile)[-1]}')
-    if outfile is None:
-        head, tail = os.path.split(cloudfile)[0]
-        name = os.path.splitext(tail)[0] + '_rotated.bin'
-        outfile = os.path.join(head,  name)
-    else:
-        name = os.path.split(outfile)[-1]
-    logger.debug(f'OUT__ {name}')
-    args = ''
-    if silent is True:
-        args += ' -SILENT'
-    args += ' -NO_TIMESTAMP'
-    if ext == '.bin':
-        args += ' -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
-        args += ' -o ' + cloudfile
-    elif ext == '.sbf':
-        x, y, z = shift
-        args += ' -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
-        args += f' -o -GLOBAL_SHIFT {x} {y} {z} ' + cloudfile
-    args += ' -APPLY_TRANS ' + transfile
-    args += ' -SAVE_CLOUDS FILE ' + outfile
-    if debug is True:
-        print(f'cc {args}')
-    ret = misc.run(cc_custom + args)
-    if ret == EXIT_FAILURE:
-        raise CloudCompareError
-    logger.setLevel(level)
+
+    cmd = [cc_std_alt]
+    if silent:
+        cmd.append('-SILENT')
+    cmd.append('-NO_TIMESTAMP')
+    cmd.append('-C_EXPORT_FMT')
+    cmd.append(fmt)
+    if fmt.lower() == 'laz':  # export to laz format
+        cmd.append("-EXT")
+        cmd.append("laz")
+    cmd.append('-o')
+    if global_shift is not None:
+        x, y, z = global_shift
+        cmd.append('-GLOBAL_SHIFT')
+        cmd.append(str(x))
+        cmd.append(str(y))
+        cmd.append(str(z))
+    cmd.append(cloudfile)
+    cmd.append('-APPLY_TRANS')
+    cmd.append(transformation)
+    misc.run(cmd, verbose=debug)
+
+    return out
 
 
 def transform_cloud(cloud, R, T, shift=None, silent=True, debug=False):
@@ -567,7 +582,7 @@ def transform_cloud(cloud, R, T, shift=None, silent=True, debug=False):
     save_trans(transformation, R, T)
     # Transform the cloud
     logger.info(f'[CC] transformation of {tail}')
-    apply_trans(cloud, transformation, cloud_trans, silent=silent, debug=debug, shift=shift)
+    apply_transformation(cloud, transformation, cloud_trans, silent=silent, debug=debug, shift=shift)
 
 ###################
 #  BIN READ / WRITE
@@ -790,7 +805,8 @@ def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
 ##########
 
 
-def c2c_dist(compared, reference, global_shift=None, max_dist=None, split_XYZ=False, odir=None, silent=True, debug=False, export_fmt='SBF'):
+def c2c_dist(compared, reference, max_dist=None, split_XYZ=False, odir=None, export_fmt='SBF',
+             global_shift=None, silent=True, debug=False):
     # cloud to cloud distance + filtering using the distance maxDist
     args = ''
     if silent is True:
