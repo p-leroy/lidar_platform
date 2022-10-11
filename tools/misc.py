@@ -60,6 +60,8 @@ def pyuic5(ui, debug=False):
 def run(cmd, shell=False, advanced=True, verbose=True):
     # The recommended approach to invoking subprocesses is to use the run() function for all use cases it can handle.
     # For more advanced use cases, the underlying Popen interface can be used directly.
+    # The only time you need to specify shell=True on Windows is when the command you wish to execute is built into
+    # the shell (e.g. dir or copy)
 
     if advanced:
         if verbose:

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 EXIT_FAILURE = 1
 EXIT_SUCCESS = 0
 
-subMethods = {0: None, 1: 'RANDOM', 2: 'SPATIAL', 3: 'OCTREE'}
+cc_std_alt = cc_std[1:-1]
 
 
 class Error(Exception):
@@ -430,12 +430,29 @@ def to_sbf(fullname, debug=False, cc=cc_std):
 ##############
 
 
-def ss(fullname, cc=cc_std, algorithm='OCTREE', parameter=8, debug=False, odir=None, fmt='SBF'):
+def ss(fullname, cc_exe=cc_std_alt, algorithm='OCTREE', parameter=8, debug=False, odir=None, fmt='SBF'):
+    """
+    Use CloudCompare to subsample a cloud.
+
+    :param fullname: the full name of the cloud to subsample
+    :param cc_exe: CloudCompare executable
+    :param algorithm: RANDOM SPATIAL OCTREE
+    :param parameter: number of points / distance between points / subdivision level
+    :param debug:
+    :param odir: output directory
+    :param fmt: output format
+    :return: the name of the output file
+    """
+
+    if not os.path.exists(fullname):
+        raise FileNotFoundError
+
     root, ext = os.path.splitext(fullname)
-    
-    if fmt == 'SBF':
+    os.makedirs(odir, exist_ok=True)
+
+    if fmt.lower() == 'sbf':
         ext = 'sbf'
-    elif fmt == 'BIN':
+    elif fmt.lower() == 'bin':
         ext = 'bin'
 
     if algorithm == 'OCTREE':
@@ -445,29 +462,29 @@ def ss(fullname, cc=cc_std, algorithm='OCTREE', parameter=8, debug=False, odir=N
     elif algorithm == 'RANDOM':
         out = root + f'_RANDOM_SUBSAMPLED.{ext}'
 
-    if os.path.exists(fullname):
-        args = ''
-        if debug == False:
-            args += ' -SILENT -NO_TIMESTAMP'
-        else:
-            args += ' -NO_TIMESTAMP'
-        # algorithm RANDOM SPATIAL OCTREE 
-        # parameter number of points / distance between points / subdivision level
-        args += ' -o ' + fullname
-        args += f' -C_EXPORT_FMT {fmt} -SS {algorithm} {parameter}'
-        ret = misc.run(cc + args, verbose=debug)
-        if odir is not None:
-            head, tail = os.path.split(out)
-            dst = os.path.join(odir, tail)
-            shutil.move(out, dst)
-            if fmt == 'SBF':
-                dst_data = os.path.join(odir, tail + '.data')
-                shutil.move(out + '.data', dst_data)
-            out = dst
+    cmd = [cc_exe]
+
+    if debug == False:
+        cmd.append('-SILENT')
+    cmd.append('-NO_TIMESTAMP')
+    cmd.append('-C_EXPORT_FMT')
+    cmd.append(fmt)
+    cmd.append('-o')
+    cmd.append(fullname)
+    cmd.append('-SS')
+    cmd.append(algorithm)
+    cmd.append(str(parameter))
+    ret = misc.run(cmd, verbose=debug)
+
+    if odir:
+        head, tail = os.path.split(out)
+        dst = os.path.join(odir, tail)
+        shutil.move(out, dst)
+        if fmt == 'SBF':
+            dst_data = os.path.join(odir, tail + '.data')
+            shutil.move(out + '.data', dst_data)
+        out = dst
         return out
-    else:
-        print(f'error, {fullname} does not exist')
-        return -1
 
 #######################
 #  CLOUD TRANSFORMATION
