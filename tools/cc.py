@@ -5,19 +5,21 @@ Created on Thu Jan 14 09:17:49 2021
 @author: Paul Leroy
 """
 
-import configparser, logging, os, shutil, struct
+import configparser
+import logging
+import os
+import shutil
+import struct
 
 import numpy as np
 
-from ..config.config import cc_custom, cc_std
+from ..config.config import cc_custom, cc_std, cc_std_alt
 from ..tools import misc
 
 logger = logging.getLogger(__name__)
 
 EXIT_FAILURE = 1
 EXIT_SUCCESS = 0
-
-cc_std_alt = cc_std[1:-1]
 
 
 class Error(Exception):
@@ -45,7 +47,7 @@ def format_name(in_, name_):
     normpath = os.path.normpath(os.path.join(in_, name_))
     list_ = [f'"{item}"' if ' ' in item else item for item in normpath.split('\\')]
     if ':' in list_[0]:
-        new_name = '/'.join(list_) # beurk
+        new_name = '/'.join(list_)  # beurk
     else:
         new_name = os.path.join(*list_)
     return new_name
@@ -135,68 +137,104 @@ def sf_interp_and_merge(src, dst, index, global_shift, silent=True, debug=False,
     root, ext = os.path.splitext(src)
     return root + f'_MERGED.{export_fmt}'
 
+
+def density(pc, radius, density_type,
+            silent=True, debug=False, global_shift='AUTO'):
+    """ Compute the density on a cloud
+
+    :param pc:
+    :param radius:
+    :param density_type: type can be KNN SURFACE VOLUME
+    :param silent:
+    :param debug:
+    :param global_shift:
+    :return:
+    """
+
+    cmd = CCCommand(cc_std_alt, silent=silent, fmt='SBF')
+    cmd.append('-SAVE_CLOUDS')
+    cmd.open_file(pc, global_shift=global_shift)
+    cmd.append('-REMOVE_ALL_SFS')
+    cmd.append('-DENSITY')
+    cmd.append(str(radius))
+    cmd.append('-TYPE')
+    cmd.append(density_type)
+    misc.run(cmd, verbose=debug)
+
+    root, ext = os.path.splitext(pc)
+    return root + '_DENSITY.sbf'
+
+#############################
+# BUILD CLOUD COMPARE COMMAND
+#############################
+
+
+class CCCommand(list):
+    def __init__(self, cc_exe, silent=True, fmt='SBF'):
+        self.append(cc_exe)
+        if silent:
+            self.append('-SILENT')
+        self.append('-NO_TIMESTAMP')
+        self.append('-C_EXPORT_FMT')
+        self.append(fmt)
+        if fmt.lower() == 'laz':  # needed to export to laz
+            self.append("-EXT")
+            self.append("laz")
+
+    def open_file(self, fullname, global_shift='AUTO'):
+        self.append('-o')
+        if global_shift is not None:
+            self.append('-GLOBAL_SHIFT')
+            if global_shift == 'AUTO' or global_shift == 'FIRST':
+                self.append(global_shift)
+            elif type(global_shift) is tuple or type(global_shift) is list:
+                x, y, z = global_shift
+                self.append(str(x))
+                self.append(str(y))
+                self.append(str(z))
+            else:
+                raise ValueError('invalid value for global_shit')
+        self.append(fullname)
+
 #########################################################
 #  3DMASC KEEP_ATTRIBUTES / ONLY_FEATURES / SKIP_FEATURES
 #########################################################
 
 
-def q3dmasc(pc1, training_file, shift, pcx=None, silent=True, debug=False):
-    x, y, z = shift
-    args = ''
-    if silent is True:
-        args += ' -SILENT -NO_TIMESTAMP'
+def _3dmasc(pc1, training_file, pcx=None,
+            silent=True, debug=False, global_shift='AUTO', cc_exe=cc_custom):
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
+    cmd.open_file(pc1, global_shift=global_shift)
+    if pcx:
+        cmd.open_file(pcx, global_shift=global_shift)
+    cmd.append('-3DMASC_CLASSIFY')
+    cmd.append('-ONLY_FEATURES')
+    cmd.append(training_file)
+    if pcx:
+        cmd.append('PC1=1 PCX=2')  # you have to put this in a string, if you append separately the options, it fails
     else:
-        args += ' -NO_TIMESTAMP'
-    args += ' -C_EXPORT_FMT SBF'
+        cmd.append('PC1=1')
+
+    misc.run(cmd, verbose=debug)
+
     root, ext = os.path.splitext(pc1)
-    args += f' -o -GLOBAL_SHIFT {x} {y} {z} {pc1}'
-    if pcx is not None:
-            args +=f' -o -GLOBAL_SHIFT {x} {y} {z} {pcx}'
-    if pcx is not None:
-        args += f' -3DMASC_CLASSIFY -ONLY_FEATURES {training_file} "PC1=1 PCX=2"'
-    else:
-        args += f' -3DMASC_CLASSIFY -ONLY_FEATURES {training_file} "PC1=1"'
-    print(f'cc {args}')
-    misc.run(cc_custom + args, verbose=debug)
     return root + '_WITH_FEATURES.sbf'
 
 
-def q3dmasc_train(sbf, training_file, shift="AUTO", silent=True, debug=False):
-    if shift == "AUTO":
-        pass
-    else:
-        x, y, z = shift
-    args = ''
-    if silent is True:
-        args += ' -SILENT -NO_TIMESTAMP'
-    else:
-        args += ' -NO_TIMESTAMP'
-    args += ' -C_EXPORT_FMT SBF'
+def _3dmasc_train(sbf, training_file,
+                  silent=True, debug=False, global_shift='AUTO', cc_exe=cc_custom):
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
+    cmd.open_file(sbf, global_shift=global_shift)
+    cmd.append('-3DMASC_CLASSIFY')
+    cmd.append('-SKIP_FEATURES')
+    cmd.append(training_file)
+
+    misc.run(cmd, verbose=debug)
+
     root, ext = os.path.splitext(sbf)
-    if shift == "AUTO":
-        args += f' -o -GLOBAL_SHIFT AUTO {sbf}'
-    else:
-        args += f' -o -GLOBAL_SHIFT {x} {y} {z} {sbf}'
-    args += f' -3DMASC_CLASSIFY -SKIP_FEATURES {training_file}'
-    print(f'cc {args}')
-    misc.run(cc_custom + args, verbose=debug)
     return root + '_WITH_FEATURES.sbf'
-
-
-def density(pc, shift, radius, densityType, silent=True, debug=False):
-    x, y, z = shift
-    args = ''
-    if silent is True:
-        args += ' -SILENT'
-    args += ' -NO_TIMESTAMP'
-    args += ' -C_EXPORT_FMT SBF -SAVE_CLOUDS'
-    root, ext = os.path.splitext(pc)
-    args += f' -o -GLOBAL_SHIFT {x} {y} {z} {pc} -REMOVE_ALL_SFS'
-    # densityType can be KNN SURFACE VOLUME
-    args += f' -DENSITY {radius} -TYPE {densityType}'
-    print(f'cc {args}')
-    misc.run(cc_custom + args, verbose=debug)
-    return root + '_DENSITY.sbf'
 
 ################
 # Best Fit Plane
@@ -292,15 +330,21 @@ def remove_scalar_fields(cloud, silent=True):
     misc.run(cc_custom + args)
 
 
-def rasterize(cloud, spacing, ext='_RASTER', debug=False, proj='AVG'):
+def rasterize(cloud, spacing, ext='_RASTER', proj='AVG',
+              silent=False, debug=False, global_shift='AUTO'):
     cloud_exists(cloud)
-    
-    args = ''
-    args += ' -SILENT -NO_TIMESTAMP'
-    args += ' -o ' + cloud
-    args += ' -RASTERIZE -GRID_STEP ' + str(spacing)
-    args += ' -PROJ ' + proj
-    misc.run(cc_custom + args, verbose=debug)
+    if not os.path.exists(cloud):
+        raise FileNotFoundError
+
+    cmd = CCCommand(cc_std_alt, silent=silent, fmt='BIN')
+    cmd.open_file(cloud, global_shift=global_shift)
+    cmd.append('-RASTERIZE')
+    cmd.append('-GRID_STEP')
+    cmd.append(str(spacing))
+    cmd.append('-PROJ')
+    cmd.append(proj)
+
+    misc.run(cmd, verbose=debug)
     
     return os.path.splitext(cloud)[0] + ext + '.bin'
 
@@ -430,17 +474,19 @@ def to_sbf(fullname, debug=False, cc=cc_std):
 ##############
 
 
-def ss(fullname, algorithm='OCTREE', parameter=8, debug=False, odir=None, fmt='SBF',
-       cc_exe=cc_std_alt):
+def ss(fullname, algorithm='OCTREE', parameter=8, odir=None, fmt='SBF',
+       silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt):
     """
     Use CloudCompare to subsample a cloud.
 
     :param fullname: the full name of the cloud to subsample
     :param algorithm: RANDOM SPATIAL OCTREE
     :param parameter: number of points / distance between points / subdivision level
-    :param debug:
     :param odir: output directory
     :param fmt: output format
+    :param silent: use CloudCompare in silent mode
+    :param debug:
+    :param global_shift:
     :param cc_exe: CloudCompare executable
     :return: the name of the output file
     """
@@ -450,34 +496,22 @@ def ss(fullname, algorithm='OCTREE', parameter=8, debug=False, odir=None, fmt='S
     if not os.path.exists(fullname):
         raise FileNotFoundError
 
-    root, ext = os.path.splitext(fullname)
-    os.makedirs(odir, exist_ok=True)
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
+    cmd.open_file(fullname, global_shift=global_shift)
 
-    if fmt.lower() == 'sbf':
-        ext = 'sbf'
-    elif fmt.lower() == 'bin':
-        ext = 'bin'
-
-    if algorithm == 'OCTREE':
-        out = root + f'_OCTREE_LEVEL_{parameter}_SUBSAMPLED.{ext}'
-    elif algorithm == 'SPATIAL':
-        out = root + f'_SPATIAL_SUBSAMPLED.{ext}'
-    elif algorithm == 'RANDOM':
-        out = root + f'_RANDOM_SUBSAMPLED.{ext}'
-
-    cmd = [cc_exe]
-
-    if debug == False:
-        cmd.append('-SILENT')
-    cmd.append('-NO_TIMESTAMP')
-    cmd.append('-C_EXPORT_FMT')
-    cmd.append(fmt)
-    cmd.append('-o')
-    cmd.append(fullname)
     cmd.append('-SS')
     cmd.append(algorithm)
     cmd.append(str(parameter))
     ret = misc.run(cmd, verbose=debug)
+
+    root, ext = os.path.splitext(fullname)
+    os.makedirs(odir, exist_ok=True)
+    if algorithm == 'OCTREE':
+        out = root + f'_OCTREE_LEVEL_{parameter}_SUBSAMPLED.{fmt.lower()}'
+    elif algorithm == 'SPATIAL':
+        out = root + f'_SPATIAL_SUBSAMPLED.{fmt.lower()}'
+    elif algorithm == 'RANDOM':
+        out = root + f'_RANDOM_SUBSAMPLED.{fmt.lower()}'
 
     if odir:
         head, tail = os.path.split(out)
@@ -504,12 +538,12 @@ def get_inverse_transformation(transformation):
     return inv
 
 
-def save_trans(transformation, R, T):
+def save_trans(out, R, T):
     transformation = np.zeros((4, 4))
     transformation[:3, :3] = R
     transformation[:3, 3, None] = T
     transformation[3, 3] = 1
-    np.savetxt(transformation, transformation, fmt='%.8f')
+    np.savetxt(out, transformation, fmt='%.8f')
     logger.debug(f'{transformation} saved')
 
 
@@ -549,23 +583,9 @@ def apply_transformation(cloudfile, transformation, fmt='SBF',
     if debug is True:
         logger.setLevel(logging.DEBUG)
 
-    cmd = [cc_std_alt]
-    if silent:
-        cmd.append('-SILENT')
-    cmd.append('-NO_TIMESTAMP')
-    cmd.append('-C_EXPORT_FMT')
-    cmd.append(fmt)
-    if fmt.lower() == 'laz':  # export to laz format
-        cmd.append("-EXT")
-        cmd.append("laz")
-    cmd.append('-o')
-    if global_shift is not None:
-        x, y, z = global_shift
-        cmd.append('-GLOBAL_SHIFT')
-        cmd.append(str(x))
-        cmd.append(str(y))
-        cmd.append(str(z))
-    cmd.append(cloudfile)
+    cmd = CCCommand(cc_std_alt, silent=silent, fmt=fmt)
+    cmd.open_file(cloudfile, global_shift=global_shift)
+
     cmd.append('-APPLY_TRANS')
     cmd.append(transformation)
     misc.run(cmd, verbose=debug)
@@ -587,6 +607,7 @@ def transform_cloud(cloud, R, T, shift=None, silent=True, debug=False):
 ###################
 #  BIN READ / WRITE
 ###################
+
 
 def get_from_bin(bin_):
     with open(bin_, 'rb') as f:
@@ -922,24 +943,3 @@ def icp(compared, reference,
     
     out = os.path.join(os.getcwd(), 'registration_trace_log.csv')
     return out
-
-
-if __name__ == '__main__':
-    laz10b = 'C:/DATA/ZoneB/nz10b.laz'
-    laz14b = 'C:/DATA/ZoneB/nz14b.laz'
-    bin_ = 'C:/DATA/ZoneB/test_bin/nz10b_0000002_M3C2_core.bin'
-    
-    ss1 = 'C:/DATA/test_cloud_subsampling/nz10b_0000002_RANDOM_SUBSAMPLED_1.bin'
-    ss2 = 'C:/DATA/test_cloud_subsampling/nz10b_0000002_RANDOM_SUBSAMPLED_2.bin'
-    
-    pc1 = 'C:/DATA/Ranigitikei_for_Luca/SW3.bin'
-    pc2 = 'C:/DATA/Ranigitikei_for_Luca/SW4.bin'
-    pc3 = 'C:/DATA/Ranigitikei_for_Luca/SW3_subsampled_05.bin'
-    ini = 'C:/DATA/icpm3c2_params_2021_07_05.ini'
-    ini2 = 'C:/DATA/icpm3c2_params_2021_07_09.ini'
-
-    #to_bin(fullname, debug=True, shift=nz14_nztm)
-    #to_bin('E:/PaulLeroy/ZoneA/nz14/nz14.laz', shift=nz14_utm59south, debug=True)
-    
-    
-    

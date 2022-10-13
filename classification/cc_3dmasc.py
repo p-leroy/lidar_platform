@@ -8,14 +8,15 @@ import numpy as np
 import sklearn.metrics as metrics
 from sklearn.preprocessing import MinMaxScaler
 
-from plateforme_lidar import cloudcompare, PySBF, utils
+from ..tools import cloudcompare, las, misc, PySBF
+from ..config.config import EXPORT_FMT, QUERY_0, SHIFT
 
 
-convention = {"gpstime": "gps_time",
-              "numberofreturns": "number_of_returns",
-              "returnnumber": "return_number",
-              "scananglerank": "scan_angle_rank",
-              "pointsourceid": "point_source_id"}
+convention: dict[str, str] = {"gpstime": "gps_time",
+                              "numberofreturns": "number_of_returns",
+                              "returnnumber": "return_number",
+                              "scananglerank": "scan_angle_rank",
+                              "pointsourceid": "point_source_id"}
 
 
 def compute_features_work(query0_params, workspace, params, training_file):
@@ -33,9 +34,9 @@ def compute_features_work(query0_params, workspace, params, training_file):
         if not os.path.exists(workspace + params[i]):
             raise OSError("File " + params[i] + " not found !")
 
-    query = utils.QUERY_0[query0_params[0]] + utils.EXPORT_FMT[query0_params[1]]
+    query = QUERY_0[query0_params[0]] + EXPORT_FMT[query0_params[1]]
     for i in params.keys():
-        query += " -o -global_shift " + utils.SHIFT[query0_params[2]] + " " + workspace + params[i]
+        query += " -o -global_shift " + SHIFT[query0_params[2]] + " " + workspace + params[i]
 
     query += " -3dmasc_classify -only_features " + training_file + ' "'
     compt = 1
@@ -44,14 +45,14 @@ def compute_features_work(query0_params, workspace, params, training_file):
         compt += 1
 
     query = query[0:-1] + '" -save_clouds'
-    utils.run(query, sleeping=2)
+    misc.run(query)
     
-    today = utils.DATE()
+    today = misc.DATE()
     if query0_params[1] == "SBF":
         cloudcompare.last_file(workspace + "_".join([params["PCX"][0:-4], "WITH_FEATURES", today.date, "*.sbf"]),
-                               params["PCX"][0:-4] +"_features.sbf")
+                               params["PCX"][0:-4] + "_features.sbf")
         cloudcompare.last_file(workspace + "_".join([params["PCX"][0:-4], "WITH_FEATURES", today.date, "*.sbf.data"]),
-                               params["PCX"][0:-4] +"_features.sbf.data")
+                               params["PCX"][0:-4] + "_features.sbf.data")
         for i in params.keys():
             tempfile = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.sbf"]))
             os.remove(tempfile)
@@ -100,7 +101,7 @@ def load_features(pcx_filepath, training_filepath, labels=False):
          'labels' : list of int, class labels
     """
     f = PySBF.File(pcx_filepath)
-    ptsCloud = f.points
+    points = f.points
     names = f.scalarNames
     del f
 
@@ -108,25 +109,25 @@ def load_features(pcx_filepath, training_filepath, labels=False):
     list_sf = []
     for i in tab:
         name = i.split(sep=':')[1].lower()
-        if name in utils.convention.keys():
-            list_sf += [utils.convention[name]]
+        if name in convention.keys():
+            list_sf += [convention[name]]
         else:
             list_sf += [name]
     idx_select = list(np.sort([names.index(i) for i in list_sf]))
 
-    data = {"features": ptsCloud[:, idx_select], "names": list(np.array(names)[idx_select])}
+    data = {"features": points[:, idx_select], "names": list(np.array(names)[idx_select])}
     if labels:
-        data["labels"] = ptsCloud[:, names.index('classification')]
+        data["labels"] = points[:, names.index('classification')]
     return data
 
 
-def accuracy_score(labels_true,labels_pred,ind_confid=[]):
+def accuracy_score(labels_true, labels_pred):
     labels = np.unique(labels_true)
     tab = metrics.confusion_matrix(labels_true, labels_pred, labels)
-    liste_accuracy = []
+    list_accuracy = []
     for i in range(0, len(labels)):
-        liste_accuracy += [tab[i, i] / np.sum(tab[:, i])]
-    return liste_accuracy, labels
+        list_accuracy += [tab[i, i] / np.sum(tab[:, i])]
+    return list_accuracy, labels
 
 
 def confidence_score(labels_pred,ind_confid):
@@ -138,50 +139,50 @@ def confidence_score(labels_pred,ind_confid):
     return liste_ind,labels
 
 
-def classif_report(labels_true, labels_pred, ind_confid=None, save=False):
+def classification_report(labels_true, labels_pred, ind_confid=None, save=False):
     labels = np.unique(labels_true)
     tab = metrics.confusion_matrix(labels_true, labels_pred, labels)
-    affiche = "Matrice de confusion :\n\t"
+    display = "Confusion matrix :\n\t"
     for i in labels:
-        affiche += str(i) + "\t"
-    affiche += "\n"
-    for i in range(0,len(labels)):
-        affiche += str(labels[i]) + "\t"
-        for c in range(0,len(labels)):
-            affiche += str(tab[i,c]) + "\t"
-        affiche += "\n"
+        display += str(i) + "\t"
+    display += "\n"
+    for i in range(0, len(labels)):
+        display += str(labels[i]) + "\t"
+        for c in range(0, len(labels)):
+            display += str(tab[i, c]) + "\t"
+        display += "\n"
 
     result_accuracy = accuracy_score(labels_true, labels_pred)
     if len(ind_confid) > 0:
         result_confid = confidence_score(labels_pred, ind_confid)
     else:
-        result_confid = np.array([0]*len(np.unique(labels_pred)))
+        result_confid = np.array([0] * len(np.unique(labels_pred)))
     
-    affiche2 = "Classes     \t"
+    display2 = "Classes     \t"
     for i in result_accuracy[1]:
-        affiche2 += str(i)+"\t"
-    affiche2 += "\nPrecision  \t"
+        display2 += str(i) + "\t"
+    display2 += "\nPrecision  \t"
     for i in result_accuracy[0]:
-        affiche2 += str(np.round_(i * 100, 1)) + "\t"
-    affiche2 += "\nInd_conf 25%\t"
+        display2 += str(np.round_(i * 100, 1)) + "\t"
+    display2 += "\nInd_conf 25%\t"
     for i in result_confid[0]:
-        affiche2 += str(np.round_(i * 100, 1)) + "\t"
-    affiche2 += "\n"
+        display2 += str(np.round_(i * 100, 1)) + "\t"
+    display2 += "\n"
     
     test = (labels_true == labels_pred)
     val_true = len([i for i, X in enumerate(test) if X])
-    print(affiche)
-    print(affiche2)
+    print(display)
+    print(display2)
     print("Pourcentage valeur Vrai : %.1f%%" % (val_true / len(test) * 100))
-    print("indice Kappa : " + str(metrics.cohen_kappa_score(labels_true, labels_pred)))
+    print("Kappa coefficient: " + str(metrics.cohen_kappa_score(labels_true, labels_pred)))
     print(metrics.classification_report(labels_true, labels_pred, labels))
     
-    if save :
+    if save:
         f = open(save, "w")
-        print(affiche + "\n", file=f)
-        print(affiche2, file=f)
+        print(display + "\n", file=f)
+        print(display2, file=f)
         print("Pourcentage valeur Vrai : %.1f%%" %(val_true / len(test) * 100), file=f)
-        print("indice Kappa : " + str(metrics.cohen_kappa_score(labels_true,labels_pred)), file=f)
+        print("Kappa coefficient: " + str(metrics.cohen_kappa_score(labels_true, labels_pred)), file=f)
         print(metrics.classification_report(labels_true, labels_pred, labels), file=f)
         f.close()
 
@@ -239,13 +240,13 @@ def classify(workspace, filename, model, features_file):
     labels_pred = model.predict(data)
     confid_pred = model.predict_proba(data)
     confid_pred = np.max(confid_pred, axis=1)
-    lasdata = tools.lastools.read(workspace + filename)
+    lasdata = las.read(workspace + filename)
 
     lasdata.classification = labels_pred
     # print(np.shape(lasdata))
     # print(np.shape(data))
     extra = [(("ind_confid", "float32"), np.round(confid_pred * 100, decimals=1))]
-    tools.lastools.WriteLAS(workspace + filename[0:-4] + "_class.laz", lasdata, format_id=1, extra_fields=extra)
+    las.WriteLAS(workspace + filename[0:-4] + "_class.laz", lasdata, format_id=1, extra_fields=extra)
 
 
 def cross_validation(model, cv, X, y_true):
