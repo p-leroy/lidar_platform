@@ -176,10 +176,12 @@ class CCCommand(list):
             self.append('-SILENT')
         self.append('-NO_TIMESTAMP')
         self.append('-C_EXPORT_FMT')
-        self.append(fmt)
         if fmt.lower() == 'laz':  # needed to export to laz
+            self.append('LAS')
             self.append("-EXT")
             self.append("laz")
+        else:
+            self.append(fmt)
 
     def open_file(self, fullname, global_shift='AUTO'):
         self.append('-o')
@@ -427,29 +429,30 @@ def all_to_bin(dir_, shift, debug=False):
                 to_bin(path, debug=debug, shift=shift)
 
 
-def to_laz(fullname, debug=False, cc=cc_std, remove=False):
+def to_laz(fullname, remove=False,
+           silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt):
+
+    if not os.path.exists(fullname):
+        raise FileNotFoundError
+
     root, ext = os.path.splitext(fullname)
     if ext == '.laz':
         # nothing to do, simply return the name
         return fullname
-    if os.path.exists(fullname):
-        args = ''
-        args += ' -SILENT -NO_TIMESTAMP'
-        args += ' -C_EXPORT_FMT LAS -EXT laz'
-        args += ' -O -GLOBAL_SHIFT AUTO ' + fullname
-        args += ' -SAVE_CLOUDS'
-        misc.run(cc + args, verbose=debug)
-        if remove:
-            print(f'remove {fullname}')
-            os.remove(fullname)
-            if ext == '.sbf':
-                to_remove = fullname + '.data'
-                print(f'remove {to_remove}')
-                os.remove(to_remove)
-        return os.path.splitext(fullname)[0] + '.laz'
-    else:
-        print(f'error, {fullname} does not exist')
-        return -1
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt='LAZ')
+    cmd.open_file(fullname, global_shift=global_shift)
+    cmd.append('-SAVE_CLOUDS')
+
+    misc.run(cmd, verbose=debug)
+    if remove:
+        print(f'remove {fullname}')
+        os.remove(fullname)
+        if ext == '.sbf':
+            to_remove = fullname + '.data'
+            print(f'remove {to_remove}')
+            os.remove(to_remove)
+    return os.path.splitext(fullname)[0] + '.laz'
 
 
 def to_sbf(fullname, debug=False, cc=cc_std):

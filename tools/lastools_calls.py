@@ -7,7 +7,7 @@ Created on Mon Feb 15 12:56:40 2021
 
 import os
 
-from config import common_ple as ple
+from lidar_platform import misc
 
 #bin_ = 'C:/opt/LAStools/bin'
 bin_ = 'G:/LIDAR_softwares_manuals/LAStools/bin'
@@ -21,7 +21,7 @@ def exe(cmd, args, debug=False):
         else:
             cmd += f' -{switch}'
     print(cmd)
-    return ple.exe(cmd, debug=debug)
+    return misc.run(cmd, debug=debug)
 
 
 def las2las(fullname, utm='59south', target_epsg='2193', debug=False):
@@ -31,7 +31,7 @@ def las2las(fullname, utm='59south', target_epsg='2193', debug=False):
     args += f' -utm {utm} -meter -elevation_meter'
     args += f' -target_epsg {target_epsg}'
     print(cmd + args)
-    ple.exe(cmd + args, debug=debug)
+    misc.run(cmd + args, debug=debug)
     return out
 
 
@@ -42,7 +42,7 @@ def lasboundary(fullname, odir='boundaries', debug=False):
     os.makedirs(odir, exist_ok=True)
     args = f' -i {fullname} -odir {odir} -oshp'
     print(cmd + args)
-    ple.exe(cmd + args, debug=debug)
+    misc.run(cmd + args, debug=debug)
 
 
 def lasgrid(fullname, step, odir='grid', debug=False, method='lowest', fmt='laz'):
@@ -71,11 +71,11 @@ def lasgrid(fullname, step, odir='grid', debug=False, method='lowest', fmt='laz'
         cmd = os.path.join(bin_, 'lasgrid')
         args = f' -i {fullname} -odir {odir} -o {out} -step {step} -{method}'
         print(cmd + args)
-        ple.exe(cmd + args, debug=debug)
+        misc.run(cmd + args, debug=debug)
         return out
     else:
         print(cmd)
-        ple.exe(cmd, debug=debug)
+        misc.run(cmd, debug=debug)
         return odir
 
 
@@ -99,14 +99,14 @@ def lasground(idir, i, odir, fine=None, debug=False):
         args += f' -{fine}'
     args += f' -i {fullname} -odir {out} -olaz -cores 4'
     print(cmd + args)
-    return ple.exe(cmd + args, debug=debug)
+    return misc.run(cmd + args, debug=debug)
 
 
 def lasindex(i, debug=False):
     cmd = os.path.join(bin_, 'lasindex')
     args = f' -i {i}'
     print(cmd + args)
-    return ple.exe(cmd + args, debug=debug)
+    return misc.run(cmd + args, debug=debug)
 
 
 def lasinfo(idir, i, debug=False):
@@ -116,7 +116,7 @@ def lasinfo(idir, i, debug=False):
         cmd += ' -v'
     args = f' -i {fullname} -odix _info -otxt'
     print(cmd + args)
-    return ple.exe(cmd + args, debug=debug)
+    return misc.run(cmd + args, debug=debug)
 
 
 def lasmerge(idir, i, odir, o, debug=False):
@@ -126,7 +126,7 @@ def lasmerge(idir, i, odir, o, debug=False):
         cmd += ' -v'
     args = f' -i {fullname} -odir {odir} -o {o}'
     print(cmd + args)
-    ret = ple.exe(cmd + args, debug=debug)
+    ret = misc.run(cmd + args, debug=debug)
     return os.path.join(odir, o)
 
 
@@ -143,7 +143,7 @@ def lasnoise(i, odir, step=None, isolated=None, cores=None, verbose=True):
     if cores is not None:
         args += f' -cores {cores}'
     print(cmd + args)
-    ret = ple.exe(cmd + args)
+    ret = misc.run(cmd + args)
     return os.path.join(odir)
 
 
@@ -166,7 +166,7 @@ def lassplit(fullname, odir='split', method=None, keep=None, debug=False):
     else:
         args = f' -i {fullname}  -odir {odir} -olaz'
     print(cmd + args)
-    return ple.exe(cmd + args, debug=debug)
+    return misc.run(cmd + args, debug=debug)
 
 
 def lastile(fullname, odir, tile_size=1000, buffer=20, debug=False):
@@ -185,7 +185,7 @@ def lastile(fullname, odir, tile_size=1000, buffer=20, debug=False):
     args += f' -tile_size {tile_size} -buffer {buffer}'
     args += f' -odir {out} -olaz'
     print(cmd + args)
-    return ple.exe(cmd + args, debug=debug)
+    return misc.run(cmd + args, debug=debug)
 
 
 def remove_buffer(idir, i, debug=False):
@@ -202,7 +202,7 @@ def remove_buffer(idir, i, debug=False):
         cmd += ' -v'
     args = f' -i {fullname} -remove_buffer -odir {out} -olaz -cores 4'
     print(cmd + args)
-    return ple.exe(cmd + args, debug=debug)
+    return misc.run(cmd + args, debug=debug)
 
 
 def build_gnd(fullname):
