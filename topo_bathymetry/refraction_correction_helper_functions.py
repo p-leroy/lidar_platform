@@ -32,7 +32,7 @@ def correction_3d(pt_app, apparent_depth, pt_shot=[], vectorApp=[], indRefr=1.33
         apparent_depth (numpy.ndarray): apparent depth
         pt_shot (list, optional): coordinates for each laser shot, useful in discrete mode. Defaults to [].
         vectorApp (list, optional): apparent vector shot, useful in fwf mode. Defaults to [].
-        indRefr (float, optional): water refraction indice. Defaults to 1.333.
+        indRefr (float, optional): water refraction index. Defaults to 1.333.
 
     Raises:
         ValueError: pt_shot and vectorApp shouldn't be Null both
@@ -70,7 +70,7 @@ def correction_vect(vectorApp, indRefr=1.333):
 
     Args:
         vectorApp (numpy.ndarray): apparent vector shot, useful in fwf mode
-        indRefr (float, optional): water refraction indice. Defaults to 1.333.
+        indRefr (float, optional): water refraction index. Defaults to 1.333.
 
     Returns:
         true vector shot (numpy.ndarray)

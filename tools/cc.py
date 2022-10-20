@@ -184,6 +184,8 @@ class CCCommand(list):
             self.append(fmt)
 
     def open_file(self, fullname, global_shift='AUTO'):
+        if not os.path.exists(fullname):
+            raise FileNotFoundError(fullname)
         self.append('-o')
         if global_shift is not None:
             self.append('-GLOBAL_SHIFT')
@@ -203,40 +205,45 @@ class CCCommand(list):
 #########################################################
 
 
-def _3dmasc(pc1, training_file, pcx=None,
-            silent=True, debug=False, global_shift='AUTO', cc_exe=cc_custom):
+def get_main_cloud_role(training_file):
+    with open(training_file, 'r') as f:
+        token = []
+        for line in f.readlines():
+            if 'CORE_POINTS:' in line.upper():
+                token = line[12:].strip().split('_')[0]
+        return token
+
+
+def q3dmasc_only_features(pc1, training_file, pc2=None, pc3=None,
+                          silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
     cmd.open_file(pc1, global_shift=global_shift)
-    if pcx:
-        cmd.open_file(pcx, global_shift=global_shift)
+    cloud_list = ['pc1']
+    cloud_dict = {'pc1': pc1}
+    if pc2:
+        cmd.open_file(pc2, global_shift=global_shift)
+        cloud_list.append('pc2')
+        cloud_dict['pc2'] = pc2
+    if pc3:
+        cmd.open_file(pc3, global_shift=global_shift)
+        cloud_list.append('pc3')
+        cloud_dict['pc3'] = pc3
+
     cmd.append('-3DMASC_CLASSIFY')
     cmd.append('-ONLY_FEATURES')
     cmd.append(training_file)
-    if pcx:
-        cmd.append('PC1=1 PCX=2')  # you have to put this in a string, if you append separately the options, it fails
-    else:
-        cmd.append('PC1=1')
 
-    misc.run(cmd, verbose=debug)
+    # generate the string where roles are associated with open clouds, e.g. 'pc1=1 pc2=2'
+    role_association = ' '.join([f'{cloud}={i + 1}' for i, cloud in enumerate(cloud_list)])
+    cmd.append(role_association)
 
-    root, ext = os.path.splitext(pc1)
+    misc.run(cmd, verbose=verbose)
+
+    main_cloud = get_main_cloud_role(training_file)
+    root, ext = os.path.splitext(cloud_dict[main_cloud.lower()])
     return root + '_WITH_FEATURES.sbf'
 
-
-def _3dmasc_train(sbf, training_file,
-                  silent=True, debug=False, global_shift='AUTO', cc_exe=cc_custom):
-
-    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
-    cmd.open_file(sbf, global_shift=global_shift)
-    cmd.append('-3DMASC_CLASSIFY')
-    cmd.append('-SKIP_FEATURES')
-    cmd.append(training_file)
-
-    misc.run(cmd, verbose=debug)
-
-    root, ext = os.path.splitext(sbf)
-    return root + '_WITH_FEATURES.sbf'
 
 ################
 # Best Fit Plane
@@ -333,7 +340,7 @@ def remove_scalar_fields(cloud, silent=True):
 
 
 def rasterize(cloud, spacing, ext='_RASTER', proj='AVG',
-              silent=False, debug=False, global_shift='AUTO'):
+              silent=True, debug=False, global_shift='AUTO'):
     cloud_exists(cloud)
     if not os.path.exists(cloud):
         raise FileNotFoundError
@@ -436,15 +443,14 @@ def to_laz(fullname, remove=False,
         raise FileNotFoundError
 
     root, ext = os.path.splitext(fullname)
-    if ext == '.laz':
-        # nothing to do, simply return the name
+    if ext == '.laz':  # nothing to do, simply return the name
         return fullname
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='LAZ')
     cmd.open_file(fullname, global_shift=global_shift)
     cmd.append('-SAVE_CLOUDS')
-
     misc.run(cmd, verbose=debug)
+
     if remove:
         print(f'remove {fullname}')
         os.remove(fullname)
@@ -455,22 +461,21 @@ def to_laz(fullname, remove=False,
     return os.path.splitext(fullname)[0] + '.laz'
 
 
-def to_sbf(fullname, debug=False, cc=cc_std):
+def to_sbf(fullname,
+           silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt):
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
+    cmd.open_file(fullname, global_shift=global_shift)
+
     root, ext = os.path.splitext(fullname)
-    if ext == '.sbf':
-        # nothing to do, simply return the name
-        return fullname
-    if os.path.exists(fullname):
-        args = ''
-        args += ' -SILENT -NO_TIMESTAMP'
-        args += ' -C_EXPORT_FMT SBF'
-        args += ' -o ' + fullname
-        args += ' -SAVE_CLOUDS'
-        misc.run(cc + args, verbose=debug)
-        return os.path.splitext(fullname)[0] + '.sbf'
+    if ext == '.sbf':  # nothing to do, simply return the name
+        out = fullname
     else:
-        print(f'error, {fullname} does not exist')
-        return -1
+        cmd.append('-SAVE_CLOUDS')
+        misc.run(cmd, verbose=debug)
+        out = os.path.splitext(fullname)[0] + '.sbf'
+    return out
+
 
 ##############
 #  SUBSAMPLING
@@ -495,9 +500,6 @@ def ss(fullname, algorithm='OCTREE', parameter=8, odir=None, fmt='SBF',
     """
 
     print(f'[cc.ss] subsample {fullname}')
-
-    if not os.path.exists(fullname):
-        raise FileNotFoundError
 
     cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
     cmd.open_file(fullname, global_shift=global_shift)

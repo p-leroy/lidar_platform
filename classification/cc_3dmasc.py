@@ -27,7 +27,7 @@ def compute_features_work(query0_params, workspace, params, training_file):
     ----------
     query0_params : list of string parameters [QUERY_0,EXPORT_FMT,shiftname]
     workspace : str, absolutepath to directory
-    params : dict of files to use 3DMASC, [PCX,PC1,PC2,CTX]
+    params : dict of files to use 3DMASC, [pcx,pc1,PC2,CTX]
     training_file : str, parameters file for 3DMASC
     """
     for i in params.keys():
@@ -49,30 +49,30 @@ def compute_features_work(query0_params, workspace, params, training_file):
     
     today = misc.DATE()
     if query0_params[1] == "SBF":
-        cloudcompare.last_file(workspace + "_".join([params["PCX"][0:-4], "WITH_FEATURES", today.date, "*.sbf"]),
-                               params["PCX"][0:-4] + "_features.sbf")
-        cloudcompare.last_file(workspace + "_".join([params["PCX"][0:-4], "WITH_FEATURES", today.date, "*.sbf.data"]),
-                               params["PCX"][0:-4] + "_features.sbf.data")
+        cloudcompare.last_file(workspace + "_".join([params["pcx"][0:-4], "WITH_FEATURES", today.date, "*.sbf"]),
+                               params["pcx"][0:-4] + "_features.sbf")
+        cloudcompare.last_file(workspace + "_".join([params["pcx"][0:-4], "WITH_FEATURES", today.date, "*.sbf.data"]),
+                               params["pcx"][0:-4] + "_features.sbf.data")
         for i in params.keys():
-            tempfile = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.sbf"]))
-            os.remove(tempfile)
-            tempfile = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.sbf.data"]))
-            os.remove(tempfile)
+            temp_file = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.sbf"]))
+            os.remove(temp_file)
+            temp_file = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.sbf.data"]))
+            os.remove(temp_file)
     
     elif query0_params[1] == "LAS":
         cloudcompare.last_file(workspace + "_".join([params[i][0:-4], "WITH_FEATURES", today.date, "*.laz"]),
-                               params["PCX"][0:-4] +"_features.laz")
+                               params["pcx"][0:-4] +"_features.laz")
         for i in params.keys():                
-            tempfile = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.laz"]))
-            os.remove(tempfile)
+            temp_file = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.laz"]))
+            os.remove(temp_file)
 
     else:
         raise NotImplementedError("Features can only be exported in SBF or LAS format for now")
 
 
 def compute_features(workspace, pcx, params_cc, params_features):
-    params_training = {"PC1": "_".join(["PC1"] + pcx.split("_")[1::]),
-                       "PCX": pcx,
+    params_training = {"pc1": "_".join(["pc1"] + pcx.split("_")[1::]),
+                       "pcx": pcx,
                        "CTX": "_".join(["CTX"] + pcx.split("_")[1::])}
 
     compute_features_work(params_cc, workspace, params_training, params_features)
@@ -132,11 +132,11 @@ def accuracy_score(labels_true, labels_pred):
 
 def confidence_score(labels_pred,ind_confid):
     labels = np.unique(labels_pred)
-    liste_ind = []
+    ind_list = []
     for i in labels:
-        temp=labels_pred == i
-        liste_ind += [np.percentile(ind_confid[temp], 25)]
-    return liste_ind,labels
+        temp = labels_pred == i
+        ind_list += [np.percentile(ind_confid[temp], 25)]
+    return ind_list,labels
 
 
 def classification_report(labels_true, labels_pred, ind_confid=None, save=False):
@@ -181,7 +181,7 @@ def classification_report(labels_true, labels_pred, ind_confid=None, save=False)
         f = open(save, "w")
         print(display + "\n", file=f)
         print(display2, file=f)
-        print("Pourcentage valeur Vrai : %.1f%%" %(val_true / len(test) * 100), file=f)
+        print("Percents of true value: %.1f%%" %(val_true / len(test) * 100), file=f)
         print("Kappa coefficient: " + str(metrics.cohen_kappa_score(labels_true, labels_pred)), file=f)
         print(metrics.classification_report(labels_true, labels_pred, labels), file=f)
         f.close()
@@ -253,16 +253,16 @@ def cross_validation(model, cv, X, y_true):
     scores1 = dict(zip(list(np.unique(y_true)) + ['all'], [[] for i in range(0,len(np.unique(y_true)) + 1)]))
     scores2 = dict(zip(list(np.unique(y_true)) + ['all'], [[] for i in range(0,len(np.unique(y_true)) + 1)]))
     feat_import = []
-    compt = 1
+    count = 1
     print("Cross Validation test with %i folds:" %cv.get_n_splits())
     for train_idx,test_idx in cv.split(X,y_true):
-        print(str(compt) + "...", end="\r")
-        compt += 1
+        print(str(count) + "...", end="\r")
+        count += 1
         model.fit(X[train_idx,:], y_true[train_idx])
         y_pred = model.predict(X[test_idx, :])
         scores1['all'] += [metrics.cohen_kappa_score(y_pred,y_true[test_idx])]
-        scores2['all'] += [metrics.accuracy_score(y_true[test_idx],y_pred)]
-        feat_import += [model.feature_importances_*100]
+        scores2['all'] += [metrics.accuracy_score(y_true[test_idx], y_pred)]
+        feat_import += [model.feature_importances_ * 100]
         for label in np.unique(y_true):
             scores1[label] += [metrics.cohen_kappa_score(y_pred == label, y_true[test_idx] == label)]
             scores2[label] += [metrics.accuracy_score(y_true[test_idx] == label, y_pred == label)]

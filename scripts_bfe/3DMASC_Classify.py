@@ -1,10 +1,12 @@
-# Paul Leroy
 # Baptiste Feldman
+# Paul Leroy
 
 import glob
 import os
 import pickle
 import time
+
+from lidar_platform.classification import cc_3dmasc
 
 workspace = r'G:\RENNES1\Loire_totale_automne2019\Loire_Briare-Sully-sur-Loire\05-Traitements\C3\classification\bathy\haute_resolution' + '//'
 list_ = glob.glob(workspace + "PCX_*00.laz")
@@ -24,7 +26,7 @@ deb = time.time()
 for i in names:
     print(i + " " + str(names.index(i) + 1) + "/" + str(len(names)))
     if not os.path.exists(workspace+"features/" + i[0:-4] + "_features.sbf"):
-        classification.cc_3dmasc.ComputeFeatures(workspace, i, queryCC_param, classifier["path"] + classifier["features_file"])
+        cc_3dmasc.compute_features(workspace, i, queryCC_param, classifier["path"] + classifier["features_file"])
     print("================================")
 print("Time duration: %.1f sec" % (time.time() - deb))
 
