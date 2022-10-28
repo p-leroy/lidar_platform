@@ -205,43 +205,63 @@ class CCCommand(list):
 #########################################################
 
 
-def get_main_cloud_role(training_file):
+def q3dmasc_get_labels(training_file):
+    # if 'core_points:' is defined, the main cloud is the cloud defined by core_points
+    # if not, the main cloud is the first occurence of 'clouds:'
     with open(training_file, 'r') as f:
-        token = []
+        clouds = []
+        core_points = None
         for line in f.readlines():
+            if 'CLOUD:' in line.upper():
+                clouds.append(line[7:].strip().split('=')[0])
             if 'CORE_POINTS:' in line.upper():
-                token = line[12:].strip().split('_')[0]
-        return token
+                core_points = line[12:].strip().split('_')[0]
+        if core_points is not None:
+            main_cloud = core_points
+        else:
+            main_cloud = clouds[0]
+        return main_cloud, clouds
 
 
-def q3dmasc_only_features(pc1, training_file, pc2=None, pc3=None,
+def q3dmasc_only_features(clouds, training_file,
                           silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
+    """Command line call to 3DMASC with the only_features option.
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
-    cmd.open_file(pc1, global_shift=global_shift)
-    cloud_list = ['pc1']
-    cloud_dict = {'pc1': pc1}
-    if pc2:
-        cmd.open_file(pc2, global_shift=global_shift)
-        cloud_list.append('pc2')
-        cloud_dict['pc2'] = pc2
-    if pc3:
-        cmd.open_file(pc3, global_shift=global_shift)
-        cloud_list.append('pc3')
-        cloud_dict['pc3'] = pc3
+    In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
+    and you also have to associate each label to a number, the number representing the order in which the clouds
+    have been loaded
+
+    :param clouds: a list of cloud paths or a unique cloud path
+    :param training_file: a 3DMASC parameter file
+    :param silent:
+    :param verbose:
+    :param global_shift:
+    :param cc_exe:
+    :return: the name of the output file
+    """
+
+    main_label, labels = q3dmasc_get_labels(training_file)  # get cloud labels from the parameter file
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')  # create the command
+    cloud_dict = {}  # will be used to generate the name of the output file
+    if type(clouds) == list:
+        for i, cloud in enumerate(clouds):
+            cmd.open_file(cloud, global_shift=global_shift)
+            cloud_dict[labels[i]] = cloud
+    else:
+        cmd.open_file(cloud, global_shift=global_shift)
 
     cmd.append('-3DMASC_CLASSIFY')
     cmd.append('-ONLY_FEATURES')
     cmd.append(training_file)
 
     # generate the string where roles are associated with open clouds, e.g. 'pc1=1 pc2=2'
-    role_association = ' '.join([f'{cloud}={i + 1}' for i, cloud in enumerate(cloud_list)])
+    role_association = ' '.join([f'{label}={i + 1}' for i, label in enumerate(labels)])
     cmd.append(role_association)
 
     misc.run(cmd, verbose=verbose)
 
-    main_cloud = get_main_cloud_role(training_file)
-    root, ext = os.path.splitext(cloud_dict[main_cloud.lower()])
+    root, ext = os.path.splitext(cloud_dict[main_label])
     return root + '_WITH_FEATURES.sbf'
 
 
