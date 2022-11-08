@@ -1,5 +1,6 @@
 # coding: utf-8
 # Baptiste Feldmann
+# Paul Leroy
 
 import copy, os, mmap, struct, time
 from datetime import datetime, timezone
