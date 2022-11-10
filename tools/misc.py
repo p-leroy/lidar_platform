@@ -100,19 +100,20 @@ def snake_to_camel(name):
 
 
 class Timing(object):
-    def __init__(self,length,step=20):
+    def __init__(self, length, step=20):
         self.length = length
-        if step>5:
-            listVerbose=[2] + list(range(step, 100, step)) + [98]
+        if step > 5:
+            listVerbose = [2] + list(range(step, 100, step)) + [98]
         else:
-            listVerbose = list(range(step,100,step))+[98]
-        self.pourcent=[int(i*self.length/100) for i in listVerbose]
-        self.start=time.time()
-    def timer(self,idx):
-        if idx in self.pourcent:
-            duration=round(time.time()-self.start,1)
-            remain=round(duration*(self.length/idx-1),1)
-            msg=str(idx)+" in "+str(duration)+"sec - remaining "+str(remain)+"sec"
+            listVerbose = list(range(step, 100, step)) + [98]
+        self.percent = [int(i * self.length / 100) for i in listVerbose]
+        self.start = time.time()
+
+    def timer(self, idx):
+        if idx in self.percent:
+            duration = round(time.time() - self.start, 1)
+            remain = round(duration*(self.length / idx - 1), 1)
+            msg = str(idx) + " in " + str(duration)+"sec - remaining " + str(remain) + "sec"
             return msg
 
 
@@ -122,8 +123,11 @@ class DATE(object):
         self.year = today.tm_year
         self.day = today.tm_mday
         self.month = today.tm_mon
-        self.date = str(str(self.year) \
-                        + "-" + str("0" * (2-len(str(self.month))) \
-                                    + str(self.month)) + "-" + str("0" * (2-len(str(self.day)))+str(self.day)))
-        self.time = str("0" * (2 - len(str(today.tm_hour)))
-                        + str(today.tm_hour)) + "h" + str("0" * (2 - len(str(today.tm_min))) + str(today.tm_min))
+        self.date = str(str(self.year)
+                        + "-"
+                        + str("0" * (2 - len(str(self.month)))
+                        + str(self.month))
+                        + "-" + str("0" * (2 - len(str(self.day)))
+                        + str(self.day)))
+        self.time = str("0" * (2 - len(str(today.tm_hour))) + str(today.tm_hour)) \
+                    + "h" + str("0" * (2 - len(str(today.tm_min))) + str(today.tm_min))
