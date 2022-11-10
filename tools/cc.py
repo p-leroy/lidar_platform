@@ -113,7 +113,15 @@ def merge(files, debug=False, cc=cc_std, export_fmt='bin'):
     args += ' -SILENT -NO_TIMESTAMP'
     args += f' -C_EXPORT_FMT {export_fmt}'
     for file in files:
-        args += ' -o ' + file
+        if os.path.splitext(file) == '.sbf':
+            config = read_sbf_header(file)
+            points = int(config['SBF']['Points'])
+            if points == 0:
+                print(f'[cc.merge] WARNING empty cloud: {file}')
+            else:
+                args += ' -o ' + file
+        else:
+            args += ' -o ' + file
     args += ' -MERGE_CLOUDS'
     misc.run(cc + args, verbose=debug)
     root, ext = os.path.splitext(files[0])

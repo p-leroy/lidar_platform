@@ -365,10 +365,10 @@ def merge_discrete_and_fwf(lines, dir_16_fwf, in_place=False):
     return no_merge
 
 
-def add_depth(line, water_surface, global_shift, octree_level=10, remove_extra_sf=True):
+def add_depth(line, water_surface, global_shift, octree_level=10, remove_extra_sf=False, silent=True):
     print(f'processing line {line}')
 
-    head, tail, root, ext = head_tail_root_ext(line)
+    head, tail, root, ext = misc.head_tail_root_ext(line)
     odir = os.path.join(head, 'with_depth')
     os.makedirs(odir, exist_ok=True)
     out = os.path.join(odir, root + '.sbf')
@@ -381,13 +381,16 @@ def add_depth(line, water_surface, global_shift, octree_level=10, remove_extra_s
     # use the same version of CloudCompare afterwards to avoid incompatibilities with SBF?
     # cmd = cc_2022_07_05
     cmd = cc_std
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
+    if silent:
+        cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
+    else:
+        cmd += ' -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
     cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {line}'  # compared
     cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {water_surface}'  # reference
     cmd += f' -C2C_DIST -OCTREE_LEVEL {octree_level} -MAX_DIST 350 -SPLIT_XYZ'
     cmd += ' -POP_CLOUDS'  # remove water_surface from the database
     cmd += f' -SAVE_CLOUDS FILE {out}'
-    run(cmd)
+    misc.run(cmd)
 
     # open sbf and remove unused scalar fields (the remove_sf option is not working in CloudCompare command line)
 
