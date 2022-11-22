@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,6 +8,7 @@ print(f"__package__   {__package__}   +++++   __name__   {__name__}")
 
 from ..tools import cc
 from ..tools import misc
+from ..config.config import cc_std
 
 i_intensity = 0
 i_intensity_in_raster = 1  # after the Height grid values field
@@ -26,7 +28,7 @@ def add_sf_imax_minus_i(line):
     pc_with_imax_minus_i = os.path.join(odir, root + '_i.sbf')
     raster = os.path.join(odir, root + '_raster.sbf')
 
-    cmd = work.cc_cmd
+    cmd = misc.cc_std
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
     cmd += f' -O {line}'  # open the line
     cmd += f' -SET_ACTIVE_SF {i_intensity} -FILTER_SF MIN 400.'  # filter by intensity values
@@ -39,7 +41,7 @@ def add_sf_imax_minus_i(line):
     cmd += f' -SF_OP_SF LAST SUB {i_intensity}'  # compute (imax - intensity), done in place
     cmd += f' -SAVE_CLOUDS FILE "{raster} {pc_with_imax_minus_i}"'
 
-    work.run(cmd)
+    misc.run(cmd)
 
     print(f'remove {raster}')
     os.remove(raster)
@@ -116,7 +118,7 @@ def correct_intensities_and_add_class(pc_with_imax_minus_i, threshold=83, shift=
     low = os.path.join(head, root + '_low.sbf')
     merged = os.path.join(head, root + '_corr.sbf')
 
-    cmd = work.cc_cmd
+    cmd = cc_std
     # high intensities
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
     cmd += f' -O -GLOBAL_SHIFT FIRST {pc_with_imax_minus_i}'
@@ -132,7 +134,7 @@ def correct_intensities_and_add_class(pc_with_imax_minus_i, threshold=83, shift=
     cmd += f' -SAVE_CLOUDS FILE {low}'
     # merge the clouds
     cmd += f' -O {high} -MERGE_CLOUDS -SAVE_CLOUDS FILE {merged}'
-    work.run(cmd)
+    misc.run(cmd)
 
     # remove temporary files
     print(f'remove {high}')

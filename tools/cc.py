@@ -98,34 +98,30 @@ def move_cloud(cloud, odir):
     return dst
 
 
-def merge(files, debug=False, cc=cc_std, export_fmt='bin'):
+def merge(files, fmt='sbf',
+          silent=True, debug=False, global_shift='AUTO', cc=cc_std_alt):
+
     if len(files) == 1 or files is None:
         print("[cc.merge] only one file in parameter 'files', this is quite unexpected!")
-    # check that the files all exist
-    for file in files:
-        try:
-            open(file)
-        except FileNotFoundError:
-            print(file)
-            return -1
-    # merge the files
-    args = ''
-    args += ' -SILENT -NO_TIMESTAMP'
-    args += f' -C_EXPORT_FMT {export_fmt}'
-    for file in files:
-        if os.path.splitext(file) == '.sbf':
-            config = read_sbf_header(file)
-            points = int(config['SBF']['Points'])
-            if points == 0:
-                print(f'[cc.merge] WARNING empty cloud: {file}')
-            else:
-                args += ' -o ' + file
-        else:
-            args += ' -o ' + file
-    args += ' -MERGE_CLOUDS'
-    misc.run(cc + args, verbose=debug)
+        return None
+
+    cmd = CCCommand(cc, silent=silent, fmt=fmt)
+    if global_shift == 'FIRST':
+        raise "'FIRST' is not a valid option, the default is 'AUTO' or pass a valid global shift 3-tuple"
+    elif global_shift =='AUTO':
+        print("[cc.merge] WARNING be careful when using 'AUTO' if the resulting shifted coordinates are still large")
+        cmd.open_file(files[0], global_shift='AUTO')
+        for file in files[1:]:
+            cmd.open_file(file, global_shift='FIRST')
+    else:
+        for file in files:
+            cmd.open_file(file, global_shift=global_shift)
+    cmd.append('-MERGE_CLOUDS')
+
+    misc.run(cmd, verbose=debug)
+
     root, ext = os.path.splitext(files[0])
-    return root + f'_MERGED.{export_fmt}'
+    return root + f'_MERGED.{fmt.lower()}'
 
 
 def sf_interp_and_merge(src, dst, index, global_shift, silent=True, debug=False, cc=cc_custom, export_fmt='sbf'):
@@ -300,41 +296,35 @@ def get_orientation_matrix(filename):
         matrix = np.genfromtxt(f, delimiter=' ', skip_header=5)
     return matrix
 
-#######
-#  M3C2
-#######
+######
+# M3C2
+######
 
 
-def m3c2(pc1, pc2, params, core=None, silent=True, fmt='ASC', debug=False):
-    cloud_exists(pc1, verbose=False)
-    cloud_exists(pc2, verbose=False)
-    args = ''
-    if silent is True:
-        args += ' -SILENT -NO_TIMESTAMP'
+def m3c2(pc1, pc2, params, core=None, fmt='SBF',
+         silent=True, debug=False, global_shift='AUTO', cc=cc_std_alt):
+
+    cmd = CCCommand(cc, silent=silent, fmt=fmt)
+    if global_shift == 'FIRST':
+        raise "'FIRST' is not a valid option, the default is 'AUTO' or pass a valid global shift 3-tuple"
+    elif global_shift =='AUTO':
+        print("[cc.m3c2] WARNING be careful when using 'AUTO' if the resulting shifted coordinates are still large")
+        cmd.open_file(pc1, global_shift='AUTO')
+        cmd.open_file(pc2, global_shift='FIRST')
+        if core is not None:
+            cmd.open_file(core, global_shift='FIRST')
     else:
-        args += ' -NO_TIMESTAMP'
-    args += f' -C_EXPORT_FMT {fmt}'
-    args += ' -o -GLOBAL_SHIFT FIRST ' + pc1
-    args += ' -o -GLOBAL_SHIFT FIRST ' + pc2
-    if core is not None:
-        args += ' -o -GLOBAL_SHIFT FIRST ' + core
-    args += ' -M3C2 ' + params
-    cmd = cc_custom + args
-    if debug is True:
-        logging.info(cmd)
-    ret = misc.run(cmd, verbose=debug)
-    if ret == EXIT_FAILURE:
-        raise CloudCompareError
-    # extracting rootname of the fixed point cloud Q
-    if fmt == 'SBF':
-        ext = 'sbf'
-    elif fmt == 'BIN':
-        ext = 'bin'
-    elif fmt == 'ASC':
-        ext = 'asc'
-    head1, tail1 = os.path.split(pc1)
-    root1, ext1 = os.path.splitext(tail1)
-    results = os.path.join(head1, root1 + f'_M3C2.{ext}')
+        cmd.open_file(pc1, global_shift=global_shift)
+        cmd.open_file(pc2, global_shift=global_shift)
+        if core is not None:
+            cmd.open_file(core, global_shift=global_shift)
+    cmd.append("-M3C2")
+    cmd.append(params)
+
+    misc.run(cmd, verbose=debug)
+
+    root1, ext1 = os.path.splitext(pc1)
+    results = root1 + f'_M3C2.{fmt.lower()}'
     return results
 
 #######
@@ -367,13 +357,13 @@ def remove_scalar_fields(cloud, silent=True):
     misc.run(cc_custom + args)
 
 
-def rasterize(cloud, spacing, ext='_RASTER', proj='AVG',
-              silent=True, debug=False, global_shift='AUTO'):
+def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
+              silent=True, debug=False, global_shift='AUTO', cc=cc_std_alt):
     cloud_exists(cloud)
     if not os.path.exists(cloud):
         raise FileNotFoundError
 
-    cmd = CCCommand(cc_std_alt, silent=silent, fmt='BIN')
+    cmd = CCCommand(cc_std_alt, silent=silent, fmt=fmt)
     cmd.open_file(cloud, global_shift=global_shift)
     cmd.append('-RASTERIZE')
     cmd.append('-GRID_STEP')
@@ -383,7 +373,7 @@ def rasterize(cloud, spacing, ext='_RASTER', proj='AVG',
 
     misc.run(cmd, verbose=debug)
     
-    return os.path.splitext(cloud)[0] + ext + '.bin'
+    return os.path.splitext(cloud)[0] + ext + f'.{fmt.lower()}'
 
 ##########
 #  ICPM3C2

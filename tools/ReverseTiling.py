@@ -1,6 +1,11 @@
+import glob
 import os
 
+from joblib import delayed, Parallel
+import laspy
 import numpy as np
+
+import misc
 
 class ReverseTiling(object):
 
@@ -60,7 +65,7 @@ class ReverseTiling(object):
         os.makedirs(odir, exist_ok=True)
         o = os.path.join(odir, name)
         query += "-keep_point_source " + str(src_id) + " -o " + o
-        utils.run(query)
+        misc.run(query)
         print(f'id {src_id}, name {o}')
 
     def remove_buffer(self):
@@ -68,7 +73,7 @@ class ReverseTiling(object):
         odir = os.path.join(self.workspace, "without_buffer")
         os.mkdir(self.workspace)
         query = f"lastile -i {i} -remove_buffer -cores {self.cores} -odir {odir} -olaz"
-        utils.run(query)
+        misc.run(query)
         self.workspace = odir
 
     def get_point_source_ids_in_tiles(self):
