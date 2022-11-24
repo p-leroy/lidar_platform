@@ -454,8 +454,19 @@ def all_to_bin(dir_, shift, debug=False):
                 to_bin(path, debug=debug, shift=shift)
 
 
-def to_laz(fullname, remove=False,
+def to_laz(fullname, remove=False, save_clouds='SAVE_CLOUDS',
            silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt):
+    """
+
+    :param fullname:
+    :param remove:
+    :param save_clouds: SAVE_CLOUDS or FWF_SAVE_CLOUDS
+    :param silent:
+    :param debug:
+    :param global_shift:
+    :param cc_exe:
+    :return:
+    """
 
     if not os.path.exists(fullname):
         raise FileNotFoundError
@@ -466,7 +477,7 @@ def to_laz(fullname, remove=False,
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='LAZ')
     cmd.open_file(fullname, global_shift=global_shift)
-    cmd.append('-SAVE_CLOUDS')
+    cmd.append(f'-{save_clouds}')
     misc.run(cmd, verbose=debug)
 
     if remove:
