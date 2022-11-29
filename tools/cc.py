@@ -21,6 +21,45 @@ logger = logging.getLogger(__name__)
 EXIT_FAILURE = 1
 EXIT_SUCCESS = 0
 
+#############################
+# BUILD CLOUD COMPARE COMMAND
+#############################
+
+
+class CCCommand(list):
+    def __init__(self, cc_exe, silent=True, fmt='SBF'):
+        self.append(cc_exe)
+        if silent:
+            self.append('-SILENT')
+        self.append('-NO_TIMESTAMP')
+        self.append('-C_EXPORT_FMT')
+        if fmt.lower() == 'laz':  # needed to export to laz
+            self.append('LAS')
+            self.append("-EXT")
+            self.append("laz")
+        else:
+            self.append(fmt)
+
+    def open_file(self, fullname, global_shift='AUTO', fwf=False):
+        if not os.path.exists(fullname):
+            raise FileNotFoundError(fullname)
+        if fwf:
+            self.append('-fwf_o')
+        else:
+            self.append('-o')
+        if global_shift is not None:
+            self.append('-GLOBAL_SHIFT')
+            if global_shift == 'AUTO' or global_shift == 'FIRST':
+                self.append(global_shift)
+            elif type(global_shift) is tuple or type(global_shift) is list:
+                x, y, z = global_shift
+                self.append(str(x))
+                self.append(str(y))
+                self.append(str(z))
+            else:
+                raise ValueError('invalid value for global_shit')
+        self.append(fullname)
+
 
 class Error(Exception):
     """Base class for exceptions in this module."""
@@ -168,42 +207,6 @@ def density(pc, radius, density_type,
     root, ext = os.path.splitext(pc)
     return root + '_DENSITY.sbf'
 
-#############################
-# BUILD CLOUD COMPARE COMMAND
-#############################
-
-
-class CCCommand(list):
-    def __init__(self, cc_exe, silent=True, fmt='SBF'):
-        self.append(cc_exe)
-        if silent:
-            self.append('-SILENT')
-        self.append('-NO_TIMESTAMP')
-        self.append('-C_EXPORT_FMT')
-        if fmt.lower() == 'laz':  # needed to export to laz
-            self.append('LAS')
-            self.append("-EXT")
-            self.append("laz")
-        else:
-            self.append(fmt)
-
-    def open_file(self, fullname, global_shift='AUTO'):
-        if not os.path.exists(fullname):
-            raise FileNotFoundError(fullname)
-        self.append('-o')
-        if global_shift is not None:
-            self.append('-GLOBAL_SHIFT')
-            if global_shift == 'AUTO' or global_shift == 'FIRST':
-                self.append(global_shift)
-            elif type(global_shift) is tuple or type(global_shift) is list:
-                x, y, z = global_shift
-                self.append(str(x))
-                self.append(str(y))
-                self.append(str(z))
-            else:
-                raise ValueError('invalid value for global_shit')
-        self.append(fullname)
-
 #########################################################
 #  3DMASC KEEP_ATTRIBUTES / ONLY_FEATURES / SKIP_FEATURES
 #########################################################
@@ -253,7 +256,7 @@ def q3dmasc_only_features(clouds, training_file,
             cmd.open_file(cloud, global_shift=global_shift)
             cloud_dict[labels[i]] = cloud
     else:
-        cmd.open_file(cloud, global_shift=global_shift)
+        cmd.open_file(clouds, global_shift=global_shift)
 
     cmd.append('-3DMASC_CLASSIFY')
     cmd.append('-ONLY_FEATURES')
@@ -491,10 +494,10 @@ def to_laz(fullname, remove=False, save_clouds='SAVE_CLOUDS',
 
 
 def to_sbf(fullname,
-           silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt):
+           silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt, fwf=False):
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
-    cmd.open_file(fullname, global_shift=global_shift)
+    cmd.open_file(fullname, global_shift=global_shift, fwf=fwf)
 
     root, ext = os.path.splitext(fullname)
     if ext == '.sbf':  # nothing to do, simply return the name
@@ -861,34 +864,21 @@ def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
 
 
 def c2c_dist(compared, reference, max_dist=None, split_XYZ=False, odir=None, export_fmt='SBF',
-             global_shift=None, silent=True, debug=False):
-    # cloud to cloud distance + filtering using the distance maxDist
-    args = ''
-    if silent is True:
-        args += ' -SILENT -NO_TIMESTAMP'
-    else:
-        args += ' -NO_TIMESTAMP'
-    if export_fmt == 'LAZ':
-        args += f' -C_EXPORT_FMT LAS -EXT laz'
-    else:
-        args += f' -C_EXPORT_FMT {export_fmt}'
+             silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt):
 
-    if global_shift is not None:
-        x, y, z = global_shift
-        args += f' -o -GLOBAL_SHIFT {x} {y} {z} {compared}'
-        args += f' -o -GLOBAL_SHIFT {x} {y} {z} {reference}'
-    else:
-        args += f' -o {compared}'
-        args += f' -o {reference}'
+    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')  # create the command
+    cmd.open_file(compared, global_shift=global_shift)
+    cmd.open_file(reference, global_shift=global_shift)
 
-    args += ' -c2c_dist'
+    cmd.append('-c2c_dist')
 
     if split_XYZ is True:
-        args += ' -SPLIT_XYZ'
+        cmd.append('-SPLIT_XYZ')
     if max_dist:
-        args += f' -MAX_DIST {max_dist}'
+        cmd.append('-MAX_DIST')
+        cmd.append(str(max_dist))
 
-    misc.run(cc_custom + args, verbose=debug)
+    misc.run(cmd, verbose=debug)
 
     root, ext = os.path.splitext(compared)
     if max_dist:
