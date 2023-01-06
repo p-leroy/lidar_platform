@@ -65,28 +65,30 @@ def correction_3d(pt_app, apparent_depth, pt_shot=[], vectorApp=[], indRefr=1.33
     return np.transpose(coords), depth_true
 
 
-def correction_vect(vectorApp, indRefr=1.333):
+def correction_vect(apparent_vector, refraction_index=1.333):
     """bathymetric correction only for vector shot (in fwf mode)
 
     Args:
-        vectorApp (numpy.ndarray): apparent vector shot, useful in fwf mode
-        indRefr (float, optional): water refraction index. Defaults to 1.333.
+        apparent_vector (numpy.ndarray): apparent vector shot, useful in fwf mode
+        refraction_index (float, optional): water refraction index. Defaults to 1.333.
 
     Returns:
         true vector shot (numpy.ndarray)
     """
-    # bathymetric laser shot correction for fwf lidar data 
-    vectApp_norm = np.linalg.norm(vectorApp, axis=1)
-    vectTrue_norm = vectApp_norm / indRefr
+    # bathymetric laser shot correction for fwf lidar data
+    apparent_vector_norm = np.linalg.norm(apparent_vector, axis=1)
+    true_vector_norm = apparent_vector_norm / refraction_index
 
     # compute "gisement" with formula that removes ambiguity of pi radians on the calculation of 'arctan'
-    gisement_vect = 2 * np.arctan(vectorApp[:, 0] / (np.linalg.norm(vectorApp[:, 0:2], axis=1) + vectorApp[:, 1]))
-    thetaApp = np.arccos(vectorApp[:, 2]/vectApp_norm)
-    thetaTrue = np.arcsin(np.sin(thetaApp)/indRefr)
-    vectTrue= np.vstack([vectTrue_norm * np.sin(thetaTrue)*np.sin(gisement_vect),
-                         vectTrue_norm * np.sin(thetaTrue)*np.cos(gisement_vect),
-                         vectTrue_norm * np.cos(thetaTrue)])
-    return np.transpose(vectTrue)
+    gisement = 2 * np.arctan(
+        apparent_vector[:, 0] / (np.linalg.norm(apparent_vector[:, 0:2], axis=1) + apparent_vector[:, 1])
+    )
+    apparent_theta = np.arccos(apparent_vector[:, 2] / apparent_vector_norm)
+    true_theta = np.arcsin(np.sin(apparent_theta) / refraction_index)
+    true_vector = np.vstack([true_vector_norm * np.sin(true_theta) * np.sin(gisement),
+                             true_vector_norm * np.sin(true_theta) * np.cos(gisement),
+                             true_vector_norm * np.cos(true_theta)])
+    return np.transpose(true_vector)
 
 
 class PyC2C(object):

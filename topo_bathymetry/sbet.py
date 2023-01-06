@@ -151,7 +151,7 @@ class SBET(object):
 
         data = np.array([self.easting, self.northing, self.elevation, self.gps_time])
         out = self.filepath[0:-4] + "_ascii.txt"
-        f = np.savetxt(out , np.transpose(data),
+        f = np.savetxt(out, np.transpose(data),
                        fmt="%.3f;%.3f;%.3f;%f", delimiter=";", header="X;Y;Z;gpstime")
         return out
 
@@ -161,7 +161,7 @@ class SBET(object):
         return f(time_ref)
 
 
-def calc_grid(name_geoid,pts0,deltas):
+def calc_grid(name_geoid, pts0, deltas):
     """
     Function for compute a geoid grid from an Ascii file.
     To use a geoid grid, you have to register a NPZ file
@@ -187,17 +187,17 @@ def calc_grid(name_geoid,pts0,deltas):
     taille = np.shape(grille)
     tableau = np.zeros((taille[0]*taille[1],3))
     compteur = 0
-    for lig in range(0,taille[0]):
-        for col in range(0,taille[1]):
-            tableau[compteur,0] = round(pts0[0]+deltas[0]*col,6)
-            tableau[compteur,1] = round(pts0[1]-deltas[1]*lig,6)
-            tableau[compteur,2] = grille[lig,col]
+    for lig in range(0, taille[0]):
+        for col in range(0, taille[1]):
+            tableau[compteur, 0] = round(pts0[0]+deltas[0] * col, 6)
+            tableau[compteur, 1] = round(pts0[1]-deltas[1] * lig, 6)
+            tableau[compteur, 2] = grille[lig, col]
             compteur += 1
     np.savez_compressed("D:/TRAVAIL/Vertical_datum/RAF09.npz", tableau)
     return True
 
 
-def Projection(epsg_in,epsg_out,x,y,z):
+def Projection(epsg_in, epsg_out, x, y, z):
     """
     Function for compute the transformation between
     2 references system. This function use PyProj library.

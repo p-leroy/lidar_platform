@@ -77,8 +77,8 @@ def refraction_correction_fwf(filepath, minimum_depth=-0.1):
     del in_data
 
     # compute new positions
-    depth_app = data_under_water.depth
-    coords_true, depth_true = correction_3d(data_under_water.XYZ, depth_app, vectorApp=vect_app_under_water)
+    apparent_depth = data_under_water.depth
+    coords_true, depth_true = correction_3d(data_under_water.XYZ, apparent_depth, vectorApp=vect_app_under_water)
     
     # write results in las files
     depth_all = np.concatenate((np.round(depth_true, decimals=2), np.array([None] * len(data_above_water))))
@@ -89,8 +89,8 @@ def refraction_correction_fwf(filepath, minimum_depth=-0.1):
 
     #return data_corbathy, extra, metadata['vlrs']
     #PL.lastools.writeLAS(filepath[0:offsetName] + "_corbathy2.laz", dataCorbathy, format_id=4, extraField=extra)
-    las.WriteLAS(filepath[0:offset_name] + output_suffix + ".laz", data_corbathy, format_id=9)
-    shutil.copyfile(filepath[0:-4] + ".wdp", filepath[0:offset_name] + output_suffix + ".wdp")
+    las.WriteLAS(filepath[0: offset_name] + output_suffix + ".laz", data_corbathy, format_id=9)
+    shutil.copyfile(filepath[0: -4] + ".wdp", filepath[0: offset_name] + output_suffix + ".wdp")
 
 
 def do_work(files, sbet_params, n_jobs, fwf=False):
@@ -98,7 +98,7 @@ def do_work(files, sbet_params, n_jobs, fwf=False):
 
     if fwf:
         print("[Refraction correction] full waveform mode")
-        Parallel(n_jobs=n_jobs, verbose=1)(
+        results = Parallel(n_jobs=n_jobs, verbose=1)(
             delayed(refraction_correction_fwf)(f)
             for f in files)
     else:

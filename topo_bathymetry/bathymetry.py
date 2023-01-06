@@ -410,3 +410,92 @@ def add_depth(line, water_surface, global_shift, octree_level=10, remove_extra_s
     cc.write_sbf(out, pc, sf, config)
 
     return out
+
+
+def add_depth(line, water_surface, global_shift, octree_level=10, remove_extra_sf=False, silent=True, cc_exe=cc_std):
+    print(f'processing line {line}')
+
+    head, tail, root, ext = misc.head_tail_root_ext(line)
+    odir = os.path.join(head, 'with_depth')
+    os.makedirs(odir, exist_ok=True)
+    out = os.path.join(odir, root + '.sbf')
+
+    x, y, z = global_shift
+
+    print("[add_depth]")
+    # be careful of global_shift, bug corrected in CloudCompare but maybe not merged in the last release
+    # use modified version of CloudCompare
+    # use the same version of CloudCompare afterwards to avoid incompatibilities with SBF?
+    # cmd = cc_2022_07_05
+    cmd = cc_exe
+    if silent:
+        cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
+    else:
+        cmd += ' -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
+    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {line}'  # compared
+    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {water_surface}'  # reference
+    cmd += f' -C2C_DIST -OCTREE_LEVEL {octree_level} -MAX_DIST 350 -SPLIT_XYZ'
+    cmd += ' -POP_CLOUDS'  # remove water_surface from the database
+    cmd += f' -SAVE_CLOUDS FILE {out}'
+    misc.run(cmd)
+
+    # open sbf and remove unused scalar fields (the remove_sf option is not working in CloudCompare command line)
+
+    pc, sf, config = cc.read_sbf(out)
+
+    cc.rename_sf('C2C absolute distances[<350] (Z)', 'depth', config)
+
+    # remove unused scalar fields
+    sf, config = cc.remove_sf('C2C absolute distances[<350]', sf, config)
+    sf, config = cc.remove_sf('C2C absolute distances[<350] (X)', sf, config)
+    sf, config = cc.remove_sf('C2C absolute distances[<350] (Y)', sf, config)
+    if remove_extra_sf:
+        sf, config = cc.remove_sf('intensity_class', sf, config)
+        sf, config = cc.remove_sf('imax_minus_i', sf, config)
+        sf, config = cc.remove_sf('UserData', sf, config)
+
+    cc.write_sbf(out, pc, sf, config)
+
+    return out
+
+
+def add_depth_laz(line, water_surface, global_shift, octree_level=10, silent=True, cc_exe=cc_std):
+    print(f'processing line {line}')
+
+    head, tail, root, ext = misc.head_tail_root_ext(line)
+    odir = os.path.join(head, 'with_depth')
+    os.makedirs(odir, exist_ok=True)
+    out = os.path.join(odir, root + '.laz')
+
+    x, y, z = global_shift
+
+    print("[add_depth]")
+
+    cmd = [cc_exe]
+    if silent:
+        cmd.append('-SILENT')
+    cmd.append('-NO_TIMESTAMP')
+    cmd.append('-C_EXPORT_FMT')
+    cmd.extend(['LAS', '-EXT', 'LAZ'])
+    cmd.extend(['-AUTO_SAVE', 'OFF'])
+
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), line])  # open data
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), water_surface])  # open water surface
+
+    # compute cloud to cloud distances
+    cmd += ['-C2C_DIST', '-OCTREE_LEVEL', str(octree_level), '-MAX_DIST', '350', '-SPLIT_XYZ']
+
+    cmd.append('-POP_CLOUDS')  # remove water_surface from the database
+
+    # remove unused scalar fields
+    cmd += ['-REMOVE_SF', "'C2C absolute distances[<350]'"]
+    cmd += ['-REMOVE_SF', "'C2C absolute distances[<350] (X)'"]
+    cmd += ['-REMOVE_SF', "'C2C absolute distances[<350] (Y)'"]
+
+    cmd += ['-RENAME_SF', 'LAST', 'depth']  # rename the scalar field 'C2C absolute distances[<350] (Z)' to 'depth'
+
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
+
+    misc.run(cmd)
+
+    return out

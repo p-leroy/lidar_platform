@@ -381,7 +381,6 @@ def read(filepath, extra_fields=False, parallel=True):
                 "extraField": [],
                 'filepath': filepath}
     output = las_fmt.lasdata()
-
     LAS_fmt = las_fmt.LASFormat()
 
     for field, dtype in LAS_fmt.record_format[point_format]:
@@ -405,6 +404,7 @@ def read(filepath, extra_fields=False, parallel=True):
         output['gps_time'] = las['GpsTime']
 
     output['metadata'] = metadata
+
     return output
 
 
