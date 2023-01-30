@@ -18,7 +18,8 @@ from sklearn import metrics
 from ..tools import PySBF
 
 # definition des classes et des labels
-classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5:'High_veg.', 6:'Building', 9:'Water', 11:'Artificial_ground', 13:'Power_Line', 14:'Surf_zone', 15:'Water_Column', 16:'Bathymetry',  18:'Sandy_seabed', 19:'Rocky_seabed', 23:'Bare_ground', 24:'Pebble',25:'Rock',28:'Car', 29:'Swimming_pools'}
+classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Building', 9: 'Water', 11: 'Artificial_ground', 13: 'Power_Line', 14: 'Surf_zone',
+           15: 'Water_Column', 16: 'Bathymetry',  18: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car', 29: 'Swimming_pools'}
 convention = {"gpstime": "gps_time",
               "numberofreturns": "number_of_returns",
               "returnnumber": "return_number",
@@ -26,16 +27,16 @@ convention = {"gpstime": "gps_time",
               "pointsourceid": "point_source_id"}
 
 
-def load_features(pcx_filepath,training_filepath,labels=False,coords=False):
+def load_features(pcx_filepath, training_filepath, labels=False, coords=False):
     """
     Loading computed features after using 3DMASC plugin
 
     Parameters
     ---------
     pcx_filepath : str, absolute path to core-points file
-    training_file : str, parameters file for 3DMASC
+    training_filepath : str, parameters file for 3DMASC
     labels : bool (default=False), in case of training model you need the labels
-    labels : bool (default=False), if you want to get the coordinates too
+    coords : bool (default=False), if you want to get the coordinates too
 
     Returns
     --------
@@ -45,30 +46,30 @@ def load_features(pcx_filepath,training_filepath,labels=False,coords=False):
          'labels' : list of int, class labels
          'coords' : numpy.array of point coordinates
     """
-    f=PySBF.File(pcx_filepath)
-    ptsCloud=f.points
-    names=f.scalarNames
+    f = PySBF.File(pcx_filepath)
+    pc = f.points
+    names = f.scalarNames
     del f
-    tab=np.loadtxt(training_filepath[0:-4]+"_feature_sources.txt",str)
-    if len(tab.shape) ==0:
+    tab = np.loadtxt(training_filepath[0:-4]+"_feature_sources.txt",str)
+    if len(tab.shape) == 0:
         tab = [tab.tolist()]
-    listSF=[]
+    list_sf = []
     for i in tab:
-        name=i.split(sep=':')[1].lower()
+        name = i.split(sep=':')[1].lower()
         if name in convention.keys():
-            listSF+=[convention[name]]
+            list_sf += [convention[name]]
         else:
-            listSF+=[name]
-    idxSelect=list([names.index(i) for i in listSF])
-    data={"features":ptsCloud[:,idxSelect],"names":list(np.array(names)[idxSelect])}
+            list_sf += [name]
+    idx_select = list([names.index(i) for i in list_sf])
+    data = {"features": pc[:, idx_select], "names": list(np.array(names)[idx_select])}
     if labels:
-        data["labels"]=ptsCloud[:,names.index('classification')]
+        data["labels"] = pc[:, names.index('classification')]
     if coords:
-        data['coords']=ptsCloud[:,[0,1,2]]
+        data['coords'] = pc[:, [0, 1, 2]]
     return data
 
 
-def featureClean(dataset):
+def feature_clean(dataset):
     """
     Function to clean the features (no normalization, juste NaN and Inf values cleaning)
 
@@ -81,20 +82,19 @@ def featureClean(dataset):
     -------
     dataset : numpy array
         a clean dataset.
-
     """
-    NbrCol=len(dataset[0,:])
-    for i in range(0,NbrCol):
-        col=dataset[:,i]
+    for i in range(0, len(dataset[0, :])):
+        col = dataset[:, i]
         if all(np.isnan(col)):
-            newcol=np.array([-9999]*len(col))
+            newcol = np.array([-9999] * len(col))
         else:
-            maxi=max(col[np.isfinite(col)])
+            maxi = max(col[np.isfinite(col)])
             newcol = col
-            newcol[np.isinf(col)]=maxi
-            newcol[np.isnan(newcol)]=-9999
-        dataset[:,i]=newcol
+            newcol[np.isinf(col)] = maxi
+            newcol[np.isnan(newcol)] = -9999
+        dataset[:, i] = newcol
     return dataset
+
 
 def train(trads, model=0):
     """
@@ -111,11 +111,11 @@ def train(trads, model=0):
     -------
     model : sklearn RandomForestClassifier or OpenCV RTrees
         trained random forest model ready for use.
-
     """
     if model == 0:
-        classifier=sklearn.ensemble.RandomForestClassifier(n_estimators=150,criterion='gini', max_features="sqrt",max_depth=None,oob_score=True,n_jobs=-1,verbose=0)
-        classifier.fit(featureClean(trads['features']),trads['labels'])
+        classifier = sklearn.ensemble.RandomForestClassifier(n_estimators=150,criterion='gini', max_features="sqrt",
+                                                             max_depth=None, oob_score=True, n_jobs=-1, verbose=0)
+        classifier.fit(featureClean(trads['features']), trads['labels'])
     elif model == 1:
         labels = np.array(trads['labels']).astype('int32')
         classifier = cv2.ml.RTrees_create()
@@ -125,12 +125,14 @@ def train(trads, model=0):
         classifier.setMinSampleCount(1)
         term_type, n_trees, epsilon = cv2.TERM_CRITERIA_MAX_ITER, 150, sys.float_info.epsilon
         classifier.setTermCriteria((term_type, n_trees, epsilon))
-        train_data = cv2.ml.TrainData_create(samples=np.array(trads['features']).astype('float32'),layout=cv2.ml.ROW_SAMPLE,responses=labels)
+        train_data = cv2.ml.TrainData_create(samples=np.array(trads['features']).astype('float32'),
+                                             layout=cv2.ml.ROW_SAMPLE, responses=labels)
         classifier.train(trainData=train_data)
-    else :
+    else:
         print('Invalid model type')
         return
     return classifier
+
 
 def test(testds, classifier, model=0):
     """
@@ -162,21 +164,22 @@ def test(testds, classifier, model=0):
     labels = testds['labels']
     if model == 0:
         feat_imptce = classifier.feature_importances_
-        labels_pred = classifier.predict(featureClean(testds['features']))
-        conf = classifier.predict_proba(featureClean(testds['features']))
-    elif model == 1 :
+        labels_pred = classifier.predict(feature_clean(testds['features']))
+        conf = classifier.predict_proba(feature_clean(testds['features']))
+    elif model == 1:
         feat_imptce = classifier.getVarImportance()
         _ret, responses = classifier.predict(testds['features'].astype('float32'))
         votes = classifier.getVotes(testds['features'].astype('float32'), 0)
-        conf = votes[1:,:]
+        conf = votes[1:, :]
         conf = np.max(conf, axis=-1)/150
         labels_pred = responses
-    else :
+    else:
         print('Invalid model type')
         return
     oa = metrics.accuracy_score(labels, labels_pred)
     fs = metrics.f1_score(labels, labels_pred, average='macro')
     return labels_pred, conf, feat_imptce, oa, fs
+
 
 def get_acc_expe(trads, testds, plot=True, save=False, model=0):
     """
@@ -216,14 +219,14 @@ def get_acc_expe(trads, testds, plot=True, save=False, model=0):
     """
     classifier = train(trads)
     labels_pred, confid_pred, feat_imptce, oa, fs = test(testds, classifier, model)
-    test_labels=testds['labels']
+    test_labels = testds['labels']
     accuracy = metrics.accuracy_score(test_labels, labels_pred)
-    precision = metrics.precision_score(test_labels, labels_pred, average='macro')#, labels=labels)
-    recall = metrics.recall_score(test_labels, labels_pred, average='macro')#, labels=labels)
-    fscore = metrics.f1_score(test_labels, labels_pred, average='macro')#, labels=labels)
-    confmatPA = metrics.confusion_matrix(test_labels, labels_pred,normalize='true')# labels=labels, )
-    confmatUA = metrics.confusion_matrix(test_labels, labels_pred,normalize='pred')
-    confmat = metrics.confusion_matrix(test_labels, labels_pred,normalize=None)
+    precision = metrics.precision_score(test_labels, labels_pred, average='macro')
+    recall = metrics.recall_score(test_labels, labels_pred, average='macro')
+    fscore = metrics.f1_score(test_labels, labels_pred, average='macro')
+    mat_pa = metrics.confusion_matrix(test_labels, labels_pred, normalize='true')
+    mat_ua = metrics.confusion_matrix(test_labels, labels_pred, normalize='pred')
+    confmat = metrics.confusion_matrix(test_labels, labels_pred, normalize=None)
     labels = np.unique(test_labels)
     figure = go.Figure(data=go.Heatmap(
                    z=confmat,
@@ -231,32 +234,31 @@ def get_acc_expe(trads, testds, plot=True, save=False, model=0):
                    y=[classes[l] for l in labels],
                    text=confmat,
                    texttemplate="%{text}",
-                   textfont={"size":20},
+                   textfont={"size": 20},
                    colorscale=[(0, "rgb(250,250,250)"), (0.25, 'darkseagreen'), (1.0, "seagreen")],
-                   hoverongaps = False))
+                   hoverongaps=False))
     figure.update_layout(
         title_text="Confusion matrix",
         font_size=18,
     )
-    figure.write_html( 'confusion_matrix.html', auto_open=True)
-    
-    if save :
-        figure.write_html( 'confusion_matrix.html', auto_open=False)
+    if save:
+        figure.write_html('confusion_matrix.html', auto_open=False)
     if plot:
-        figure.write_html( 'confusion_matrix.html', auto_open=True)
-    uas=[]
-    pas=[]
-    for i in range(confmatPA.shape[0]):
-        pas.append(confmatPA[i,i])
-        uas.append(confmatUA[i,i])
+        figure.write_html('confusion_matrix.html', auto_open=True)
+    uas = []
+    pas = []
+    for i in range(mat_pa.shape[0]):
+        pas.append(mat_pa[i, i])
+        uas.append(mat_ua[i, i])
     labels = np.unique(test_labels)
-    confc=[]
+    confc = []
     for l in labels:
-        confc.append(np.mean(confid_pred[np.where((labels_pred==l))[0]]))
+        confc.append(np.mean(confid_pred[np.where((labels_pred == l))[0]]))
     precisions = metrics.precision_score(test_labels, labels_pred, average=None)
     recalls = metrics.recall_score(test_labels, labels_pred, average=None)
     fscores = metrics.f1_score(test_labels, labels_pred, average=None)
     return accuracy, fscore, np.mean(confid_pred), recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imptce, classifier, labels_pred
+
 
 def plot_feat_imp(feat_imp, trads, save=False, plot=True):
     """
@@ -282,10 +284,11 @@ def plot_feat_imp(feat_imp, trads, save=False, plot=True):
     )
     fig.update_xaxes(tickangle=45, showgrid=True, type='category', title_text='<b>Feature<b>')
     fig.update_yaxes(title_text="<b>RF Importance</b>")
-    if plot :
+    if plot:
         fig.write_html( 'feature_importances.html', auto_open=True)
-    if save :
+    if save:
         fig.write_image('feature_importances.jpg', scale=3)
+
 
 def plot_corr_mat(trads, plot=True, save=False):
     """
@@ -300,26 +303,27 @@ def plot_corr_mat(trads, plot=True, save=False):
     plot : bool
         defines if plot must be opened.
     """
-    feats_DF = pd.DataFrame(trads['features'], columns=trads['names'])
-    corr_mat = feats_DF.corr()    
+    feats_df = pd.DataFrame(trads['features'], columns=trads['names'])
+    corr_mat = feats_df.corr()
     figure = go.Figure(data=go.Heatmap(
                    z=corr_mat,
                    x=trads['names'],
                    y=trads['names'],
-                   text=np.round(corr_mat*100,0),
+                   text=np.round(corr_mat*100, 0),
                    texttemplate="%{text}",
-                   textfont={"size":20},
-                    colorscale='magma',
-                   hoverongaps = False))
+                   textfont={"size": 20},
+                   colorscale='magma',
+                   hoverongaps=False))
     figure.update_layout(
         title_text="Correlation matrix",
     )    
     if save:
-        figure.write_html( 'correlation_matrix.html', auto_open=False)
+        figure.write_html('correlation_matrix.html', auto_open=False)
     if plot:
-        figure.write_html( 'correlation_matrix.html', auto_open=True)
-    
+        figure.write_html('correlation_matrix.html', auto_open=True)
+
     return corr_mat
+
 
 def get_shap_expl(classifier, testds, save=True):
     """
@@ -334,33 +338,19 @@ def get_shap_expl(classifier, testds, save=True):
          'names' : list of str, name of each column feature
          'labels' : list of int, class labels
         training dataset.
-
+    save : bool
+        whether to save the resulting plot.
     """
     labels = np.unique(testds['labels'])
-    #recuperation des labels et noms dans l'ordre d'apparition pour les figures
     cn = []
     for l in labels:
         cn.append(classes[int(l)])
-    #calcul des shap values et du summay plot
     explainer = shap.TreeExplainer(classifier)
     fig = plt.figure()
     fig.set_size_inches(32, 18)
-    shap_values = explainer.shap_values(testds['features'],approximate=True)
-    shap.summary_plot(shap_values, testds['features'], feature_names=testds['names'], class_names=cn, max_display=testds['features'].shape[1], plot_type="bar")
-    if save :
-        plt.savefig('SHAP_explainer.jpg',bbox_inches='tight')
+    shap_values = explainer.shap_values(testds['features'], approximate=True)
+    shap.summary_plot(shap_values, testds['features'], feature_names=testds['names'], class_names=cn,
+                      max_display=testds['features'].shape[1], plot_type="bar")
+    if save:
+        plt.savefig('SHAP_explainer.jpg', bbox_inches='tight')
     return shap_values
-
-#ouverture des donnees : changer les chemins selon le besoin
-#on indique le fichier .SBF, le deuxieme (.sbf.data) sera trouve automatiquemnt
-#le deuxieme chemin correspond au fichier dans lequel les features sont definies.
-#le fichier  _feature_sources doit etre au meme endroit que le fichier de definition des features
-trads = load_features(r'D:\Papier_3DMasc\features_Papier3DMasc\features_11cl_ain\C3_train_11classes_2000samples.sbf',
-                                    r'D:\Papier_3DMasc\DATA\AIN\3DMASC_params_11.txt', labels=True)
-testds = load_features(r'D:\Papier_3DMasc\features_Papier3DMasc\features_11cl_ain\C3_test_11classes_2000samples.sbf',
-                                    r'D:\Papier_3DMasc\DATA\AIN\3DMASC_params_11.txt', labels=True)
-
-accuracy, fscore, confid_pred, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imptce, classifier, labels_pred = get_acc_expe(trads, testds)
-plot_corr_mat(trads, save=True)
-plot_feat_imp(feat_imptce, trads, save=True)
-get_shap_expl(classifier, testds, save=True)
