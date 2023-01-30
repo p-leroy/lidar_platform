@@ -4,8 +4,10 @@ Created on Fri Apr 15 09:11:06 2022
 @author: Mathilde Letard
 """
 import numpy as np
+
 import open3d as o3d
 import scipy
+
 
 def l2dist(p1,p2):
     """
@@ -27,6 +29,7 @@ def l2dist(p1,p2):
     b = (p2[1]-p1[1])**2
     c = (p2[2]-p1[2])**2
     return np.sqrt(a+b+c)
+
 
 def stdl2dist(pref,pts):
     """
@@ -50,6 +53,7 @@ def stdl2dist(pref,pts):
     c = (pts[:,2]-pref[2])**2
     total = np.sqrt(a+b+c)
     return np.std(total)
+
 
 def medl1dist(pts,pref):
     """
@@ -101,7 +105,8 @@ def moment(p, pvect, value, order):
         dot = np.dot(l2dist(pt, p), value)
         d.append(dot ** order)
     return np.abs(np.sum(d)) / pvect.shape[0]
-    
+
+
 def unit_vector(vector):
     """
     Returns the unit vector of the vector.
@@ -118,6 +123,7 @@ def unit_vector(vector):
 
     """
     return vector / np.linalg.norm(vector)
+
 
 def angle(v1, v2):
     """
@@ -139,7 +145,8 @@ def angle(v1, v2):
     v1_u = unit_vector(v1)
     v2_u = unit_vector(v2)
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))    
-    
+
+
 def get_classical3Dfeatures(corepts, cloud, r, suffix):
     """
     Compute M descriptive features of a given point cloud.

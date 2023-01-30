@@ -5,6 +5,7 @@ Created on Thu Jul 28 10:33:50 2022
 @author: Mathilde Letard
 """
 import numpy as np
+
 import pandas as pd
 import sklearn
 
@@ -13,6 +14,23 @@ import cc_3dmasc
 
 
 def get_scales_feats(ds):
+    """
+    Get the list of scales and features present in the file.
+
+    Parameters
+    ----------
+    ds : dictionary
+        data dictionary containing features, labels, names.
+
+    Returns
+    -------
+    numpy array : (ns*nf) x 1
+        list containing the scale of each descriptor.
+    numpy array : nf x 1
+        list containing the feature name of each descriptor.
+    numpy array : (ns*nf) x 1
+        list containing the complete name of each descriptor.
+    """
     scales = []
     names = []
     for i in ds['names']:
@@ -31,6 +49,19 @@ def get_scales_feats(ds):
 
 
 def nan_percentage(ds):
+    """
+    Get the percentage of NaN values for each feature.
+
+    Parameters
+    ----------
+    ds : dictionary
+        data dictionary containing features, labels, names.
+
+    Returns
+    -------
+    dictio_ft : dictionary
+        dictionary containing the name of each feature and the associated percentage of NaN.
+    """
     scales, names, ds_names = get_scales_feats(ds)
     features = ds['features']
     feats, indices = np.unique(names, return_index=True)
@@ -58,6 +89,19 @@ def nan_percentage(ds):
 
 
 def info_score(ds):
+    """
+    Get the mutual information score of each feature (computed with respect to the labels to predict).
+
+    Parameters
+    ----------
+    ds : dictionary
+        data dictionary containing features, labels, names.
+
+    Returns
+    -------
+    dictio_ft : dictionary
+        dictionary containing the name of each feature and the associated score value.
+    """
     ds_cleaned = feature_clean(ds)
     mi = sklearn.feature_selection.mutual_info_classif(ds_cleaned['features'], ds['labels'])
     dictio_ft = {'Features': ds['names'], 'MutualInfo': mi}
