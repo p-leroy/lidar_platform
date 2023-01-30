@@ -18,8 +18,10 @@ from sklearn import metrics
 from ..tools import PySBF
 
 # definition des classes et des labels
-classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Building', 9: 'Water', 11: 'Artificial_ground', 13: 'Power_Line', 14: 'Surf_zone',
-           15: 'Water_Column', 16: 'Bathymetry',  18: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car', 29: 'Swimming_pools'}
+classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Building', 9: 'Water',
+           11: 'Artificial_ground', 13: 'Power_Line', 14: 'Surf_zone', 15: 'Water_Column', 16: 'Bathymetry',
+           18: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
+           29: 'Swimming_pools'}
 convention = {"gpstime": "gps_time",
               "numberofreturns": "number_of_returns",
               "returnnumber": "return_number",
