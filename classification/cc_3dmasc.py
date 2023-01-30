@@ -1,89 +1,35 @@
-# coding: utf-8
-# Paul Leroy
-# Baptiste Feldmann
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Aug  5 18:12:03 2022
 
-import os
+@author: Baptiste Feldmann / Mathilde Letard
+"""
+import sys
 
+import cv2
+import matplotlib.pyplot as plt
 import numpy as np
-import sklearn.metrics as metrics
-from sklearn.preprocessing import MinMaxScaler
+import pandas as pd
+import plotly.graph_objects as go
+import shap
+import sklearn
+from sklearn import metrics
 
-from ..tools import cloudcompare, las, misc, PySBF
-from ..config.config import EXPORT_FMT, QUERY_0, SHIFT
+from ..tools import PySBF
 
-
-convention: dict[str, str] = {"gpstime": "gps_time",
-                              "numberofreturns": "number_of_returns",
-                              "returnnumber": "return_number",
-                              "scananglerank": "scan_angle_rank",
-                              "pointsourceid": "point_source_id"}
-
-
-def compute_features_work(query0_params, workspace, params, training_file):
-    """
-    Call 3DMASC plugin (from CloudCompare) to compute geometric features
-    
-    Parameters
-    ----------
-    query0_params : list of string parameters [QUERY_0,EXPORT_FMT,shiftname]
-    workspace : str, absolutepath to directory
-    params : dict of files to use 3DMASC, [pcx,pc1,PC2,CTX]
-    training_file : str, parameters file for 3DMASC
-    """
-    for i in params.keys():
-        if not os.path.exists(workspace + params[i]):
-            raise OSError("File " + params[i] + " not found !")
-
-    query = QUERY_0[query0_params[0]] + EXPORT_FMT[query0_params[1]]
-    for i in params.keys():
-        query += " -o -global_shift " + SHIFT[query0_params[2]] + " " + workspace + params[i]
-
-    query += " -3dmasc_classify -only_features " + training_file + ' "'
-    compt = 1
-    for i in params.keys():
-        query += i + '=' + str(compt) + ' '
-        compt += 1
-
-    query = query[0:-1] + '" -save_clouds'
-    misc.run(query)
-    
-    today = misc.DATE()
-    if query0_params[1] == "SBF":
-        cloudcompare.last_file(workspace + "_".join([params["pcx"][0:-4], "WITH_FEATURES", today.date, "*.sbf"]),
-                               params["pcx"][0:-4] + "_features.sbf")
-        cloudcompare.last_file(workspace + "_".join([params["pcx"][0:-4], "WITH_FEATURES", today.date, "*.sbf.data"]),
-                               params["pcx"][0:-4] + "_features.sbf.data")
-        for i in params.keys():
-            temp_file = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.sbf"]))
-            os.remove(temp_file)
-            temp_file = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.sbf.data"]))
-            os.remove(temp_file)
-    
-    elif query0_params[1] == "LAS":
-        cloudcompare.last_file(workspace + "_".join([params[i][0:-4], "WITH_FEATURES", today.date, "*.laz"]),
-                               params["pcx"][0:-4] +"_features.laz")
-        for i in params.keys():                
-            temp_file = cloudcompare.last_file(workspace + "_".join([params[i][0:-4], today.date, "*.laz"]))
-            os.remove(temp_file)
-
-    else:
-        raise NotImplementedError("Features can only be exported in SBF or LAS format for now")
+# definition des classes et des labels
+classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Building', 9: 'Water',
+           11: 'Artificial_ground', 13: 'Power_Line', 14: 'Surf_zone', 15: 'Water_Column', 16: 'Bathymetry',
+           18: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
+           29: 'Swimming_pools'}
+convention = {"gpstime": "gps_time",
+              "numberofreturns": "number_of_returns",
+              "returnnumber": "return_number",
+              "scananglerank": "scan_angle_rank",
+              "pointsourceid": "point_source_id"}
 
 
-def compute_features(workspace, pcx, params_cc, params_features):
-    params_training = {"pc1": "_".join(["pc1"] + pcx.split("_")[1::]),
-                       "pcx": pcx,
-                       "CTX": "_".join(["CTX"] + pcx.split("_")[1::])}
-
-    compute_features_work(params_cc, workspace, params_training, params_features)
-
-    os.rename(workspace + pcx[0:-4] + "_features.sbf",
-              workspace + "features/" + pcx[0:-4] + "_features.sbf")
-    os.rename(workspace + pcx[0:-4] + "_features.sbf.data",
-              workspace + "features/" + pcx[0:-4] + "_features.sbf.data")
-
-
-def load_features(pcx_filepath, training_filepath, labels=False):
+def load_features(pcx_filepath, training_filepath, labels=False, coords=False):
     """
     Loading computed features after using 3DMASC plugin
 
@@ -92,6 +38,7 @@ def load_features(pcx_filepath, training_filepath, labels=False):
     pcx_filepath : str, absolute path to core-points file
     training_filepath : str, parameters file for 3DMASC
     labels : bool (default=False), in case of training model you need the labels
+    coords : bool (default=False), if you want to get the coordinates too
 
     Returns
     --------
@@ -99,13 +46,15 @@ def load_features(pcx_filepath, training_filepath, labels=False):
          'features' : numpy.array of computed features
          'names' : list of str, name of each column feature
          'labels' : list of int, class labels
+         'coords' : numpy.array of point coordinates
     """
     f = PySBF.File(pcx_filepath)
-    points = f.points
+    pc = f.points
     names = f.scalarNames
     del f
-
     tab = np.loadtxt(training_filepath[0:-4]+"_feature_sources.txt",str)
+    if len(tab.shape) == 0:
+        tab = [tab.tolist()]
     list_sf = []
     for i in tab:
         name = i.split(sep=':')[1].lower()
@@ -113,158 +62,297 @@ def load_features(pcx_filepath, training_filepath, labels=False):
             list_sf += [convention[name]]
         else:
             list_sf += [name]
-    idx_select = list(np.sort([names.index(i) for i in list_sf]))
-
-    data = {"features": points[:, idx_select], "names": list(np.array(names)[idx_select])}
+    idx_select = list([names.index(i) for i in list_sf])
+    data = {"features": pc[:, idx_select], "names": list(np.array(names)[idx_select])}
     if labels:
-        data["labels"] = points[:, names.index('classification')]
+        data["labels"] = pc[:, names.index('classification')]
+    if coords:
+        data['coords'] = pc[:, [0, 1, 2]]
     return data
 
 
-def accuracy_score(labels_true, labels_pred):
-    labels = np.unique(labels_true)
-    tab = metrics.confusion_matrix(labels_true, labels_pred, labels)
-    list_accuracy = []
-    for i in range(0, len(labels)):
-        list_accuracy += [tab[i, i] / np.sum(tab[:, i])]
-    return list_accuracy, labels
+def feature_clean(dataset):
+    """
+    Function to clean the features (no normalization, juste NaN and Inf values cleaning)
+
+    Parameters
+    ----------
+    dataset : numpy array
+        input features dataset.
+
+    Returns
+    -------
+    dataset : numpy array
+        a clean dataset.
+    """
+    for i in range(0, len(dataset[0, :])):
+        col = dataset[:, i]
+        if all(np.isnan(col)):
+            newcol = np.array([-9999] * len(col))
+        else:
+            maxi = max(col[np.isfinite(col)])
+            newcol = col
+            newcol[np.isinf(col)] = maxi
+            newcol[np.isnan(newcol)] = -9999
+        dataset[:, i] = newcol
+    return dataset
 
 
-def confidence_score(labels_pred,ind_confid):
-    labels = np.unique(labels_pred)
-    ind_list = []
-    for i in labels:
-        temp = labels_pred == i
-        ind_list += [np.percentile(ind_confid[temp], 25)]
-    return ind_list,labels
+def train(trads, model=0):
+    """
+    Function to train a random forest model for point cloud features classification
 
+    Parameters
+    ----------
+    trads : dictionary of numpy arrays
+        training features dictionary.
+    model : int (0 or 1)
+        type of model. 0 = scikit-learn random forest, 1 = OpenCV random forest
 
-def classification_report(labels_true, labels_pred, ind_confid=None, save=False):
-    labels = np.unique(labels_true)
-    tab = metrics.confusion_matrix(labels_true, labels_pred, labels)
-    display = "Confusion matrix :\n\t"
-    for i in labels:
-        display += str(i) + "\t"
-    display += "\n"
-    for i in range(0, len(labels)):
-        display += str(labels[i]) + "\t"
-        for c in range(0, len(labels)):
-            display += str(tab[i, c]) + "\t"
-        display += "\n"
-
-    result_accuracy = accuracy_score(labels_true, labels_pred)
-    if len(ind_confid) > 0:
-        result_confid = confidence_score(labels_pred, ind_confid)
+    Returns
+    -------
+    model : sklearn RandomForestClassifier or OpenCV RTrees
+        trained random forest model ready for use.
+    """
+    if model == 0:
+        classifier = sklearn.ensemble.RandomForestClassifier(n_estimators=150,criterion='gini', max_features="sqrt",
+                                                             max_depth=None, oob_score=True, n_jobs=-1, verbose=0)
+        classifier.fit(featureClean(trads['features']), trads['labels'])
+    elif model == 1:
+        labels = np.array(trads['labels']).astype('int32')
+        classifier = cv2.ml.RTrees_create()
+        classifier.setMaxDepth(25)
+        classifier.setActiveVarCount(0)
+        classifier.setCalculateVarImportance(True)
+        classifier.setMinSampleCount(1)
+        term_type, n_trees, epsilon = cv2.TERM_CRITERIA_MAX_ITER, 150, sys.float_info.epsilon
+        classifier.setTermCriteria((term_type, n_trees, epsilon))
+        train_data = cv2.ml.TrainData_create(samples=np.array(trads['features']).astype('float32'),
+                                             layout=cv2.ml.ROW_SAMPLE, responses=labels)
+        classifier.train(trainData=train_data)
     else:
-        result_confid = np.array([0] * len(np.unique(labels_pred)))
-    
-    display2 = "Classes     \t"
-    for i in result_accuracy[1]:
-        display2 += str(i) + "\t"
-    display2 += "\nPrecision  \t"
-    for i in result_accuracy[0]:
-        display2 += str(np.round_(i * 100, 1)) + "\t"
-    display2 += "\nInd_conf 25%\t"
-    for i in result_confid[0]:
-        display2 += str(np.round_(i * 100, 1)) + "\t"
-    display2 += "\n"
-    
-    test = (labels_true == labels_pred)
-    val_true = len([i for i, X in enumerate(test) if X])
-    print(display)
-    print(display2)
-    print("Pourcentage valeur Vrai : %.1f%%" % (val_true / len(test) * 100))
-    print("Kappa coefficient: " + str(metrics.cohen_kappa_score(labels_true, labels_pred)))
-    print(metrics.classification_report(labels_true, labels_pred, labels))
-    
+        print('Invalid model type')
+        return
+    return classifier
+
+
+def test(testds, classifier, model=0):
+    """
+    Function to test the random forest model obtained on the test dataset and compute classification metrics.
+
+    Parameters
+    ----------
+    testds : dict of numpy arrays
+        test features dictionary.
+    classifier : sklearn RandomForestClassifier or OpenCV RTrees
+        trained random forest model ready for use.
+    model : int (0 or 1)
+        type of the model. 0 = scikit-learn random forest, 1 = OpenCV random forest
+
+    Returns
+    -------
+    labels_pred : numpy array
+        labels predicted by the model for each set of features.
+    confid_pred : numpy array
+        prediction confidence for each set of features.
+    feat_imptce : numpy array
+        importance of each feature (as computed in sklearn's RandomForestClassifier).
+    oa : float
+        overall accuracy of the classifier
+    fs : float
+        F1-score of the classifier averaged on all classes
+
+    """
+    labels = testds['labels']
+    if model == 0:
+        feat_imptce = classifier.feature_importances_
+        labels_pred = classifier.predict(feature_clean(testds['features']))
+        conf = classifier.predict_proba(feature_clean(testds['features']))
+    elif model == 1:
+        feat_imptce = classifier.getVarImportance()
+        _ret, responses = classifier.predict(testds['features'].astype('float32'))
+        votes = classifier.getVotes(testds['features'].astype('float32'), 0)
+        conf = votes[1:, :]
+        conf = np.max(conf, axis=-1)/150
+        labels_pred = responses
+    else:
+        print('Invalid model type')
+        return
+    oa = metrics.accuracy_score(labels, labels_pred)
+    fs = metrics.f1_score(labels, labels_pred, average='macro')
+    return labels_pred, conf, feat_imptce, oa, fs
+
+
+def get_acc_expe(trads, testds, plot=True, save=False, model=0):
+    """
+    Function to train a random forest model for point cloud features classification
+
+    Parameters
+    ----------
+    trads : dictionary of numpy arrays
+        training features dictionary.
+    testds : dict of numpy arrays
+        test features dictionary.
+    save : bool
+        defines if plot must be saved.
+    plot : bool
+        defines if plot must be opened.
+    model : int (0 or 1)
+        type of model. 0 = scikit-learn random forest, 1 = OpenCV random forest
+
+    Returns
+    -------
+    accuracy : float    Overall Accuracy of classifier
+    fscore : float      F1-score (averaged on all classes)
+    numpy.mean(confid_pred) : float     Mean prediction confidence
+    recall : float      Recall (averaged on all classes)
+    precision : float      Recall (averaged on all classes)
+    uas : numpy.array(float)    User's accuracies (per class)
+    pas : numpy.array(float)    Producer's accuracies (per class)
+    fscores : numpy.array(float)     F1-score per class
+    confc : numpy.array(float)     Mean prediction confidence per class
+    recalls : numpy.array(float)     Recall per class
+    precisions : numpy.array(float)     Precision per class
+    labels : numpy.array(float)     labels
+    feat_imptce : numpy.array(float)     feature importance values
+    classifier : skleanrn RandomForestClassifier or OpenCV RTrees   classifier
+    labels_pred : np.array(int)     model predictions
+
+    """
+    classifier = train(trads)
+    labels_pred, confid_pred, feat_imptce, oa, fs = test(testds, classifier, model)
+    test_labels = testds['labels']
+    accuracy = metrics.accuracy_score(test_labels, labels_pred)
+    precision = metrics.precision_score(test_labels, labels_pred, average='macro')
+    recall = metrics.recall_score(test_labels, labels_pred, average='macro')
+    fscore = metrics.f1_score(test_labels, labels_pred, average='macro')
+    mat_pa = metrics.confusion_matrix(test_labels, labels_pred, normalize='true')
+    mat_ua = metrics.confusion_matrix(test_labels, labels_pred, normalize='pred')
+    confmat = metrics.confusion_matrix(test_labels, labels_pred, normalize=None)
+    labels = np.unique(test_labels)
+    figure = go.Figure(data=go.Heatmap(
+                   z=confmat,
+                   x=[classes[l] for l in labels],
+                   y=[classes[l] for l in labels],
+                   text=confmat,
+                   texttemplate="%{text}",
+                   textfont={"size": 20},
+                   colorscale=[(0, "rgb(250,250,250)"), (0.25, 'darkseagreen'), (1.0, "seagreen")],
+                   hoverongaps=False))
+    figure.update_layout(
+        title_text="Confusion matrix",
+        font_size=18,
+    )
     if save:
-        f = open(save, "w")
-        print(display + "\n", file=f)
-        print(display2, file=f)
-        print("Percents of true value: %.1f%%" %(val_true / len(test) * 100), file=f)
-        print("Kappa coefficient: " + str(metrics.cohen_kappa_score(labels_true, labels_pred)), file=f)
-        print(metrics.classification_report(labels_true, labels_pred, labels), file=f)
-        f.close()
+        figure.write_html('confusion_matrix.html', auto_open=False)
+    if plot:
+        figure.write_html('confusion_matrix.html', auto_open=True)
+    uas = []
+    pas = []
+    for i in range(mat_pa.shape[0]):
+        pas.append(mat_pa[i, i])
+        uas.append(mat_ua[i, i])
+    labels = np.unique(test_labels)
+    confc = []
+    for l in labels:
+        confc.append(np.mean(confid_pred[np.where((labels_pred == l))[0]]))
+    precisions = metrics.precision_score(test_labels, labels_pred, average=None)
+    recalls = metrics.recall_score(test_labels, labels_pred, average=None)
+    fscores = metrics.f1_score(test_labels, labels_pred, average=None)
+    return accuracy, fscore, np.mean(confid_pred), recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imptce, classifier, labels_pred
 
-        
-def feature_importance_analysis(tab, nb_scales):
+
+def plot_feat_imp(feat_imp, trads, save=False, plot=True):
     """
-    Feature Importance Analysis
-    (by features and by scales)
+    Function to get a graph plot of the RF model's feature importances
+
+    Parameters
+    ----------
+    feat_imp : numpy.array()
+        array containing feature importances values.
+    trads : dictionary of numpy arrays
+        training features dictionary.
+    save : bool
+        defines if plot must be saved.
+    plot : bool
+        defines if plot must be opened.
     """
-    if len(tab) % nb_scales == 0:
-        nb_feat = int(len(tab) / nb_scales)
-    else:
-        raise ValueError("Length of your array doesn't match exactly number of scales")
-
-    by_feat = []
-    for i in range(0, nb_feat):
-        p = np.arange(0, nb_scales) + (i * nb_scales)
-        by_feat += [np.sum(tab[p])]
-
-    by_scales = []
-    for i in range(0, nb_scales):
-        p = [nb_scales * m + i for m in range(0, nb_feat)]
-        by_scales += [np.sum(tab[p])]
-        
-    print("Feature Importances Analysis :\n\t-By features :")
-    print(by_feat)
-    print("\t-By scales :")
-    print(by_scales)
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(name='Feature Importances', x=trads['names'], y=feat_imp, marker_color='navy'),
+    )
+    fig.update_layout(
+        title_text="<b>Feature importances<b>"
+    )
+    fig.update_xaxes(tickangle=45, showgrid=True, type='category', title_text='<b>Feature<b>')
+    fig.update_yaxes(title_text="<b>RF Importance</b>")
+    if plot:
+        fig.write_html( 'feature_importances.html', auto_open=True)
+    if save:
+        fig.write_image('feature_importances.jpg', scale=3)
 
 
-def correlation(data, names, save=""):
-    func = getattr(getattr(__import__("scipy"), "stats"), "pearsonr")
-    list_ = []
-    for i in range(0, len(data[0, :])):
-        temp = []
-        for c in range(0, len(data[0, :])):
-            if c < i + 1:
-                temp += [-2]
-            else:
-                result = func(data[:, i], data[:, c])[0]
-                temp += [round(result, 4)]
-                if result > 0.75:
-                    print("Correlation between : %s and %s (%.4f)" % (names[i], names[c], result))
-        list_ += [temp]
-    if len(save) > 0:
-        np.savetxt(save, list_, fmt='%.4f', delimiter=";")
+def plot_corr_mat(trads, plot=True, save=False):
+    """
+    Function to visualize correlation between features.
+
+    Parameters
+    ----------
+    trads : dictionary of numpy arrays
+        training features dictionary.
+    save : bool
+        defines if plot must be saved.
+    plot : bool
+        defines if plot must be opened.
+    """
+    feats_df = pd.DataFrame(trads['features'], columns=trads['names'])
+    corr_mat = feats_df.corr()
+    figure = go.Figure(data=go.Heatmap(
+                   z=corr_mat,
+                   x=trads['names'],
+                   y=trads['names'],
+                   text=np.round(corr_mat*100, 0),
+                   texttemplate="%{text}",
+                   textfont={"size": 20},
+                   colorscale='magma',
+                   hoverongaps=False))
+    figure.update_layout(
+        title_text="Correlation matrix",
+    )    
+    if save:
+        figure.write_html('correlation_matrix.html', auto_open=False)
+    if plot:
+        figure.write_html('correlation_matrix.html', auto_open=True)
+
+    return corr_mat
 
 
-def classify(workspace, filename, model, features_file):
-    dictio = load_features(workspace + "features/" + filename[0:-4] + "_features.sbf", features_file)
-    # Normalize by (0,1) and replace nan by -1
-    data = MinMaxScaler((0, 1)).fit_transform(dictio['features'])
-    data = np.nan_to_num(data, nan=-1)
+def get_shap_expl(classifier, testds, save=True):
+    """
+    Function to get the shap summary plot of a random forest classifier trained on the given dataset
 
-    labels_pred = model.predict(data)
-    confid_pred = model.predict_proba(data)
-    confid_pred = np.max(confid_pred, axis=1)
-    lasdata = las.read(workspace + filename)
-
-    lasdata.classification = labels_pred
-    # print(np.shape(lasdata))
-    # print(np.shape(data))
-    extra = [(("ind_confid", "float32"), np.round(confid_pred * 100, decimals=1))]
-    las.WriteLAS(workspace + filename[0:-4] + "_class.laz", lasdata, format_id=1, extra_fields=extra)
-
-
-def cross_validation(model, cv, X, y_true):
-    scores1 = dict(zip(list(np.unique(y_true)) + ['all'], [[] for i in range(0,len(np.unique(y_true)) + 1)]))
-    scores2 = dict(zip(list(np.unique(y_true)) + ['all'], [[] for i in range(0,len(np.unique(y_true)) + 1)]))
-    feat_import = []
-    count = 1
-    print("Cross Validation test with %i folds:" %cv.get_n_splits())
-    for train_idx,test_idx in cv.split(X,y_true):
-        print(str(count) + "...", end="\r")
-        count += 1
-        model.fit(X[train_idx,:], y_true[train_idx])
-        y_pred = model.predict(X[test_idx, :])
-        scores1['all'] += [metrics.cohen_kappa_score(y_pred,y_true[test_idx])]
-        scores2['all'] += [metrics.accuracy_score(y_true[test_idx], y_pred)]
-        feat_import += [model.feature_importances_ * 100]
-        for label in np.unique(y_true):
-            scores1[label] += [metrics.cohen_kappa_score(y_pred == label, y_true[test_idx] == label)]
-            scores2[label] += [metrics.accuracy_score(y_true[test_idx] == label, y_pred == label)]
-    print("done!")
-    return scores1, scores2, np.mean(feat_import, axis=0)
+    Parameters
+    ----------
+    classifier : scikit-learn RandomForestClassifier
+        trained classifier.
+    testds : dict,
+         'features' : numpy.array of computed features
+         'names' : list of str, name of each column feature
+         'labels' : list of int, class labels
+        training dataset.
+    save : bool
+        whether to save the resulting plot.
+    """
+    labels = np.unique(testds['labels'])
+    cn = []
+    for l in labels:
+        cn.append(classes[int(l)])
+    explainer = shap.TreeExplainer(classifier)
+    fig = plt.figure()
+    fig.set_size_inches(32, 18)
+    shap_values = explainer.shap_values(testds['features'], approximate=True)
+    shap.summary_plot(shap_values, testds['features'], feature_names=testds['names'], class_names=cn,
+                      max_display=testds['features'].shape[1], plot_type="bar")
+    if save:
+        plt.savefig('SHAP_explainer.jpg', bbox_inches='tight')
+    return shap_values
