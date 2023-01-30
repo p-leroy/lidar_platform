@@ -109,6 +109,23 @@ def info_score(ds):
 
 
 def correlation_score_filter(features_set, features_score, threshold):
+    """
+    Prune a set of predictors by keeping only the most informative elements among correlated pairs.
+
+    Parameters
+    ----------
+    features_set : numpy array (n_points x n_predictors)
+        array containing the value of each predictor evaluated for each point.
+    features_score : numpy array (n_predictors x 1)
+        array containing the information score of each predictor.
+    threshold : float
+        accepted value of correlation between predictors.
+
+    Returns
+    -------
+    select : list(int)
+        list of the indices of the selected features in the original features_set array.
+    """
     feats_df = pd.DataFrame(features_set)
     corr_mat = feats_df.corr().to_numpy()
     half = np.abs(corr_mat)
@@ -126,6 +143,25 @@ def correlation_score_filter(features_set, features_score, threshold):
 
 
 def correlation_selection_filter(features, features_set, ft_select, threshold):
+    """
+    Check compatibility of features considering their linear correlation.
+
+    Parameters
+    ----------
+    features : numpy array (n_points x n_predictors)
+        array containing the value of each predictor for each point.
+    features_set : list(int)
+        indices of the elements to consider for selection (candidates to evaluate).
+    ft_select : numpy array (n_points x n_selected)
+        array containing the value of each predictor that already passed the selection.
+    threshold : float
+        accepted value of correlation between predictors.
+
+    Returns
+    -------
+    valides : list(int)
+        list of the indices of the selected features in the original ds['features'] array.
+    """
     feats_df = pd.DataFrame(features[:, features_set])
     corr_mat = feats_df.corr().to_numpy()
     half = np.abs(corr_mat)
@@ -143,6 +179,28 @@ def correlation_selection_filter(features, features_set, ft_select, threshold):
 
 
 def selection(ft_all, ft_select, ft_score, nf, threshold):
+    """
+    Among features that passed the correlation and information score criteria, select those that are compatible
+    with previously elected features.
+
+    Parameters
+    ----------
+    ft_all : numpy array (n_points x n_predictors)
+        array containing the value of each predictor for each point.
+    ft_select : numpy array (n_points x n_selected)
+        array containing the value of each predictor that already passed the selection.
+    ft_score : numpy array (n_predictors x 1)
+        array containing the information score of each predictor.
+    nf : int
+        number of different features to select.
+    threshold : float
+        accepted value of correlation between predictors.
+
+    Returns
+    -------
+    ft_select : list(int)
+        list of the indices of the selected features in the original ds['features'] array.
+    """
     n_select = len(ft_select)
     argsort_sc = np.argsort(ft_score)
     possib = argsort_sc[-1 * nf:]
@@ -161,6 +219,23 @@ def selection(ft_all, ft_select, ft_score, nf, threshold):
 
 
 def select_best_feature_set(ds, nf, corr_threshold):
+    """
+    Select best feature set for a given dataset, using information score and correlation between predictors.
+
+    Parameters
+    ----------
+    ds : dictionary
+        data dictionary containing features, labels, names.
+    nf : int
+        number of different features to select.
+    corr_threshold : float
+        accepted value of correlation between predictors.
+
+    Returns
+    -------
+    select : list(int)
+        list of the indices of the selected features in the original ds['features'] array.
+    """
     ft_score = info_score(ds)['MutualInfo']
     possib = np.argsort(ft_score)[-1 * nf:]
     select_id = correlation_score_filter(ds['features'][:, possib], ft_score[possib], corr_threshold).tolist()
@@ -171,6 +246,26 @@ def select_best_feature_set(ds, nf, corr_threshold):
 
 
 def select_best_scales(ds, ns, corr_threshold):
+    """
+    Select best feature computation scales for a given dataset, using information score, correlation between predictors,
+    and a voting process.
+
+    Parameters
+    ----------
+    ds : dictionary
+        data dictionary containing features, labels, names.
+    ns : int
+        number of different scales to select.
+    corr_threshold : float
+        accepted value of correlation between predictors.
+
+    Returns
+    -------
+    optim_ok : list(float)
+        list of selected scales
+    freq_optim : list(int)
+        number of votes obtained by each selected scale.
+    """
     scales, names, ds_names = get_scales_feats(ds)
     best_scales = []
     for f in np.unique(names):
@@ -194,6 +289,29 @@ def select_best_scales(ds, ns, corr_threshold):
 
 
 def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
+    """
+    Perform iterative feature selection using the RF embedded feature importance as criteria.
+
+    Parameters
+    ----------
+    trads : dictionary
+        data dictionary containing features, labels, names.
+    testds : dictionary
+        data dictionary containing features, labels, names.
+    nscales : int
+        number of different scales to select at the begining of the process.
+    nfeats : int
+        number of different features to select at the begining of the process.
+    eval_sc : float
+        scale at which to evaluate each feature's information score at the begining of the process.
+    threshold : float
+        accepted value of correlation between predictors.
+
+    Returns
+    -------
+    dictio_ft : dictionary
+        dictionary containing the resulting predictors set and associated parameters and metrics at each iteration.
+    """
     trads = feature_clean(trads['features'])
     testds = feature_clean(testds['features'])
     scales, names, ds_names = get_scales_feats(trads)
@@ -251,6 +369,29 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
 
 
 def get_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
+    """
+    Get the best nfeats and nscales for classification based on inter-feature correlation and information score.
+
+    Parameters
+    ----------
+    trads : dictionary
+        data dictionary containing features, labels, names.
+    testds : dictionary
+        data dictionary containing features, labels, names.
+    nscales : int
+        number of different scales to select.
+    nfeats : int
+        number of different features to select.
+    eval_sc : float
+        scale at which to evaluate each feature's information score.
+    threshold : float
+        accepted value of correlation between predictors.
+
+    Returns
+    -------
+    dictio_ft : dictionary
+        dictionary containing the resulting predictors set and associated parameters and metrics.
+    """
     scales, names, ds_names = get_scales_feats(trads)
     search_set = np.array(np.where(scales == eval_sc)[0].tolist() + np.where(scales == 0)[0].tolist())
     search_ds = {'features': trads['features'][:, search_set], 'labels': trads['labels'], 'names': names[search_set]}
@@ -282,6 +423,28 @@ def get_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
 
 
 def get_best_iter(dictio_rf_select, trads, testds, wait, threshold):
+    """
+    Get the theoretically optimal predictor set for classification by monitoring OA drops when performing embedded
+    feature selection.
+
+    Parameters
+    ----------
+    dictio_rf_select : dictionary
+        dictionary obtained when performing embedded_rf_selection.
+    trads : dictionary
+        data dictionary containing features, labels, names.
+    testds : dictionary
+        data dictionary containing features, labels, names.
+    wait : int
+        number of iterations to take into account for monitoring.
+    threshold : float
+        accepted value of OA variance within wait period.
+
+    Returns
+    -------
+    dictio_ft : dictionary
+        dictionary containing the resulting predictors set and associated parameters and metrics.
+    """
     data = np.load(dictio_rf_select, allow_pickle=True).flat[0]
     oa = data['OA']
     feats = data['Feats'][1:]
