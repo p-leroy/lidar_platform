@@ -7,7 +7,7 @@ import time
 
 import numpy as np
 
-from tools import misc
+from . import misc
 
 
 # ---PySBF---#
