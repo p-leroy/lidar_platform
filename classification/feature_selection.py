@@ -8,9 +8,10 @@ import numpy as np
 
 import pandas as pd
 import sklearn
+from sklearn import feature_selection
 
 from . import cc_3dmasc
-from .cc_3dmasc import get_acc_expe, feature_clean
+from .cc_3dmasc import get_acc_expe, feature_clean, load_features
 
 
 def get_scales_feats(ds):
@@ -102,8 +103,8 @@ def info_score(ds):
     dictio_ft : dictionary
         dictionary containing the name of each feature and the associated score value.
     """
-    ds_cleaned = feature_clean(ds)
-    mi = sklearn.feature_selection.mutual_info_classif(ds_cleaned['features'], ds['labels'])
+    ds_cleaned = feature_clean(ds['features'])
+    mi = sklearn.feature_selection.mutual_info_classif(ds_cleaned, ds['labels'])
     dictio_ft = {'Features': ds['names'], 'MutualInfo': mi}
     return dictio_ft
 
@@ -312,8 +313,8 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
     dictio_ft : dictionary
         dictionary containing the resulting predictors set and associated parameters and metrics at each iteration.
     """
-    trads = feature_clean(trads['features'])
-    testds = feature_clean(testds['features'])
+    trads['features'] = feature_clean(trads['features'])
+    testds['features'] = feature_clean(testds['features'])
     scales, names, ds_names = get_scales_feats(trads)
     dictio = {'Complexity': [], 'Feats': [], 'Scales': [], 'Indices': [], 'Freq': [], 'OA': [], 'Fscore': [],
               'Confidence': [], 'Recall': [], 'Precision': [], 'Class_UA': [], 'Class_PA': [], 'Class_Fscore': [],
@@ -339,8 +340,8 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
     accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, lab_pred = get_acc_expe(reduced_tra, reduced_test)
     dictio['Feats'].append(search_ds['names'][sel])
     dictio['Scales'].append(sel_sc)
-    trads = feature_clean(trads['features'])
-    testds = feature_clean(testds['features'])
+    trads['features'] = feature_clean(trads['features'])
+    testds['features'] = feature_clean(testds['features'])
     argimp = np.argsort(feat_imp.flatten())
     id_sort = np.array(idx_used)[argimp]  # indices of selected predictors ranked by importance
     for i in range(argimp.shape[0]-1):
@@ -445,7 +446,8 @@ def get_best_iter(dictio_rf_select, trads, testds, wait, threshold):
     dictio_ft : dictionary
         dictionary containing the resulting predictors set and associated parameters and metrics.
     """
-    data = np.load(dictio_rf_select, allow_pickle=True).flat[0]
+    # data = np.load(dictio_rf_select, allow_pickle=True).flat[0]
+    data = dictio_rf_select
     oa = data['OA']
     feats = data['Feats'][1:]
     scales = data['Scales'][1:]
@@ -453,7 +455,7 @@ def get_best_iter(dictio_rf_select, trads, testds, wait, threshold):
     bi = -1
     best_oa = oa[0]
     near = False
-    for i in range(wait, oa.shape[0]-wait, 1):
+    for i in range(wait, len(oa)-wait, 1):
         var = max(best_oa, np.max(oa[i-wait:i])) - min(best_oa, np.min(oa[i-wait:i]))
         if np.abs(var) <= 0.01:
             if near:
@@ -498,7 +500,7 @@ def get_best_iter(dictio_rf_select, trads, testds, wait, threshold):
         cn.append(cc_3dmasc.classes[int(l)])
     for i in range(len(labels)):
         print(labels[i], cn[i], pas[i])
-    dictio_results = {'Best_it': oa.shape[0] - bi, 'Features': np.array(final_feats), 'Scales': np.array(final_scales),
+    dictio_results = {'Best_it': len(oa) - bi, 'Features': np.array(final_feats), 'Scales': np.array(final_scales),
                       'Feat_names': np.array(features), 'Feat_imp_mean': np.array(feature_imptces),
                       'Scales_name': np.array(echelles), 'Scales_freq': np.array(freq_echelles),
                       'Scales_imp': scales_imptces, 'OA': accuracy, 'Fscore': fscore, 'Confid': confid,
