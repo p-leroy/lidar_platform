@@ -15,7 +15,8 @@ import shap
 import sklearn
 from sklearn import metrics
 
-from ..tools import PySBF
+#from ..tools import PySBF
+from . import feature_selection
 
 # definition des classes et des labels
 classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Building', 9: 'Water',
@@ -117,7 +118,7 @@ def train(trads, model=0):
     if model == 0:
         classifier = sklearn.ensemble.RandomForestClassifier(n_estimators=150,criterion='gini', max_features="sqrt",
                                                              max_depth=None, oob_score=True, n_jobs=-1, verbose=0)
-        classifier.fit(featureClean(trads['features']), trads['labels'])
+        classifier.fit(feature_clean(trads['features']), trads['labels'])
     elif model == 1:
         labels = np.array(trads['labels']).astype('int32')
         classifier = cv2.ml.RTrees_create()
@@ -219,7 +220,7 @@ def get_acc_expe(trads, testds, plot=True, save=False, model=0):
     labels_pred : np.array(int)     model predictions
 
     """
-    classifier = train(trads)
+    classifier = train(trads, model)
     labels_pred, confid_pred, feat_imptce, oa, fs = test(testds, classifier, model)
     test_labels = testds['labels']
     accuracy = metrics.accuracy_score(test_labels, labels_pred)
@@ -356,3 +357,5 @@ def get_shap_expl(classifier, testds, save=True):
     if save:
         plt.savefig('SHAP_explainer.jpg', bbox_inches='tight')
     return shap_values
+
+trads = load_features(r'C:\Users\33628\Desktop\C3_train_5classes_2000samples.sbf', r'C:\Users\33628\Desktop\3DMASC_params.txt')
