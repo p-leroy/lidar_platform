@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 import sklearn
 
-from cc_3dmasc import get_acc_expe, feature_clean
-import cc_3dmasc
+from . import cc_3dmasc
+from .cc_3dmasc import get_acc_expe, feature_clean
 
 
 def get_scales_feats(ds):
