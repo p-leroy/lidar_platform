@@ -20,8 +20,8 @@ class PointCloud(object):
         various attr (numpy.ndarray):
 
     Functionality:
-        len('plateforme_lidar.utils.lasdata'): number of points
-        print('plateforme_lidar.utils.lasdata'): list of attributes
+        len('plateforme_lidar.tools.las_fmt'): number of points
+        print('plateforme_lidar.tools.las_fmt'): list of attributes
         get attribute: lasdata.attribute or lasdata[attribute]
         set attribute: lasdata.attribute=value or lasdata[attribute]=value
         create attribute: setattr(lasdata,attribute,value) or lasdata[attribute]=value
@@ -47,34 +47,34 @@ class PointCloud(object):
 
 
 def readMetadataFile(filepath):
-    f=open(filepath,mode='r')
-    lines=[]
+    f = open(filepath,mode='r')
+    lines = []
     for i in f.readlines():
-        lines+=[i.replace("\n","")]
+        lines += [i.replace("\n", "")]
     f.close()    
 
-    temp=lines[2].split("=")[1]
-    metadata={"NbPoints":int(lines[1].split("=")[1]),
-            "GlobalShift":tuple(float(i) for i in temp.split(",")),
-            "NbScalarFields":int(lines[3].split('=')[1])}
+    temp = lines[2].split("=")[1]
+    metadata = {"NbPoints":int(lines[1].split("=")[1]),
+                "GlobalShift":tuple(float(i) for i in temp.split(",")),
+                "NbScalarFields":int(lines[3].split('=')[1])}
 
-    listShiftPrec={}
-    listScalarNames=[]
+    listShiftPrec = {}
+    listScalarNames = []
     for line in lines[4::]:
-        pos=line.find("=")
-        value=line[(pos+1)::]
-        if value.find(",")==-1:
-            listScalarNames+=[utils.camel_to_snake(value)]
+        pos = line.find("=")
+        value = line[(pos + 1)::]
+        if value.find(",") == -1:
+            listScalarNames += [misc.camel_to_snake(value)]
         else:
-            valueSplit=value.split(sep=",")
-            listScalarNames+=[utils.camel_to_snake(valueSplit[0])]
-            s=valueSplit[1].split(sep="=")[1][0:-1]
-            listShiftPrec[utils.camel_to_snake(valueSplit[0])]={"shift":float(s)}
+            valueSplit = value.split(sep=",")
+            listScalarNames += [misc.camel_to_snake(valueSplit[0])]
+            s = valueSplit[1].split(sep="=")[1][0: -1]
+            listShiftPrec[misc.camel_to_snake(valueSplit[0])] = {"shift": float(s)}
             if len(valueSplit)>2:
-                p=valueSplit[2].split(sep="=")[1][0:-1]
-                listShiftPrec[utils.camel_to_snake(valueSplit[0])]["prec"]=float(p)
-    metadata["ScalarNames"]=listScalarNames
-    metadata["ShiftPrecision"]=listShiftPrec
+                p=valueSplit[2].split(sep="=")[1][0: -1]
+                listShiftPrec[misc.camel_to_snake(valueSplit[0])]["prec"] = float(p)
+    metadata["ScalarNames"] = listScalarNames
+    metadata["ShiftPrecision"] = listShiftPrec
     return metadata
 
 
@@ -162,11 +162,11 @@ class Write(object):
     def writeMetadataFile(self,metadata):
         lines = ["[SBF]"]
         lines += [f'Points={metadata["NbPoints"]}',
-                  "GlobalShift=" + str(metadata["GlobalShift"])[1:-1],
+                  "GlobalShift=" + str(metadata["GlobalShift"])[1 : -1],
                   f'SFCount={metadata["NbScalarFields"]}']
-        for i in range(1,metadata["NbScalarFields"]+1):
-            name = metadata["ScalarNames"][i-1]
-            line = f'SF{i}={utils.snake_to_camel(name)}'
+        for i in range(1,metadata["NbScalarFields"] + 1):
+            name = metadata["ScalarNames"][i - 1]
+            line = f'SF{i} = {misc.snake_to_camel(name)}'
             if name in metadata["ShiftPrecision"].keys():
                 for key in metadata["ShiftPrecision"][name].keys():
                     line += f', "{key[0:1]}={metadata["ShiftPrecision"][name][key]}"'

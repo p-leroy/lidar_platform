@@ -364,3 +364,5 @@ def get_shap_expl(classifier, testds, save=True):
     if save:
         plt.savefig('SHAP_explainer.jpg', bbox_inches='tight')
     return shap_values
+
+trads = load_features(r'C:\Users\33628\Desktop\C3_train_5classes_2000samples.sbf', r'C:\Users\33628\Desktop\3DMASC_params.txt')
