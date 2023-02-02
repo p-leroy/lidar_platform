@@ -15,29 +15,27 @@ import shap
 import sklearn
 from sklearn import metrics
 
-#from ..tools import PySBF
-from . import feature_selection
+from ..tools import cc
 
-# definition des classes et des labels
+#  definition of classes names and label values (here, internal conventions of the Rennes lidar platform)
 classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Building', 9: 'Water',
            11: 'Artificial_ground', 13: 'Power_Line', 14: 'Surf_zone', 15: 'Water_Column', 16: 'Bathymetry',
            18: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
            29: 'Swimming_pools'}
-convention = {"gpstime": "gps_time",
-              "numberofreturns": "number_of_returns",
-              "returnnumber": "return_number",
-              "scananglerank": "scan_angle_rank",
-              "pointsourceid": "point_source_id"}
+classes = {0: 'Ground', 1: 'Low_veg', 2: 'Interm_veg', 3: 'High_veg.', 4: 'Building', 5: 'Water',
+           6: 'Artificial_ground', 7: 'Power_Line', 8: 'Surf_zone', 9: 'Water_Column', 10: 'Bathymetry',
+           11: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
+           29: 'Swimming_pools'}
 
 
-def load_features(pcx_filepath, training_filepath, labels=False, coords=False):
+def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False):
     """
     Loading computed features after using 3DMASC plugin
 
     Parameters
     ---------
-    pcx_filepath : str, absolute path to core-points file
-    training_filepath : str, parameters file for 3DMASC
+    sbf_filepath : str, absolute path to core-points file
+    params_filepath : str, parameters file for 3DMASC
     labels : bool (default=False), in case of training model you need the labels
     coords : bool (default=False), if you want to get the coordinates too
 
@@ -49,36 +47,45 @@ def load_features(pcx_filepath, training_filepath, labels=False, coords=False):
          'labels' : list of int, class labels
          'coords' : numpy.array of point coordinates
     """
-    f = PySBF.File(pcx_filepath)
-    pc = f.points
-    names = f.scalarNames
-    del f
-    tab = np.loadtxt(training_filepath[0:-4]+"_feature_sources.txt",str)
-    if len(tab.shape) == 0:
-        tab = [tab.tolist()]
-    list_sf = []
-    for i in tab:
-        name = i.split(sep=':')[1].lower()
-        if name in convention.keys():
-            list_sf += [convention[name]]
+    convention = {"NumberOfReturns": "Number_Of_Returns",
+                  "ReturnNumber": "Return_Number"}
+    sf_dict = cc.get_name_index_dict(cc.read_sbf_header(sbf_filepath))
+    features = np.loadtxt(params_filepath[0:-4]+"_feature_sources.txt",str)
+    if len(features.shape) == 0:
+        features = [features.tolist()]
+    sf_to_load = []
+    loaded_sf_names = []
+    for i in features:
+        feature_name = i.split(sep=':')[1]
+        base = feature_name.split('_')[0]
+        if feature_name in convention.keys():
+            sf_to_load.append(sf_dict[convention[feature_name]])
+            loaded_sf_names.append(convention[feature_name])
+        elif base in convention.keys():
+            sf_to_load.append(sf_dict[feature_name.replace(base, convention[base])])
+            loaded_sf_names.append(feature_name.replace(base, convention[base]))
+        elif "kNN" in feature_name:
+            sf_to_load.append(sf_dict['"'+feature_name+'"'])
+            loaded_sf_names.append(feature_name)
         else:
-            list_sf += [name]
-    idx_select = list([names.index(i) for i in list_sf])
-    data = {"features": pc[:, idx_select], "names": list(np.array(names)[idx_select])}
+            sf_to_load.append(sf_dict[feature_name])
+            loaded_sf_names.append(feature_name)
+    pc, sf, config = cc.read_sbf(sbf_filepath)
+    data = {"features": sf[:, sf_to_load], "names": np.array(loaded_sf_names)}
     if labels:
-        data["labels"] = pc[:, names.index('classification')]
+        data["labels"] = sf[:, sf_dict['Classification']]
     if coords:
-        data['coords'] = pc[:, [0, 1, 2]]
+        data['coords'] = pc
     return data
 
 
-def feature_clean(dataset):
+def feature_clean(features):
     """
     Function to clean the features (no normalization, juste NaN and Inf values cleaning)
 
     Parameters
     ----------
-    dataset : numpy array
+    features : numpy array
         input features dataset.
 
     Returns
@@ -86,8 +93,8 @@ def feature_clean(dataset):
     dataset : numpy array
         a clean dataset.
     """
-    for i in range(0, len(dataset[0, :])):
-        col = dataset[:, i]
+    for i in range(0, len(features[0, :])):
+        col = features[:, i]
         if all(np.isnan(col)):
             newcol = np.array([-9999] * len(col))
         else:
@@ -95,8 +102,8 @@ def feature_clean(dataset):
             newcol = col
             newcol[np.isinf(col)] = maxi
             newcol[np.isnan(newcol)] = -9999
-        dataset[:, i] = newcol
-    return dataset
+        features[:, i] = newcol
+    return features
 
 
 def train(trads, model=0):
