@@ -8,7 +8,6 @@ import numpy as np
 
 import pandas as pd
 import sklearn
-from sklearn import feature_selection
 
 from . import cc_3dmasc
 from .cc_3dmasc import get_acc_expe, feature_clean
