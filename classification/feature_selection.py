@@ -8,6 +8,7 @@ import numpy as np
 
 import pandas as pd
 import sklearn
+from sklearn import feature_selection
 
 from . import cc_3dmasc
 from .cc_3dmasc import get_acc_expe, feature_clean
@@ -103,7 +104,7 @@ def info_score(ds):
         dictionary containing the name of each feature and the associated score value.
     """
     ds_cleaned = feature_clean(ds['features'])
-    mi = sklearn.feature_selection.mutual_info_classif(ds_cleaned, ds['labels'])
+    mi = feature_selection.mutual_info_classif(ds_cleaned, ds['labels'])
     dictio_ft = {'Features': ds['names'], 'MutualInfo': mi}
     return dictio_ft
 
@@ -336,7 +337,7 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
         idx_used += scales_selected[np.where(scales[scales_selected] == float(ss))[0]].tolist()
     reduced_tra = {'features': trads['features'][:, idx_used], 'labels': trads['labels']}
     reduced_test = {'features': testds['features'][:, idx_used], 'labels': testds['labels']}
-    accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, lab_pred = get_acc_expe(reduced_tra, reduced_test)
+    accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, lab_pred = get_acc_expe(reduced_tra, reduced_test, plot=False)
     print(search_ft_ds['names'])
     print(sel)
     dictio['Feats'].append(search_ft_ds['names'][sel])
@@ -349,7 +350,7 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
         id_select = id_sort[1:]  # predictors indices
         reduced_tr = {'features': trads['features'][:, id_select], 'labels': trads['labels']}
         reduced_te = {'features': testds['features'][:, id_select], 'labels': testds['labels']}
-        accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, lab_pred = get_acc_expe(reduced_tr, reduced_te)
+        accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, lab_pred = get_acc_expe(reduced_tr, reduced_te, plot=False)
         dictio['Complexity'].append(len(id_select))
         dictio['Indices'].append(id_select)
         dictio['Feats'].append(names[id_select])
