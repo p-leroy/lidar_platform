@@ -11,7 +11,7 @@ import sklearn
 from sklearn import feature_selection
 
 from . import cc_3dmasc
-from .cc_3dmasc import get_acc_expe, feature_clean, load_features
+from .cc_3dmasc import get_acc_expe, feature_clean, load_sbf_features
 
 
 def get_scales_feats(ds):
@@ -36,7 +36,7 @@ def get_scales_feats(ds):
     names = []
     for i in ds['names']:
         name = i
-        if 'knn' not in i:
+        if 'kNN' not in i:
             split = i.split(sep='@')
             if len(split) > 1:
                 scales += [float(split[1])]
@@ -46,7 +46,7 @@ def get_scales_feats(ds):
         else:
             scales += [0]
             names += [name]
-    return np.array(scales), np.array(names), np.array(ds['names'])
+    return np.array(scales), np.array(names), ds['names']
 
 
 def nan_percentage(ds):
@@ -271,7 +271,7 @@ def select_best_scales(ds, ns, corr_threshold):
     best_scales = []
     for f in np.unique(names):
         f_id = np.where((names == f))[0]
-        search_ds = {'features': ds['features'][:, f_id], 'labels': ds['labels'], 'names': np.array(ds_names)[f_id]}
+        search_ds = {'features': ds['features'][:, f_id], 'labels': ds['labels'], 'names': ds_names[f_id]}
         result = select_best_feature_set(search_ds, ns, corr_threshold)
         best_scales += scales[result].tolist()
     sc, freq = np.unique(best_scales, return_counts=True)
@@ -320,14 +320,14 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
               'Confidence': [], 'Recall': [], 'Precision': [], 'Class_UA': [], 'Class_PA': [], 'Class_Fscore': [],
               'Class_confidence': [], 'Class_recall': [], 'Class_precision': [], 'Labels': np.unique(trads['labels'])}
     search_set = np.array(np.where(scales == eval_sc)[0].tolist() + np.where(scales == 0)[0].tolist())
-    search_ds = {'features': trads['features'][:, search_set], 'labels': trads['labels'], 'names': names[search_set]}
-    sel = select_best_feature_set(search_ds, nfeats, threshold)
+    search_ft_ds = {'features': trads['features'][:, search_set], 'labels': trads['labels'], 'names': names[search_set]}
+    sel = select_best_feature_set(search_ft_ds, nfeats, threshold)
     scale_search_set = []
-    for sn in search_ds['names'][sel]:
+    for sn in search_ft_ds['names'][sel]:
         scale_search_set += np.where((sn == names))[0].tolist()  # indices of selected features at all scales
-    search_ds = {'features': trads['features'][:, scale_search_set], 'labels': trads['labels'],
+    search_sc_ds = {'features': trads['features'][:, scale_search_set], 'labels': trads['labels'],
                  'names': ds_names[scale_search_set]}
-    sel_sc, freq_sel_sc = select_best_scales(search_ds, nscales, threshold)
+    sel_sc, freq_sel_sc = select_best_scales(search_sc_ds, nscales, threshold)
     id_es = []
     for es in sel_sc:
         id_es += np.where(scales[scale_search_set] == es)[0].tolist()
@@ -338,7 +338,9 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
     reduced_tra = {'features': trads['features'][:, idx_used], 'labels': trads['labels']}
     reduced_test = {'features': testds['features'][:, idx_used], 'labels': testds['labels']}
     accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, lab_pred = get_acc_expe(reduced_tra, reduced_test)
-    dictio['Feats'].append(search_ds['names'][sel])
+    print(search_ft_ds['names'])
+    print(sel)
+    dictio['Feats'].append(search_ft_ds['names'][sel])
     dictio['Scales'].append(sel_sc)
     trads['features'] = feature_clean(trads['features'])
     testds['features'] = feature_clean(testds['features'])
@@ -395,10 +397,10 @@ def get_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
     """
     scales, names, ds_names = get_scales_feats(trads)
     search_set = np.array(np.where(scales == eval_sc)[0].tolist() + np.where(scales == 0)[0].tolist())
-    search_ds = {'features': trads['features'][:, search_set], 'labels': trads['labels'], 'names': names[search_set]}
-    sel = select_best_feature_set(search_ds, nfeats, threshold)
+    search_ft_ds = {'features': trads['features'][:, search_set], 'labels': trads['labels'], 'names': names[search_set]}
+    sel = select_best_feature_set(search_ft_ds, nfeats, threshold)
     scale_search_set = []
-    for sn in search_ds['names'][sel]:
+    for sn in search_ft_ds['names'][sel]:
         scale_search_set += np.where((sn == names))[0].tolist()
     search_sc_ds = {'features': trads['features'][:, scale_search_set], 'labels': trads['labels'],
                     'names': ds_names[scale_search_set]}
@@ -414,7 +416,7 @@ def get_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
     reduced_tra = {'features': trads['features'][:, idx_used], 'labels': trads['labels']}
     reduced_test = {'features': testds['features'][:, idx_used], 'labels': testds['labels']}
     accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, labels_pred = get_acc_expe(reduced_tra, reduced_test)
-    dictio = {'Feats': np.array(ds_names[idx_used]), 'Scales': np.array(scales[idx_used]), 'feat_imp': feat_imp,
+    dictio = {'Feats': ds_names[idx_used], 'Scales': np.array(scales[idx_used]), 'feat_imp': feat_imp,
               'Indices': np.array(idx_used), 'Freq': np.array(freq_sel_sc), 'OA': accuracy, 'Fscore': fscore,
               'Confidence': confid, 'Recall': recall, 'Precision': precision,
               'Class_UA': np.array(uas), 'Class_PA': np.array(pas), 'Class_Fscore': np.array(fscores),
