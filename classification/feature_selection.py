@@ -288,7 +288,7 @@ def select_best_scales(ds, ns, corr_threshold):
     return optim_ok, freq_optim[-1 * ns:]
 
 
-def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
+def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold=0.85, step=1):
     """
     Perform iterative feature selection using the RF embedded feature importance as criteria.
 
@@ -345,8 +345,8 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
     testds['features'] = feature_clean(testds['features'])
     argimp = np.argsort(feat_imp.flatten())
     id_sort = np.array(idx_used)[argimp]  # indices of selected predictors ranked by importance
-    for i in range(argimp.shape[0]-1):
-        id_select = id_sort[1:]  # predictors indices
+    for i in range(0, argimp.shape[0]-step, step):
+        id_select = id_sort[step:]  # predictors indices
         reduced_tr = {'features': trads['features'][:, id_select], 'labels': trads['labels']}
         reduced_te = {'features': testds['features'][:, id_select], 'labels': testds['labels']}
         accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, lab_pred = get_acc_expe(reduced_tr, reduced_te, plot=False)
