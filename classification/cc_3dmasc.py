@@ -366,3 +366,30 @@ def get_shap_expl(classifier, testds, save=True):
     if save:
         plt.savefig('SHAP_explainer.jpg', bbox_inches='tight')
     return shap_values
+
+
+def classif_errors_confidence(pred, true, confid_pred):
+    idx_err = np.where((pred != true))[0]
+    err_confid = confid_pred[idx_err]
+    err_stats = {'Mean_confidence': np.mean(err_confid), 'Median_confidence': np.median(err_confid),
+                 'Min_confidence': np.min(err_confid), 'Max_confidence': np.max(err_confid),
+                 'Std_confidence': np.std(err_confid)}
+    return err_stats
+
+
+def apply_confidence_threshold(pred, true, confid_pred, threshold):
+    idx_ok = np.where(confid_pred >= threshold)[0]
+    accuracy = metrics.accuracy_score(true[idx_ok], pred[idx_ok])
+    return accuracy
+
+
+def confidence_filtering_report(pred, true, confid_pred):
+    thresholded_acc = {0.5: '', 0.6: '', 0.7: '', 0.8: '', 0.9: '', 0.95: ''}
+    percent = {0.5: '', 0.6: '', 0.7: '', 0.8: '', 0.9: '', 0.95: ''}
+    for t in thresholded_acc.keys():
+        idx_ok = np.where(confid_pred >= t)[0]
+        accuracy = metrics.accuracy_score(true[idx_ok], pred[idx_ok])
+        thresholded_acc[t] = accuracy
+        percent[t] = len(idx_ok) / len(pred)
+    return thresholded_acc, percent
+
