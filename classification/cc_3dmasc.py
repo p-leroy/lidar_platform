@@ -392,3 +392,4 @@ def confidence_filtering_report(pred, true, confid_pred):
         thresholded_acc[t] = accuracy
         percent[t] = len(idx_ok) / len(pred)
     return thresholded_acc, percent
+
