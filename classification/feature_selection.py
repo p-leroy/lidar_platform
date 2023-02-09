@@ -446,6 +446,8 @@ def get_best_iter(dictio_rf_select, trads, testds, wait, threshold):
     -------
     dictio_ft : dictionary
         dictionary containing the resulting predictors set and associated parameters and metrics.
+    classifier :  sklearn RandomForestClassifier
+        theoretically optimal classifier.
     """
     # data = np.load(dictio_rf_select, allow_pickle=True).flat[0]
     data = dictio_rf_select
@@ -507,4 +509,4 @@ def get_best_iter(dictio_rf_select, trads, testds, wait, threshold):
                       'Scales_imp': scales_imptces, 'OA': accuracy, 'Fscore': fscore, 'Confid': confid,
                       'Recall': recall, 'Precision': precision, 'UAs': np.array(uas), 'PAs': np.array(pas),
                       'Class_fscores': np.array(fscores), 'Class_conf': np.array(confc), 'labels': labels}
-    return dictio_results
+    return dictio_results, classifier
