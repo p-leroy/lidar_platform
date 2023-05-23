@@ -8,13 +8,11 @@ from ..config.config import cc_std, cc_custom
 from . import bathymetry as bathy
 
 
-def c2c_c2c3(compared, reference, config, global_shift):
+def c2c_c2c3(compared, reference, xy_index, global_shift):
     # compute cloud to cloud distances and rename the scalar fields for further processing
     head, tail = os.path.split(compared)
     root, ext = os.path.splitext(tail)
     out = os.path.join(head, root + '_C2C3.bin')
-
-    shift = bathy.get_shift(config)
 
     cmd = cc_custom
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
@@ -30,18 +28,19 @@ def c2c_c2c3(compared, reference, config, global_shift):
     cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {reference}'
     cmd += f' -C2C_DIST -SPLIT_XY_Z'
     cmd += ' -POP_CLOUDS'
-    cmd += f' -REMOVE_SF {bathy.i_c2c3_y + shift}'
-    cmd += f' -REMOVE_SF {bathy.i_c2c3_x + shift}'
-    cmd += f' -RENAME_SF {bathy.i_c2c3_z + shift} C2C3_Z'
-    cmd += f' -RENAME_SF {bathy.i_c2c3 + shift} C2C3'
-    cmd += f' -RENAME_SF {bathy.i_c2c3_xy + shift} C2C3_XY'
+    # XY _ X Y Z scalar fields are in this order
+    cmd += f' -REMOVE_SF {xy_index + 3}'  # remove Y first
+    cmd += f' -REMOVE_SF {xy_index + 2}'   # then remove X
+    cmd += f' -RENAME_SF {xy_index + 2} C2C3_Z'
+    cmd += f' -RENAME_SF {xy_index + 1} C2C3'
+    cmd += f' -RENAME_SF {xy_index} C2C3_XY'
     cmd += f' -SAVE_CLOUDS FILE {out}'
     misc.run(cmd)
 
     return out
 
 
-def extract_seed(cloud, config):
+def extract_seed(cloud, c2c3_xy_index, deepness=0.5):
     if not misc.exists(cloud):
         return
     head, tail = os.path.split(cloud)
@@ -50,14 +49,12 @@ def extract_seed(cloud, config):
     os.makedirs(odir, exist_ok=True)
     out = os.path.join(odir, root + f'_water_surface_seed.bin')
 
-    shift = bathy.get_shift(config)
-
     cmd = cc_std
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
     cmd += f' -O -GLOBAL_SHIFT AUTO {cloud}'
-    cmd += f' -SET_ACTIVE_SF {bathy.i_c2c3_z + shift} -FILTER_SF 0.5 5.'
+    cmd += f' -SET_ACTIVE_SF {c2c3_xy_index + 2} -FILTER_SF {deepness} 5.'  # C2C3_Z i.e. depth
     cmd += ' -OCTREE_NORMALS 5. -MODEL LS -ORIENT PLUS_Z -NORMALS_TO_DIP'
-    cmd += f' -SET_ACTIVE_SF {bathy.i_dip + shift} -FILTER_SF MIN 1.'
+    cmd += f' -SET_ACTIVE_SF {c2c3_xy_index + 3} -FILTER_SF MIN 1.'  # DIP
     cmd += ' -DENSITY 5. -TYPE KNN'
     cmd += f' -SET_ACTIVE_SF LAST -FILTER_SF 10 MAX'
     cmd += f' -SAVE_CLOUDS FILE {out}'
@@ -66,7 +63,7 @@ def extract_seed(cloud, config):
     return out
 
 
-def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, config, deepness=0.2, step=None):
+def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, c2c3_xy_index, deepness=0.2, step=None):
     # c2_cloud_with_c2c3_dist shall contain C2C3_XY, C2C3 and C2C3_Z scalar fields
     if not misc.exists(c2_cloud_with_c2c3_dist):
         return
@@ -81,18 +78,17 @@ def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, config, deepness=0.
         out = os.path.join(odir, root + f'_propagation.bin')
     dip = np.tan(1. * np.pi / 180)  # dip 1 degree
 
-    shift = bathy.get_shift(config)
-
     cmd = cc_custom
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
     cmd += f' -O {c2_cloud_with_c2c3_dist}'  # no global shift for bin file
     cmd += f' -O {current_surface}'  # no global shift for a bin file
     cmd += ' -C2C_DIST -SPLIT_XY_Z'
     cmd += ' -POP_CLOUDS'
-    cmd += f' -SET_ACTIVE_SF {bathy.i_c2c_xy + shift} -FILTER_SF 0.001 10.'  # keep closest points and avoid duplicates (i.e. xy = 0)
-    cmd += f' -SET_ACTIVE_SF {bathy.i_c2c3_z + shift} -FILTER_SF {deepness} MAX'  # consider only points with C2 above C3
-    cmd += f' -SF_OP_SF {bathy.i_c2c_z + shift} DIV {bathy.i_c2c_xy + shift}'  # compute the dip
-    cmd += f' -SET_ACTIVE_SF {bathy.i_c2c_z + shift} -FILTER_SF {-dip} {dip}'  # filter wrt dip
+    xy_index = c2c3_xy_index + 3
+    cmd += f' -SET_ACTIVE_SF {xy_index} -FILTER_SF 0.001 10.'  # keep closest points and avoid duplicates (i.e. xy = 0)
+    cmd += f' -SET_ACTIVE_SF {c2c3_xy_index + 2} -FILTER_SF {deepness} MAX'  # consider only points with C2 above C3
+    cmd += f' -SF_OP_SF {xy_index + 4} DIV {xy_index}'  # compute the dip: Z / XY
+    cmd += f' -SET_ACTIVE_SF LAST -FILTER_SF {-dip} {dip}'  # filter wrt dip
     cmd += f' -O -GLOBAL_SHIFT FIRST {current_surface} -MERGE_CLOUDS' # merge new points with the previous ones
     cmd += f' -SAVE_CLOUDS FILE {out}'
     misc.run(cmd)
