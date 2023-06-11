@@ -8,6 +8,7 @@ import numpy as np
 
 import pandas as pd
 import sklearn
+from sklearn import feature_selection
 
 from . import cc_3dmasc
 from .cc_3dmasc import get_acc_expe, feature_clean
@@ -103,7 +104,7 @@ def info_score(ds):
         dictionary containing the name of each feature and the associated score value.
     """
     ds_cleaned = feature_clean(ds['features'])
-    mi = feature_selection.mutual_info_classif(ds_cleaned, ds['labels'])
+    mi = sklearn.feature_selection.mutual_info_classif(ds_cleaned, ds['labels'])
     dictio_ft = {'Features': ds['names'], 'MutualInfo': mi}
     return dictio_ft
 
@@ -414,7 +415,7 @@ def get_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
         idx_used += scales_selected[np.where(scales[scales_selected] == float(ss))[0]].tolist()
     reduced_tra = {'features': trads['features'][:, idx_used], 'labels': trads['labels']}
     reduced_test = {'features': testds['features'][:, idx_used], 'labels': testds['labels']}
-    accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, labels_pred = get_acc_expe(reduced_tra, reduced_test)
+    accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, labels_pred = get_acc_expe(reduced_tra, reduced_test, plot=False)
     dictio = {'Feats': ds_names[idx_used], 'Scales': np.array(scales[idx_used]), 'feat_imp': feat_imp,
               'Indices': np.array(idx_used), 'Freq': np.array(freq_sel_sc), 'OA': accuracy, 'Fscore': fscore,
               'Confidence': confid, 'Recall': recall, 'Precision': precision,
@@ -509,4 +510,4 @@ def get_best_iter(dictio_rf_select, trads, testds, wait, threshold):
                       'Scales_imp': scales_imptces, 'OA': accuracy, 'Fscore': fscore, 'Confid': confid,
                       'Recall': recall, 'Precision': precision, 'UAs': np.array(uas), 'PAs': np.array(pas),
                       'Class_fscores': np.array(fscores), 'Class_conf': np.array(confc), 'labels': labels}
-    return dictio_results, classifier
+    return dictio_results, classifier, reduced_te

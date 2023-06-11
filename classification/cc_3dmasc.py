@@ -22,10 +22,10 @@ classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Build
            11: 'Artificial_ground', 13: 'Power_Line', 14: 'Surf_zone', 15: 'Water_Column', 16: 'Bathymetry',
            18: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
            29: 'Swimming_pools'}
-classes = {0: 'Ground', 1: 'Low_veg', 2: 'Interm_veg', 3: 'High_veg.', 4: 'Building', 5: 'Water',
-           6: 'Artificial_ground', 7: 'Power_Line', 8: 'Surf_zone', 9: 'Water_Column', 10: 'Bathymetry',
-           11: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
-           29: 'Swimming_pools'}
+# classes = {0: 'Ground', 1: 'Low_veg', 2: 'Interm_veg', 3: 'High_veg.', 4: 'Building', 5: 'Water',
+#            6: 'Artificial_ground', 7: 'Power_Line', 8: 'Surf_zone', 9: 'Water_Column', 10: 'Bathymetry',
+#            11: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
+#            29: 'Swimming_pools'}
 
 
 def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False):
@@ -47,18 +47,21 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
          'labels' : list of int, class labels
          'coords' : numpy.array of point coordinates
     """
-    convention = {"NumberOfReturns": "Number_Of_Returns",
-                  "ReturnNumber": "Return_Number"}
+    convention = {"NumberOfReturns": "Number Of Returns",
+                  "ReturnNumber": "Return Number"}
     sf_dict = cc.get_name_index_dict(cc.read_sbf_header(sbf_filepath))
     for sfn in sf_dict.keys():
-        sfn.replace(' ', '_')
-    features = np.loadtxt(params_filepath[0:-4]+"_feature_sources.txt",str)
-    if len(features.shape) == 0:
-        features = [features.tolist()]
+        sfn = sfn.replace(' ', '_')
+    #features = np.loadtxt(params_filepath[0:-4]+"_feature_sources.txt",str)
+    f = open(params_filepath[0:-4]+"_feature_sources.txt", "r")
+    features = f.readlines()
+    # if len(features.shape) == 0:
+    #     features = [features.tolist()]
     sf_to_load = []
     loaded_sf_names = []
-    for i in features:
+    for i in features[1:]:
         feature_name = i.split(sep=':')[1]
+        feature_name = feature_name.split("\n")[0]
         base = feature_name.split('_')[0]
         if feature_name in convention.keys():
             sf_to_load.append(sf_dict[convention[feature_name]])
@@ -328,7 +331,7 @@ def plot_corr_mat(trads, plot=True, save=False):
                    hoverongaps=False))
     figure.update_layout(
         title_text="Correlation matrix",
-    )    
+    )
     if save:
         figure.write_html('correlation_matrix.html', auto_open=False)
     if plot:
@@ -392,4 +395,3 @@ def confidence_filtering_report(pred, true, confid_pred):
         thresholded_acc[t] = accuracy
         percent[t] = len(idx_ok) / len(pred)
     return thresholded_acc, percent
-
