@@ -219,10 +219,13 @@ def q3dmasc_get_labels(training_file):
         clouds = []
         core_points = None
         for line in f.readlines():
-            if 'CLOUD:' in line.upper():
-                clouds.append(line[7:].strip().split('=')[0])
-            if 'CORE_POINTS:' in line.upper():
-                core_points = line[12:].strip().split('_')[0]
+            if line[0] == '#':
+                pass
+            else:
+                if 'CLOUD:' in line.upper():
+                    clouds.append(line[7:].strip().split('=')[0])
+                if 'CORE_POINTS:' in line.upper():
+                    core_points = line[12:].strip().split('_')[0]
         if core_points is not None:
             main_cloud = core_points
         else:
