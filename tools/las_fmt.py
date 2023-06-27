@@ -1,4 +1,53 @@
-# ---Lastools---#
+# Paul Leroy
+
+from struct import pack, unpack
+
+
+def unpack_vlr_record_waveform_packet_descriptor(vlr, asList=False):
+    # 26 bytes
+    # 1 byte, bits per sample [unsigned char]
+    # 1 byte, waveform compression type [unsigned char]
+    # 4 bytes, number of samples [unsigned long]
+    # 4 bytes, temporal sample spacing [unsigned long]
+    # 8 bytes, digitizer gain [double]
+    # 8 bytes, digitizer offset [double]
+    fh = unpack('=2B2L2d', vlr.record_data)
+    if asList:
+        return fh[0], fh[1], fh[2], fh[3], fh[4], fh[5]
+    else:
+        return {"bits_per_sample": fh[0],
+                "waveform_compression_type": fh[1],
+                "number_of_samples": fh[2],
+                "temporal_sample_spacing": fh[3],
+                "digitizer_gain": fh[4],
+                "digitizer_offset": fh[5]}
+
+
+def pack_vlr_record_waveform_packet_descriptor(descriptor):
+    return pack('=2B2L2d',
+                descriptor['bits_per_sample'],
+                descriptor['waveform_compression_type'],
+                descriptor['number_of_samples'],
+                descriptor['temporal_sample_spacing'],
+                descriptor['digitizer_gain'],
+                descriptor['digitizer_offset'])
+
+
+def pack_evlr_record_waveform_data_packet(waveform_data_packet):
+    # 60 bytes
+    # 2 bytes, Reserved [unsigned short]
+    # 16 bytes, User ID char[16]
+    # 2 bytes, Record ID [unsigned short]
+    # 8 bytes, Record Length After Header [unsigned long long]
+    # 32 bytes, Description char[32]
+    return pack('=H16sHQ32s',
+                waveform_data_packet['reserved'],
+                waveform_data_packet['user_id'],
+                waveform_data_packet['record_id'],
+                waveform_data_packet['record_length_after_header'],
+                waveform_data_packet['description'])
+
+
 class lasdata(object):
     """LAS data object
 
