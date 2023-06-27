@@ -233,8 +233,8 @@ def q3dmasc_get_labels(training_file):
         return main_cloud, clouds
 
 
-def q3dmasc_only_features(clouds, training_file,
-                          silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
+def q3dmasc(clouds, training_file, only_features=False,
+            silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
     """Command line call to 3DMASC with the only_features option.
 
     In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
@@ -262,7 +262,8 @@ def q3dmasc_only_features(clouds, training_file,
         cmd.open_file(clouds, global_shift=global_shift)
 
     cmd.append('-3DMASC_CLASSIFY')
-    cmd.append('-ONLY_FEATURES')
+    if only_features:
+        cmd.append('-ONLY_FEATURES')
     cmd.append(training_file)
 
     # generate the string where roles are associated with open clouds, e.g. 'pc1=1 pc2=2'
