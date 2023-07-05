@@ -279,7 +279,7 @@ def replace_class_in_line(line, class_, lines_15_16_dir, global_shift, in_place=
     return out
 
 
-def get_fwf_from_class_15(line, class_15, n_scalar_fields, global_shift=None, octree_level=11, silent=True):
+def get_fwf_from_class_15(line, class_15, global_shift=None, octree_level=11, silent=True, export_fmt='SBF', odir=None):
     # c2_cloud_with_c2c3_dist shall contain C2C3_Z, C2C3 and C2C3_XY scalar fields
     if not misc.exists(line):
         return
@@ -290,15 +290,18 @@ def get_fwf_from_class_15(line, class_15, n_scalar_fields, global_shift=None, oc
 
     head_15, tail_15, root_15, ext_15 = misc.head_tail_root_ext(class_15)
     head_line, tail_line, root_line, ext_line = misc.head_tail_root_ext(line)
-    odir = os.path.join(head_line, 'selection')
-    os.makedirs(odir, exist_ok=True)
-    out = os.path.join(odir, root_line + '.sbf')
-
-    cmd = cc_std
-    if silent:
-        cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
+    if odir is None:
+        odir = os.path.join(head_line, 'selection')
     else:
-        cmd += ' -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
+        odir = os.path.join(head_line, odir)
+    os.makedirs(odir, exist_ok=True)
+    out = os.path.join(odir, root_line + f'.{export_fmt.lower()}')
+
+    cmd = cc_custom
+    if silent:
+        cmd += f' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT {export_fmt} -AUTO_SAVE OFF'
+    else:
+        cmd += f' -NO_TIMESTAMP -C_EXPORT_FMT {export_fmt} -AUTO_SAVE OFF'
 
     if global_shift:
         x, y, z = global_shift
@@ -312,11 +315,9 @@ def get_fwf_from_class_15(line, class_15, n_scalar_fields, global_shift=None, oc
     else:
         cmd += f' -C2C_DIST -SPLIT_XYZ -MAX_DIST 20'  # 1st = compared / 2nd = reference
     cmd += ' -POP_CLOUDS'
-    # keep points around class 15, order of the scalar fields Z / _ / X / Y
-    i_z = n_scalar_fields
-    i_ = n_scalar_fields + 1
-    cmd += f' -SET_ACTIVE_SF {i_z} -FILTER_SF -10 2'  # filter wrt Z
-    cmd += f' -SET_ACTIVE_SF {i_} -FILTER_SF MIN 10'  # filter wrt to absolute distances
+    # keep points around class 15
+    cmd += f' -SET_ACTIVE_SF "C2C absolute distances[<20] (Z)" -FILTER_SF -10 2'  # filter wrt Z
+    cmd += f' -SET_ACTIVE_SF "C2C absolute distances[<20]" -FILTER_SF MIN 10'  # filter wrt to absolute distances
     cmd += f' -SAVE_CLOUDS FILE {out}'
     misc.run(cmd)
 

@@ -22,7 +22,7 @@ cc_2022_07_05 = r'G:\RENNES1\PaulLeroy\CloudCompare_2022_07_05\CloudCompare.exe'
 # configure CloudCompare aliases
 hostname = socket.gethostname()
 if hostname == 'LIDAR-SERVER':
-    cc_custom = cc_2022_07_05
+    cc_custom = 'C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe'
 elif hostname == 'DESKTOP-0T01J23' or hostname == 'DESKTOP-0L5SMT4':
     cc_custom = 'C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe'
 else:
