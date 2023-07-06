@@ -15,7 +15,7 @@ from lidar_platform import las, sbet
 from .refraction_correction_helper_functions import correction_3d, correction_vect
 
 
-def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1):
+def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1, force_sbet_std_time=False):
     root, ext = os.path.splitext(filepath)
     out = os.path.join(root + "_ref_corr.laz")
 
@@ -27,6 +27,7 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1):
 
     # GPS time format handling
     my_gps_time = las.GPSTime(in_data['gps_time'])
+    in_data_gps_time = in_data['gps_time']
     detected_gps_time_format = my_gps_time.gps_time_type.name
     las_header_gps_time_format = laspy.open(filepath).header.global_encoding.gps_time_type.name
 
@@ -47,6 +48,10 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1):
     # compute new positions
     apparent_depth = data_under_water.depth
     # data_interp = lp.sbet.interpolate(sbet_obj[0], sbet_obj[1], gps_time)
+    if force_sbet_std_time:
+        week_number = las.get_week_number(gps_time, adjusted=True)
+        sbet_obj.gps_time = las.GPSTime(sbet_obj.gps_time).week_time_2_adjusted_standard(week_number=week_number)
+
     data_interp = sbet_obj.interpolate(gps_time)
     coords_true, true_depth = correction_3d(data_under_water.XYZ, apparent_depth, data_interp[:, 0:3])
     
@@ -93,7 +98,7 @@ def refraction_correction_fwf(filepath, minimum_depth=-0.1):
     shutil.copyfile(filepath[0: -4] + ".wdp", filepath[0: offset_name] + output_suffix + ".wdp")
 
 
-def do_work(files, sbet_params, n_jobs, fwf=False):
+def do_work(files, sbet_params, n_jobs, fwf=False, minimum_depth=-0.1, force_sbet_std_time=False):
     start = time.time()
 
     if fwf:
@@ -107,7 +112,7 @@ def do_work(files, sbet_params, n_jobs, fwf=False):
         print("[Refraction correction] SBET data processing: done")
         print("[Refraction correction] normal mode")
         results = Parallel(n_jobs=n_jobs, verbose=1)(
-            delayed(refraction_correction)(file, sbet_obj)
+            delayed(refraction_correction)(file, sbet_obj, force_sbet_std_time=force_sbet_std_time)
             for file in files)
 
     stop = time.time()

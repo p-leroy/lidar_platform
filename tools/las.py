@@ -493,6 +493,39 @@ def read_ortho_fwf(workspace, las_file):
     return np.stack([lines,prof]), vlr_body[3], np.round_(step_z, decimals=2)
 
 
+offset_time = int(10 ** 9)
+sec_in_week = int(3600 * 24 * 7)
+gps_epoch_datetime = datetime(1980, 1, 6, tzinfo=timezone.utc)
+
+
+def get_week_number(standard_time, adjusted=False):
+    """Compute the week number in GPS standard time
+
+    Args:
+        standard_time (float or list): timestamp in standard GPS time format
+
+    Raises:
+        ValueError: if there are GPS time from different week in list
+
+    Returns:
+        int : week number since GPS epoch starting
+    """
+    if adjusted:
+        standard_time = standard_time + offset_time
+
+    if np.ndim(standard_time) == 0:
+        week_number = int(standard_time // sec_in_week)
+    else:
+        week_num_first = min(standard_time) // sec_in_week
+        week_num_last = max(standard_time) // sec_in_week
+        if week_num_first == week_num_last:
+            week_number = int(week_num_first)
+        else:
+            print(f'week_num_first {week_num_first}, week_num_last {week_num_last}')
+            raise ValueError("[lastools.GPSTime._get_week_number] Time values aren't in same week")
+    return week_number
+
+
 class GPSTime(object):
     def __init__(self, gpstime: list):
         """Manage GPS Time and convert between Adjusted Standard and Week GPS time
@@ -503,43 +536,16 @@ class GPSTime(object):
             gpstime (list): GPS time
         """
 
-        self.gps_epoch_datetime = datetime(1980, 1, 6, tzinfo=timezone.utc)
-        self.offset_time = int(10 ** 9)
-        self.sec_in_week = int(3600 * 24 * 7)
         self.gpstime = np.atleast_1d(gpstime)
         self.gps_time_type = self.get_gps_time_type()
 
     def __repr__(self):
         return self.gps_time_type
-
-    def _get_week_number(self, standard_time):
-        """Compute the week number in GPS standard time
-
-        Args:
-            standard_time (float or list): timestamp in standard GPS time format
-
-        Raises:
-            ValueError: if there are GPS time from different week in list
-
-        Returns:
-            int : week number since GPS epoch starting
-        """
-        if np.ndim(standard_time) == 0:
-            week_number = int(standard_time // self.sec_in_week)
-        else:
-            week_num_first = min(standard_time) // self.sec_in_week
-            week_num_last = max(standard_time) // self.sec_in_week
-            if week_num_first == week_num_last:
-                week_number = int(week_num_first)
-            else:
-                print(f'week_num_first {week_num_first}, week_num_last {week_num_last}')
-                raise ValueError("[lastools.GPSTime._get_week_number] Time values aren't in same week")
-        return week_number
         
     def get_gps_time_type(self):
-        if all(self.gpstime < self.sec_in_week):
+        if all(self.gpstime < sec_in_week):
             gps_time_type = laspy.header.GpsTimeType.WEEK_TIME
-        elif all(self.gpstime < self.offset_time):
+        elif all(self.gpstime < offset_time):
             gps_time_type = laspy.header.GpsTimeType.STANDARD
         else:
             raise ValueError("[lastools.GPSTime.get_format] Unexpected gps_time_type, neither WEEK_TIME nor STANDARD")
@@ -559,9 +565,9 @@ class GPSTime(object):
         if self.gps_time_type != laspy.header.GpsTimeType.STANDARD:
             raise ValueError("GPS time format is not " + laspy.header.GpsTimeType.STANDARD.name)
         else:
-            temp = self.gpstime + self.offset_time
+            temp = self.gpstime + offset_time
             week_number = self._get_week_number(temp)
-            return week_number, temp % self.sec_in_week
+            return week_number, temp % sec_in_week
 
     def week_time_2_adjusted_standard(self, date_in_week=[], week_number=0):
         """Conversion from week GPS time format to Adjusted Standard time
@@ -582,10 +588,11 @@ class GPSTime(object):
         
         elif len(date_in_week) > 0:
             date_datetime = datetime(*date_in_week, tzinfo=timezone.utc)
-            week_number = self._get_week_number(date_datetime.timestamp() - self.gps_epoch_datetime.timestamp())
+            week_number = get_week_number(date_datetime.timestamp() - gps_epoch_datetime.timestamp())
+            print(f'week_number {week_number}')
 
         elif week_number == 0:
             raise ValueError("You have to give date_in_week OR week_number")
 
-        adjusted_standard_time = (self.gpstime + week_number * self.sec_in_week) - self.offset_time
+        adjusted_standard_time = (self.gpstime + week_number * sec_in_week) - offset_time
         return adjusted_standard_time
