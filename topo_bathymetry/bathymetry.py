@@ -86,7 +86,7 @@ def extract_seed_from_water_surface(c3_cloud_with_c2c3_dist, water_surface, dept
     cmd += ' -POP_CLOUDS'
     cmd += f' -SET_ACTIVE_SF "C2C absolute distances (XY)" -FILTER_SF 0 5.'  # C2C XY
     cmd += f' -SET_ACTIVE_SF "C2C absolute distances (Z)" -FILTER_SF -10 {depth}'  # C2C Z
-    # prevent the collection of points being above the water surface
+    # prevent the collection of C3 points being above C2 points
     cmd += f' -SET_ACTIVE_SF C2C3_Z -FILTER_SF -10 {depth}'  # C2C3 Z
     cmd += f' -SAVE_CLOUDS FILE {out}'
     misc.run(cmd, verbose=True, advanced=True)

@@ -1,5 +1,6 @@
 import json
 
+
 def load_id_name_dictionary(file):
     with open(file) as fp:
         dict_ = json.load(fp)

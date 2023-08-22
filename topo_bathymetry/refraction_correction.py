@@ -60,21 +60,22 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1, force_sbet_std
     extra = [(("depth", "float32"), depth_all)]
     data_under_water.XYZ = coords_true
     data_corbathy = las.merge_las([data_under_water, data_above_water])
-    las.WriteLAS(out, data_corbathy, format_id=1, extra_fields=extra)
+    las.WriteLAS(out, data_corbathy, poinnt_format=1, extra_fields=extra)
 
     return out
 
 
-def refraction_correction_fwf(filepath, minimum_depth=-0.1):
-    offset_name = -10
-    output_suffix = "_corbathy"
+def refraction_correction_fwf(filepath, minimum_depth=-0.1, output_suffix = "_corbathy"):
 
     # open bathymetry file
     in_data = las.read(filepath, True)
+
+    # correct the beam vector
     vect_app = np.vstack([in_data.x_t, in_data.y_t, in_data.z_t]).transpose()
     vect_true_all = correction_vect(vect_app)
     in_data.x_t, in_data.y_t, in_data.z_t = vect_true_all[:, 0], vect_true_all[:, 1], vect_true_all[:, 2]
-    
+
+    # select data under water
     select = in_data.depth < minimum_depth
     data_under_water = las.filter_las(in_data, select)
     data_above_water = las.filter_las(in_data, np.logical_not(select))
@@ -84,18 +85,21 @@ def refraction_correction_fwf(filepath, minimum_depth=-0.1):
     # compute new positions
     apparent_depth = data_under_water.depth
     coords_true, depth_true = correction_3d(data_under_water.XYZ, apparent_depth, vectorApp=vect_app_under_water)
-    
-    # write results in las files
+
     depth_all = np.concatenate((np.round(depth_true, decimals=2), np.array([None] * len(data_above_water))))
     extra = [(("depth", "float32"), depth_all)]
 
     data_under_water.XYZ = coords_true
     data_corbathy = las.merge_las([data_under_water, data_above_water])
 
-    #return data_corbathy, extra, metadata['vlrs']
-    #PL.lastools.writeLAS(filepath[0:offsetName] + "_corbathy2.laz", dataCorbathy, format_id=4, extraField=extra)
-    las.WriteLAS(filepath[0: offset_name] + output_suffix + ".laz", data_corbathy, format_id=9)
-    shutil.copyfile(filepath[0: -4] + ".wdp", filepath[0: offset_name] + output_suffix + ".wdp")
+    # write results in laz a file
+    out = os.path.splitext(filepath)[0] + output_suffix + ".laz"
+    las.WriteLAS(out, data_corbathy, point_format=9, extra_fields=extra)
+
+    # simply copy the wdp file
+    src = os.path.splitext(filepath)[0] + ".wdp"
+    dst = os.path.splitext(out)[0] + ".wdp"
+    shutil.copyfile(src, dst)
 
 
 def do_work(files, sbet_params, n_jobs, fwf=False, minimum_depth=-0.1, force_sbet_std_time=False):
