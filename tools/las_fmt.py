@@ -3,6 +3,27 @@
 from struct import pack, unpack
 
 
+def unpack_vlr_extra_bytes(vlr):
+    fh = unpack('=2sBB32s4sq16s', vlr.record_data)
+    {"reserved": fh[0],
+     "data_type": fh[1],
+     "options": fh[2],
+     "name": fh[3],
+     "unused": fh[4],
+     "no_data": fh[5],
+     "deprecated1": fh[],
+     "min": fh[],
+     "deprecated2": fh[],
+     "max": fh[],
+     "deprecated3": fh[],
+     "scale": fh[],
+     "deprecated4": fh[],
+     "offset": fh[],
+     "deprecated5": fh[],
+     "description": fh[]
+     }
+
+
 def unpack_vlr_record_waveform_packet_descriptor(vlr, asList=False):
     # 26 bytes
     # 1 byte, bits per sample [unsigned char]
