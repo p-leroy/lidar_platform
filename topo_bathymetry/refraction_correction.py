@@ -29,7 +29,9 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1, force_sbet_std
     my_gps_time = las.GPSTime(in_data['gps_time'])
     in_data_gps_time = in_data['gps_time']
     detected_gps_time_format = my_gps_time.gps_time_type.name
-    las_header_gps_time_format = laspy.open(filepath).header.global_encoding.gps_time_type.name
+    las_data = laspy.open(filepath)
+    las_header_gps_time_format = las_data.header.global_encoding.gps_time_type.name
+    las_point_format_id = las_data.header.point_format.id
 
     if las_header_gps_time_format != detected_gps_time_format:
         msg = f'[refraction_correction] WARNING detected GPS time format ({detected_gps_time_format}) '
@@ -49,6 +51,7 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1, force_sbet_std
     apparent_depth = data_under_water.depth
     # data_interp = lp.sbet.interpolate(sbet_obj[0], sbet_obj[1], gps_time)
     if force_sbet_std_time:
+        print('[refraction_correction] force conversion to GPS standard time of SBET data')
         week_number = las.get_week_number(gps_time, adjusted=True)
         sbet_obj.gps_time = las.GPSTime(sbet_obj.gps_time).week_time_2_adjusted_standard(week_number=week_number)
 
@@ -60,7 +63,8 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1, force_sbet_std
     extra = [(("depth", "float32"), depth_all)]
     data_under_water.XYZ = coords_true
     data_corbathy = las.merge_las([data_under_water, data_above_water])
-    las.WriteLAS(out, data_corbathy, poinnt_format=1, extra_fields=extra)
+
+    las.WriteLAS(out, data_corbathy, format_id=las_point_format_id, extra_fields=extra)
 
     return out
 
@@ -106,21 +110,21 @@ def do_work(files, sbet_params, n_jobs, fwf=False, minimum_depth=-0.1, force_sbe
     start = time.time()
 
     if fwf:
-        print("[Refraction correction] full waveform mode")
+        print("[do_work] full waveform mode")
         results = Parallel(n_jobs=n_jobs, verbose=1)(
             delayed(refraction_correction_fwf)(f)
             for f in files)
     else:
-        print("[Refraction correction] SBET data processing: start")
+        print("[do_work] SBET data processing: start")
         sbet_obj = sbet.sbet_config(sbet_params)
-        print("[Refraction correction] SBET data processing: done")
-        print("[Refraction correction] normal mode")
+        print("[do_work] SBET data processing: done")
+        print("[do_work] normal mode")
         results = Parallel(n_jobs=n_jobs, verbose=1)(
             delayed(refraction_correction)(file, sbet_obj, force_sbet_std_time=force_sbet_std_time)
             for file in files)
 
     stop = time.time()
-    print("[Refraction correction] done in " + str(round(stop - start, 1)) + " sec")
+    print("[do_work] done in " + str(round(stop - start, 1)) + " sec")
 
     return results
 

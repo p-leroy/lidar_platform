@@ -223,7 +223,7 @@ class WriteLAS(object):
             Make sure that point_format is compatible with wave packet (ie. 4,5,9 or 10). Default to []
         """
         # standard : point_format=1 ; fwf : point_format=4
-        print("[Writing LAS file]..", end="")
+        print("[Writing LAS file]")
         self._start = time.time()
         self.output_data = data
         self.LAS_fmt = las_fmt.LASFormat()

@@ -108,7 +108,16 @@ class LASFormat(object):
                ("return_number", "uint8"),
                ("number_of_returns", "uint8"),
                ("classification", "uint8"),
-               ("scan_angle_rank", "int8"),  # scan_angle? scan_angle_rank?
+               ("scan_angle_rank", "int8"),  # scan_angle_rank
+               ("user_data", "uint8"),
+               ("scan_direction_flag", "uint8"),
+               ("point_source_id", "uint16")]
+
+        std_6_10 = [("intensity", "uint16"),
+               ("return_number", "uint8"),
+               ("number_of_returns", "uint8"),
+               ("classification", "uint8"),
+               ("scan_angle", "int16"),  # scan_angle
                ("user_data", "uint8"),
                ("scan_direction_flag", "uint8"),
                ("point_source_id", "uint16")]
@@ -136,11 +145,11 @@ class LASFormat(object):
                 std + gps + rgb,  # 3
                 std + gps + fwf,  # 4
                 std + gps + rgb + fwf,  # 5
-                std + gps,  # 6
-                std + gps + rgb,  # 7
-                std + gps + rgb + nir,  # 8
-                std + gps + fwf,  # 9
-                std + gps + rgb + nir + fwf]  # 10
+                std_6_10 + gps,  # 6
+                std_6_10 + gps + rgb,  # 7
+                std_6_10 + gps + rgb + nir,  # 8
+                std_6_10 + gps + fwf,  # 9
+                std_6_10 + gps + rgb + nir + fwf]  # 10
 
         record_len = [20, 28, 26,  # 0 1 2
                       26 + 8,  # 3
