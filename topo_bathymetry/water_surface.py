@@ -192,10 +192,10 @@ def c2c_class_15_16(line, class_15_16, global_shift, octree_level=10, odir='c2c_
     return out
 
 
-def reclassify_class_2_using_class_15_16(c2c, xy_max=3):
+def reclassify_class_2_using_class_15_16(c2c, xy_max=3, dir_name='lines_with_2_corr'):
     # look for c2c results
     head, tail, root, ext = misc.head_tail_root_ext(c2c)
-    odir = os.path.join(head, 'lines_with_2_corr')
+    odir = os.path.join(head, dir_name)
     os.makedirs(odir, exist_ok=True)
     out = os.path.join(odir, root + '.sbf')
 

@@ -4,23 +4,23 @@ from struct import pack, unpack
 
 
 def unpack_vlr_extra_bytes(vlr):
-    fh = unpack('=2sBB32s4sq16s', vlr.record_data)
+    fh = unpack('=2sBB32s4sq16sq16sq16sq16sq16s32s', vlr.record_data)
     {"reserved": fh[0],
      "data_type": fh[1],
      "options": fh[2],
      "name": fh[3],
      "unused": fh[4],
      "no_data": fh[5],
-     "deprecated1": fh[],
-     "min": fh[],
-     "deprecated2": fh[],
-     "max": fh[],
-     "deprecated3": fh[],
-     "scale": fh[],
-     "deprecated4": fh[],
-     "offset": fh[],
-     "deprecated5": fh[],
-     "description": fh[]
+     "deprecated1": fh[6],
+     "min": fh[7],
+     "deprecated2": fh[8],
+     "max": fh[9],
+     "deprecated3": fh[10],
+     "scale": fh[11],
+     "deprecated4": fh[12],
+     "offset": fh[13],
+     "deprecated5": fh[14],
+     "description": fh[15]
      }
 
 

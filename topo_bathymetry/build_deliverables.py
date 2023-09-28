@@ -10,10 +10,11 @@ import shutil
 from joblib import delayed, Parallel
 
 import lidar_platform as lp
-from topo_bathymetry import hole_filling as hf
+from lidar_platform.topo_bathymetry import hole_filling as hf
 
 
 def clean(path):
+
     print(f'clean {path}')
 
     laz = os.path.join(path, "*.laz")
@@ -34,7 +35,8 @@ def clean(path):
 
 class Deliverable(object):
     
-    def __init__(self, workspace, pixel_size, root_name):
+    def __init__(self, workspace, pixel_size, root_name,
+                 i_c2=None, i_c3=None, i_fwf=None, poisson_path=None):
 
         self.workspace = workspace
         self.pixel_size = pixel_size
@@ -51,7 +53,33 @@ class Deliverable(object):
         self.raster_path = None
         self.raster_dir = None
 
+        if i_c2 is not None:
+            self.i_c2 = i_c2
+        else: # for backward compatibility
+            self.i_c2 = os.path.join(self.workspace, "LAS", "C2", "*.laz")
+
+        if i_c3 is not None:
+            self.i_c3 = i_c3
+        else: # for backward compatibility
+            self.i_c3 = os.path.join(self.workspace, "LAS", "C3", "*.laz")
+
+        if i_fwf is not None:
+            self.i_fwf = i_fwf
+        else: # for backward compatibility
+            self.i_fwf = os.path.join(self.workspace, "LAS", "FWF", "*.laz")
+
+        self.poisson_path = poisson_path
+
     def dtm(self, channel, tile_size, buffer, poisson_reconstruction=None, keep_only_16_in_c3=False):
+        """
+        Digital Terrain Model generation
+        :param channel: a string containing one or several elements among 'C2', 'C3', 'FWF', 'PoissonRecon'
+        :param tile_size: the tile size used during the computation
+        :param buffer: the buffer size used when building tiles
+        :param poisson_reconstruction: a file containing the data form the Poisson Reconstruction
+        :param keep_only_16_in_c3: keep only the bathymetry in C3 data [True/False]
+        :return:
+        """
         self.raster_dir = "_".join(["MNT", channel, self.pixel_size_name])
         self.raster_path = os.path.join(self.workspace, self.raster_dir)
         os.mkdir(self.raster_path)
@@ -64,24 +92,24 @@ class Deliverable(object):
                 shutil.copy(poisson_reconstruction, self.raster_path)
             except FileNotFoundError:
                 raise
-        # extract ground related classes 2=ground (10=rail) 16=bathymetry
+
+        # extract ground related classes from C2 data [2=ground]
         if "C2" in channel:
-            print('[dtm] Extract class 2 (ground) from C2 data')
-            i = os.path.join(self.workspace, "LAS", "C2", "*.laz")
-            lp.utils.run(f"las2las -i {i} -keep_class 2 -cores 50 -odir {self.raster_path} -olaz")
+            print(f'[dtm] Extract class 2 (ground) from C2 data ({self.i_c2})')
+            lp.misc.run(f"las2las -i {self.i_c2} -keep_class 2 -cores 50 -odir {self.raster_path} -olaz")
 
+        # extract ground related classes from C3 data [2=ground, 10=rail, 16=bathymetry]
         if "C3" in channel:
-            print('[dtm] Extract classes 2 (ground), 10 (rail) and 16 (bathymetry) from C3 data')
-            i = os.path.join(self.workspace, "LAS", "C3", "*.laz")
+            print(f'[dtm] Extract classes 2 (ground), 10 (rail) and 16 (bathymetry) from C3 data ({self.i_c3})')
             if keep_only_16_in_c3:
-                lp.utils.run(f"las2las -i {i} -keep_class 16 -cores 50 -odir {self.raster_path} -olaz")
+                lp.misc.run(f"las2las -i {self.i_c3} -keep_class 16 -cores 50 -odir {self.raster_path} -olaz")
             else:
-                lp.utils.run(f"las2las -i {i} -keep_class 2 10 16 -cores 50 -odir {self.raster_path} -olaz")
+                lp.misc.run(f"las2las -i {self.i_c3} -keep_class 2 10 16 -cores 50 -odir {self.raster_path} -olaz")
 
+        # extract ground related classes from C3 full waveform data [16=bathymetry]
         if "FWF" in channel:
-            print('[dtm] Extract class 16 (bathymetry) from FWF data')
-            i = os.path.join(self.workspace, "LAS", "FWF", "*.laz")
-            lp.utils.run(f"las2las -i {i} -keep_class 16 -cores 50 -odir {self.raster_path} -olaz")
+            print(f'[dtm] Extract class 16 (bathymetry) from FWF data ({self.i_fwf})')
+            lp.misc.run(f"las2las -i {self.i_fwf} -keep_class 16 -cores 50 -odir {self.raster_path} -olaz")
 
         # build tiles from lines
         tiles_d = os.path.join(self.raster_path, "tiles")
@@ -89,13 +117,13 @@ class Deliverable(object):
         lines = os.path.join(self.raster_path, "*.laz")
         o = os.path.join(self.raster_path, "tiles", self.root_name + "_MNT.laz")
         print('[dtm] Create spatial indexing information using lasindex')
-        lp.utils.run(f"lasindex -i {lines} -cores 50")
+        lp.misc.run(f"lasindex -i {lines} -cores 50")
         print('[dtm] Create tiles')
-        lp.utils.run(f"lastile -i {lines} -tile_size {tile_size} -buffer {buffer} -cores 45 -odir {tiles_d} -o {o}")
+        lp.misc.run(f"lastile -i {lines} -tile_size {tile_size} -buffer {buffer} -cores 45 -odir {tiles_d} -o {o}")
 
         # blast to dem
         tiles = os.path.join(tiles_d, "*.laz")
-        lp.utils.run(f"blast2dem -i {tiles} -step {self.pixel_size} -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
+        lp.misc.run(f"blast2dem -i {tiles} -step {self.pixel_size} -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
 
         # merge tif files
         i_tif = glob.glob(os.path.join(tiles_d, "*.tif"))
@@ -114,34 +142,33 @@ class Deliverable(object):
         odir = os.path.join(self.workspace + self.raster_dir)
 
         if "C2" in channel:
-            i = os.path.join(self.workspace, 'LAS', 'C2', '*.laz')
             if opt == "vegetation":
-                lp.utils.run(f"las2las -i {i} -keep_class 2 5 -cores 50 -odir {odir} -olaz")
+                lp.misc.run(f"las2las -i {self.i_c2} -keep_class 2 5 -cores 50 -odir {odir} -olaz")
             else:
-                lp.utils.run(f"las2las -i {i} -keep_class 2 5 6 -cores 50 -odir {odir} -olaz")
+                lp.misc.run(f"las2las -i {self.i_c2} -keep_class 2 5 6 -cores 50 -odir {odir} -olaz")
+
         if "C3" in channel:
-            i = os.path.join(self.workspace, 'LAS', 'C3', '*.laz')
             if opt == "vegetation":
-                lp.utils.run(f"las2las -i {i} -keep_class 2 5 10 16 -cores 50 -odir {odir} -olaz")
+                lp.misc.run(f"las2las -i {self.i_c3} -keep_class 2 5 10 16 -cores 50 -odir {odir} -olaz")
             else:
-                lp.utils.run(f"las2las -i {i} -keep_class 2 5 6 10 16 -cores 50 -odir {odir} -olaz")
+                lp.misc.run(f"las2las -i {self.i_c3} -keep_class 2 5 6 10 16 -cores 50 -odir {odir} -olaz")
 
         tiles_d = os.pathjoin(self.workspace, self.raster_dir, "tiles")
         thin_d = os.pathjoin(tiles_d, 'thin')
         os.mkdir(tiles_d)
         os.mkdir(thin_d)
 
-        i = os.path.join(self.workspace, self.raster_dir,  "/*.laz")
-        lp.utils.run(f"lasindex -i {i} -cores 50")
+        i = os.path.join(self.workspace, self.raster_dir,  "*.laz")
+        lp.misc.run(f"lasindex -i {i} -cores 50")
         odir = os.path.join(self.workspace, self.raster_dir, 'tiles')
-        lp.utils.run(f"lastile -i {i} -tile_size 1000 -buffer 250 -cores 45 -odir {odir} -o {self.root_name}_MNS.laz")
+        lp.misc.run(f"lastile -i {i} -tile_size 1000 -buffer 250 -cores 45 -odir {odir} -o {self.root_name}_MNS.laz")
 
-        i = os.path.join(self.workspace, self.raster_dir, 'tiles', "/*.laz")
+        i = os.path.join(self.workspace, self.raster_dir, 'tiles', "*.laz")
         odir = os.path.dir(self.workspace, self.raster_dir, "tiles", "thin")
-        lp.utils.run(f"lasthin -i {i} -step 0.2 -highest -cores 50 -odir {odir} -olaz")
+        lp.misc.run(f"lasthin -i {i} -step 0.2 -highest -cores 50 -odir {odir} -olaz")
 
         i = os.path.join(self.workspace, self.raster_dir, "tiles", "thin", "*.laz")
-        lp.utils.run(f"blast2dem -i {i} -step {self.pixel_size} -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
+        lp.misc.run(f"blast2dem -i {i} -step {self.pixel_size} -kill 250 -use_tile_bb -epsg 2154 -cores 50 -otif")
 
         tif = glob.glob(os.path.join(self.workspace, self.raster_dir, "tiles", "thin", "*.tif"))
         out = os.path.join(self.workspace, self.raster_dir, "tiles", "thin" + "_".join(out_name))
@@ -186,7 +213,7 @@ class Deliverable(object):
         os.mkdir(os.path.join(dtm_path, "density"))  # FileExistsError
         os.mkdir(os.path.join(dtm_path, "density", "final"))
 
-        lp.utils.run("lasgrid -i " + os.path.join(dtm_path, "*.laz") + f" -step {self.pixel_size}"
+        lp.misc.run("lasgrid -i " + os.path.join(dtm_path, "*.laz") + f" -step {self.pixel_size}"
                      + " -use_tile_bb -counter_16bit -drop_class 10 -cores 50 -epsg 2154 -odir "
                      + os.path.join(dtm_path, 'density')
                      + " -odix _density -otif")
@@ -248,9 +275,9 @@ class Deliverable(object):
         tiles = os.path.join(tiles_d, '*.laz')
         tiles_thin = os.path.join(tiles_d, '*_thin.laz')
         tiles_thin_1 = os.path.join(tiles_d, '*_thin_1.laz')
-        lp.utils.run(f"lasindex -i {i} -cores 50")
-        lp.utils.run(f"lastile -i {i} -tile_size 1000 -buffer 25 -drop_class 0 -cores 45 -odir {tiles_d} -o MKP.laz")
-        lp.utils.run(f"lasthin -i {tiles} + thinning -cores 50 -odix _thin -olaz")
-        lp.utils.run(f"lastile -i {tiles_thin} -remove_buffer -cores 50 -olaz")
-        lp.utils.run(f"lasmerge -i {tiles_thin_1} -odir {self.workspace} -o {out_name}")
+        lp.misc.run(f"lasindex -i {i} -cores 50")
+        lp.misc.run(f"lastile -i {i} -tile_size 1000 -buffer 25 -drop_class 0 -cores 45 -odir {tiles_d} -o MKP.laz")
+        lp.misc.run(f"lasthin -i {tiles} + thinning -cores 50 -odix _thin -olaz")
+        lp.misc.run(f"lastile -i {tiles_thin} -remove_buffer -cores 50 -olaz")
+        lp.misc.run(f"lasmerge -i {tiles_thin_1} -odir {self.workspace} -o {out_name}")
         shutil.rmtree(self.raster_path)
