@@ -85,9 +85,9 @@ def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, c2c3_xy_index, dept
     cmd += ' -C2C_DIST -SPLIT_XY_Z'
     cmd += ' -POP_CLOUDS'
     xy_index = c2c3_xy_index + 3
-    cmd += f' -SET_ACTIVE_SF {xy_index} -FILTER_SF 0.001 10.'  # keep closest points and avoid duplicates (i.e. xy = 0)
-    cmd += f' -SET_ACTIVE_SF {c2c3_xy_index + 2} -FILTER_SF {depth} MAX'  # consider only points with C2 above C3
-    cmd += f' -SF_OP_SF {xy_index + 4} DIV {xy_index}'  # compute the dip: Z / XY
+    cmd += f' -SET_ACTIVE_SF "C2C absolute distances (XY)" -FILTER_SF 0.001 10.'  # keep closest points and avoid duplicates (i.e. xy = 0)
+    cmd += f' -SET_ACTIVE_SF C2C3_Z -FILTER_SF {depth} MAX'  # consider only points with C2 above C3
+    cmd += f' -SF_OP_SF "C2C absolute distances (Z)" DIV "C2C absolute distances (XY)"'  # compute the dip: Z / XY
     cmd += f' -SET_ACTIVE_SF "Dip (degrees)" -FILTER_SF {-dip} {dip}'  # filter wrt dip
     cmd += f' -O -GLOBAL_SHIFT FIRST {current_surface} -MERGE_CLOUDS' # merge new points with the previous ones
     cmd += f' -SAVE_CLOUDS FILE {out}'
