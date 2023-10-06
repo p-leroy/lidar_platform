@@ -54,6 +54,24 @@ def pack_vlr_record_waveform_packet_descriptor(descriptor):
                 descriptor['digitizer_offset'])
 
 
+def unpack_evlr_record_waveform_data_packet(evlr, asList=False):
+    # 60 bytes
+    # 2 bytes, Reserved [unsigned short]
+    # 16 bytes, User ID char[16]
+    # 2 bytes, Record ID [unsigned short]
+    # 8 bytes, Record Length After Header [unsigned long long]
+    # 32 bytes, Description char[32]
+    fh = unpack('=H16sHQ32s', evlr)
+    if asList:
+        return fh[0], fh[1], fh[2], fh[3], fh[4]
+    else:
+        return {'reserved': fh[0],
+                'user_id': fh[1],
+                'record_id': fh[2],
+                'record_length_after_header': fh[3],
+                'description': fh[4]}
+
+
 def pack_evlr_record_waveform_data_packet(waveform_data_packet):
     # 60 bytes
     # 2 bytes, Reserved [unsigned short]

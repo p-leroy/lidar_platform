@@ -27,13 +27,15 @@ EXIT_SUCCESS = 0
 
 
 class CCCommand(list):
-    def __init__(self, cc_exe, silent=True, fmt='SBF'):
+    def __init__(self, cc_exe, silent=True, auto_save='OFF', fmt='SBF'):
         self.append(cc_exe)
         if silent:
             self.append('-SILENT')
         self.append('-NO_TIMESTAMP')
+        if auto_save.lower() == 'off':
+            self.extend(['-AUTO_SAVE', 'OFF'])
         self.append('-C_EXPORT_FMT')
-        if fmt.lower() == 'laz':  # needed to export to laz
+        if fmt.lower() == 'laz':  # needed to export to laz /!\ OLD SYNTAX, not with new las/laz plugin qLASIO /!\
             self.append('LAS')
             self.append("-EXT")
             self.append("laz")
@@ -657,9 +659,9 @@ def get_from_bin(bin_):
         for k in range(3):
             print(chr(bytes_[k]))
 
-#################
-#  SBF READ/WRITE
-#################
+################
+# SBF READ/WRITE
+################
 
 
 def is_int(str_):
