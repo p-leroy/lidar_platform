@@ -372,7 +372,7 @@ def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
     if not os.path.exists(cloud):
         raise FileNotFoundError
 
-    cmd = CCCommand(cc_std_alt, silent=silent, fmt=fmt)
+    cmd = CCCommand(cc, silent=silent, fmt=fmt)
     cmd.open_file(cloud, global_shift=global_shift)
     cmd.append('-RASTERIZE')
     cmd.append('-GRID_STEP')
@@ -383,6 +383,26 @@ def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
     misc.run(cmd, verbose=debug)
     
     return os.path.splitext(cloud)[0] + ext + f'.{fmt.lower()}'
+
+
+def compress_fwf(cloud, in_place=True,
+              silent=True, debug=False, global_shift='AUTO', cc=cc_custom):
+
+    if not os.path.exists(cloud):
+        raise FileNotFoundError
+
+    cmd = CCCommand(cc, silent=silent, fmt='LAS')
+    cmd.open_file(cloud, global_shift=global_shift)
+    cmd.append('-COMPRESS_FWF')
+    if in_place:
+        out = cloud
+    else:
+        out = os.path.splitext(cloud)[0] + '_compressed.laz'
+    cmd.extend(['-SAVE_CLOUDS', 'file', out])
+
+    misc.run(cmd, verbose=debug)
+
+    return out
 
 ##########
 #  ICPM3C2
