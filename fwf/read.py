@@ -13,9 +13,11 @@ def get_wpds(las_data):
     return wpds
 
 
-def get_waveform(index, las_data, wpds, wdp_filename=None, offset=0, make_positive=False, las_filename=None):
+def get_waveform(index, las_data, wdp_filename=None, offset=0, make_positive=False, las_filename=None):
+    # get the Waveform Packet Descriptor
+    wpds = get_wpds(las_data)
+    wpd = wpds[las_data.wavepacket_index[index]]
     # get the number of samples
-    wpd = wpds[las_data.wave_packet_desc_index[index]]
     number_of_samples = wpd['number_of_samples']
     bytes_per_sample = int(wpd['bits_per_sample'] / 8)
 
