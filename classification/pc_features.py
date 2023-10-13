@@ -7,8 +7,12 @@ import numpy as np
 
 import open3d as o3d
 import scipy
+#from ..cc_3dmasc import load_sbf_features
 
-
+import sys, os
+sys.path.insert(0, os.path.abspath(r'C:\DEV'))
+import lidar_platform as pl
+from lidar_platform.classification.cc_3dmasc import load_sbf_features
 def l2dist(p1,p2):
     """
     Get L2 distance between two 3D points.
@@ -147,7 +151,7 @@ def angle(v1, v2):
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))    
 
 
-def get_classical3Dfeatures(corepts, cloud, r, suffix):
+def get_classical3Dfeatures(corepts, corepts_labels, cloud, scales, suffix):
     """
     Compute M descriptive features of a given point cloud.
 
@@ -178,75 +182,86 @@ def get_classical3Dfeatures(corepts, cloud, r, suffix):
     corepc.points = o3d.utility.Vector3dVector(corepts)
     n_p = corepts.shape[0]
 
-    pc_feats = {'z_range': np.zeros((n_p, 1)) - 999, 'sphere_z_min': np.zeros((n_p, 1)) - 999,
-                'sphere_z_max': np.zeros((n_p, 1)) - 999, 'moment_1_1': np.zeros((n_p, 1)) - 999,
-                'moment_1_2': np.zeros((n_p, 1)) - 999, 'moment_1_3': np.zeros((n_p, 1)) - 999,
-                'moment_2_1': np.zeros((n_p, 1)) - 999, 'moment_2_2': np.zeros((n_p, 1)) - 999,
-                'moment_2_3': np.zeros((n_p, 1)) - 999, 'sum_eigenvalues': np.zeros((n_p, 1)) - 999,
-                'omnivariance': np.zeros((n_p, 1)) - 999, 'eigen_entropy': np.zeros((n_p, 1)) - 999,
-                'anisotropy': np.zeros((n_p, 1)) - 999, 'verticality': np.zeros((n_p, 1)) - 999,
-                'planarity': np.zeros((n_p, 1)) - 999, 'linearity': np.zeros((n_p, 1)) - 999,
-                'surface_variation': np.zeros((n_p, 1)) - 999, 'sphericity': np.zeros((n_p, 1)) - 999,
-                'verticality_1': np.zeros((n_p, 1)) - 999, 'verticality_2': np.zeros((n_p, 1)) - 999,
-                'curv_change': np.zeros((n_p, 1)) - 999, 'vertical_moment_1': np.zeros((n_p, 1)) - 999,
-                'vertical_moment_2': np.zeros((n_p, 1)) - 999, 'nb_pts': np.zeros((n_p, 1)) - 999,
-                'knn_max_h_diff': np.zeros((n_p, 1)) - 999, 'knn_h_std': np.zeros((n_p, 1)) - 999,
-                'normal_deviation': np.zeros((n_p, 1)) - 999, 'plane_residuals': np.zeros((n_p, 1)) - 999,
-                'dist_to_plane': np.zeros((n_p, 1)) - 999, 'deviation_variance': np.zeros((n_p, 1)) - 999
-                }
+    pc_feats = {'labels': np.array(corepts_labels)}
+
+    for s in scales:
+        pc_feats['moment_1_1@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['moment_1_2@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['moment_1_3@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['moment_2_1@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['moment_2_2@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['moment_2_3@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['sum_eigenvalues@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['omnivariance@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['eigen_entropy@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['surface_variation@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['verticality_1@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['verticality_2@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['curv_change@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['vertical_moment_1@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['vertical_moment_2@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['knn_max_h_diff@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['knn_h_std@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['normal_deviation@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['plane_residuals@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['dist_to_plane@' + str(s)] = np.zeros((n_p, 1)) - 999
+        pc_feats['deviation_variance@' + str(s)] = np.zeros((n_p, 1)) - 999
     
-    print('Computing features on '+str(corepts.shape[0])+' points with radius of '+str(r)+' m...')
+    print('Computing features on '+str(corepts.shape[0])+' points with '+str(len(scales))+' scales...')
 
     for i in range(corepts.shape[0]):
-        p = corepc.points[i]      
-        krad, idx_sphere, _ = pc_tree.search_radius_vector_3d(p, r)
-        sphere = np.asarray(pc.points)[idx_sphere, :]
-        if len(idx_sphere) > 0:
-            z_sphere = sphere[:, 2]
-            sphere_pc = o3d.geometry.PointCloud()
-            sphere_pc.points = o3d.utility.Vector3dVector(sphere)
-            cov_mat = sphere_pc.compute_mean_and_covariance()[1]
-            w, v = np.linalg.eig(cov_mat)
-            l1 = w[0]
-            l2 = w[1]
-            l3 = w[2]
-            e1 = v[0]
-            e2 = v[1]
-            e3 = v[2]    
-            ez = np.array([0, 0, 1])
-            pc_feats['sphere_z_max'][i] = np.max(z_sphere) - p[2]
-            pc_feats['sphere_z_min'][i] = p[2] - np.min(z_sphere)
-            pc_feats['z_range'][i] = np.max(z_sphere) - np.min(z_sphere)
-            pc_feats['sum_eigenvalues'][i] = np.sum(w)
-            pc_feats['anisotropy'][i] = (l1 - l3) / l1
-            pc_feats['planarity'][i] = (l2 - l3) / l1
-            pc_feats['linearity'][i] = (l1 - l2) / l1
-            pc_feats['surface_variation'][i] = l3 / (np.sum(w))
-            pc_feats['sphericity'][i] = l3 / l1
-            pc_feats['curv_change'][i] = l3 / (np.sum(w))
-            pc_feats['nb_pts'][i] = sphere.shape[0]
-            pc_feats['knn_h_std'][i] = np.std(z_sphere)
-            pc_feats['knn_max_h_diff'][i] = np.max(z_sphere - p[2])
-            pc_feats['omnivariance'][i] = (l1 * l2 * l3) ** (1/3)
-            pc_feats['eigen_entropy'][i] = l1 * np.log(l1) + l2 * np.log(l2) + l3 * np.log(l3)
-            pc_feats['moment_1_1'][i] = moment(p, sphere, e1, 1)
-            pc_feats['moment_1_2'][i] = moment(p, sphere, e2, 1)
-            pc_feats['moment_1_3'][i] = moment(p, sphere, e3, 1)
-            pc_feats['moment_2_1'][i] = moment(p, sphere, e1, 2)
-            pc_feats['moment_2_2'][i] = moment(p, sphere, e2, 2)
-            pc_feats['moment_2_3'][i] = moment(p, sphere, e3, 2)
-            pc_feats['verticality_1'][i] = np.abs((np.pi / 2) - angle(e1, ez))
-            pc_feats['verticality_2'][i] = np.abs((np.pi / 2) - angle(e3, ez))
-            pc_feats['vertical_moment_1'][i] = moment(p, sphere, ez, 1)
-            pc_feats['vertical_moment_2'][i] = moment(p, sphere, ez, 2)
-            pc_feats['normal_deviation'][i] = angle(e3, ez)
-            angles = [angle(e1, ez), angle(e2, ez), angle(e3, ez)]
-            pc_feats['deviation_variance'][i] = np.var(angles)
-            A = np.c_[sphere[:, 0], sphere[:, 1], np.ones(sphere.shape[0])]
-            C, resid, _, _ = scipy.linalg.lstsq(A, sphere[:, 2])
-            pc_feats['plane_residuals'][i] = np.mean(resid)
-            pt_plane_coords = [p[0], p[1], C[0] * p[0] + C[1] * p[1] + C[2]]
-            pc_feats['dist_to_plane'][i] = l2dist(p, pt_plane_coords)
+        for s in scales:
+            #print(s)
+            p = corepc.points[i]
+            krad, idx_sphere, _ = pc_tree.search_radius_vector_3d(p, s/2)
+            sphere = np.asarray(pc.points)[idx_sphere, :]
+            if len(idx_sphere) > 0:
+                z_sphere = sphere[:, 2]
+                sphere_pc = o3d.geometry.PointCloud()
+                sphere_pc.points = o3d.utility.Vector3dVector(sphere)
+                cov_mat = sphere_pc.compute_mean_and_covariance()[1]
+                w, v = np.linalg.eig(cov_mat)
+                l1 = w[0]
+                l2 = w[1]
+                l3 = w[2]
+                e1 = v[0]
+                e2 = v[1]
+                e3 = v[2]
+                ez = np.array([0, 0, 1])
+                pc_feats['sum_eigenvalues@'+str(s)][i] = np.sum(w)
+                pc_feats['surface_variation@'+str(s)][i] = l3 / (np.sum(w))
+                pc_feats['curv_change@'+str(s)][i] = l3 / (np.sum(w))
+                pc_feats['knn_h_std@'+str(s)][i] = np.std(z_sphere)
+                pc_feats['knn_max_h_diff@'+str(s)][i] = np.max(z_sphere - p[2])
+                pc_feats['omnivariance@'+str(s)][i] = (l1 * l2 * l3) ** (1/3)
+                pc_feats['eigen_entropy@'+str(s)][i] = l1 * np.log(l1) + l2 * np.log(l2) + l3 * np.log(l3)
+                pc_feats['moment_1_1@'+str(s)][i] = moment(p, sphere, e1, 1)
+                pc_feats['moment_1_2@'+str(s)][i] = moment(p, sphere, e2, 1)
+                pc_feats['moment_1_3@'+str(s)][i] = moment(p, sphere, e3, 1)
+                pc_feats['moment_2_1@'+str(s)][i] = moment(p, sphere, e1, 2)
+                pc_feats['moment_2_2@'+str(s)][i] = moment(p, sphere, e2, 2)
+                pc_feats['moment_2_3@'+str(s)][i] = moment(p, sphere, e3, 2)
+                pc_feats['verticality_1@'+str(s)][i] = np.abs((np.pi / 2) - angle(e1, ez))
+                pc_feats['verticality_2@'+str(s)][i] = np.abs((np.pi / 2) - angle(e3, ez))
+                pc_feats['vertical_moment_1@'+str(s)][i] = moment(p, sphere, ez, 1)
+                pc_feats['vertical_moment_2@'+str(s)][i] = moment(p, sphere, ez, 2)
+                pc_feats['normal_deviation@'+str(s)][i] = angle(e3, ez)
+                angles = [angle(e1, ez), angle(e2, ez), angle(e3, ez)]
+                pc_feats['deviation_variance@'+str(s)][i] = np.var(angles)
+                A = np.c_[sphere[:, 0], sphere[:, 1], np.ones(sphere.shape[0])]
+                C, resid, _, _ = scipy.linalg.lstsq(A, sphere[:, 2])
+                pc_feats['plane_residuals@'+str(s)][i] = np.mean(resid)
+                pt_plane_coords = [p[0], p[1], C[0] * p[0] + C[1] * p[1] + C[2]]
+                pc_feats['dist_to_plane@'+str(s)][i] = l2dist(p, pt_plane_coords)
 
-    np.savetxt('classical3DfeaturesPC_'+suffix+'.txt', pc_feats)
+    np.save('classical3DfeaturesPC_'+suffix+'.npy', pc_feats)
     return pc_feats
+
+trainpts = load_sbf_features(r'C:\Users\mathi\Desktop\Ain_calculs\test_A11.sbf', r'C:\Users\mathi\Desktop\3DMASC_params.txt', labels=True, coords=True)
+#testpts = load_sbf_features(r'C3_test_5cl_2000samples.sbf', r'3DMASC_params.txt', labels=True)
+#cloud = pl.classification.cc_3dmasc.load_sbf_features(r'C:\Users\mathi\Desktop\Ain_calculs\NIR_buffer_PC.sbf', r'C:\Users\mathi\Desktop\3DMASC_params.txt', coords=True)
+#np.save('nir_Ain.npy', cloud['coords'])
+np.save('test11A.npy', trainpts['coords'])
+#print("done reading")
+#scales = [1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5,7.0,7.5,8.0,8.5,9.0,9.5,10.0,10.5,11.0,11.5,12.0,12.5,13.0,13.5,14.0,14.5]
+#get_classical3Dfeatures(trainpts['coords'], trainpts['labels'], cloud['coords'], scales, 'suffix')

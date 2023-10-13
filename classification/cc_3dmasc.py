@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import shap
+#import shap
 import sklearn
 from sklearn import metrics
 
@@ -339,36 +339,36 @@ def plot_corr_mat(trads, plot=True, save=False):
 
     return corr_mat
 
-
-def get_shap_expl(classifier, testds, save=True):
-    """
-    Function to get the shap summary plot of a random forest classifier trained on the given dataset
-
-    Parameters
-    ----------
-    classifier : scikit-learn RandomForestClassifier
-        trained classifier.
-    testds : dict,
-         'features' : numpy.array of computed features
-         'names' : list of str, name of each column feature
-         'labels' : list of int, class labels
-        training dataset.
-    save : bool
-        whether to save the resulting plot.
-    """
-    labels = np.unique(testds['labels'])
-    cn = []
-    for l in labels:
-        cn.append(classes[int(l)])
-    explainer = shap.TreeExplainer(classifier)
-    fig = plt.figure()
-    fig.set_size_inches(32, 18)
-    shap_values = explainer.shap_values(testds['features'], approximate=True)
-    shap.summary_plot(shap_values, testds['features'], feature_names=testds['names'], class_names=cn,
-                      max_display=testds['features'].shape[1], plot_type="bar")
-    if save:
-        plt.savefig('SHAP_explainer.jpg', bbox_inches='tight')
-    return shap_values
+#
+# def get_shap_expl(classifier, testds, save=True):
+#     """
+#     Function to get the shap summary plot of a random forest classifier trained on the given dataset
+#
+#     Parameters
+#     ----------
+#     classifier : scikit-learn RandomForestClassifier
+#         trained classifier.
+#     testds : dict,
+#          'features' : numpy.array of computed features
+#          'names' : list of str, name of each column feature
+#          'labels' : list of int, class labels
+#         training dataset.
+#     save : bool
+#         whether to save the resulting plot.
+#     """
+#     labels = np.unique(testds['labels'])
+#     cn = []
+#     for l in labels:
+#         cn.append(classes[int(l)])
+#     explainer = shap.TreeExplainer(classifier)
+#     fig = plt.figure()
+#     fig.set_size_inches(32, 18)
+#     shap_values = explainer.shap_values(testds['features'], approximate=True)
+#     shap.summary_plot(shap_values, testds['features'], feature_names=testds['names'], class_names=cn,
+#                       max_display=testds['features'].shape[1], plot_type="bar")
+#     if save:
+#         plt.savefig('SHAP_explainer.jpg', bbox_inches='tight')
+#     return shap_values
 
 
 def classif_errors_confidence(pred, true, confid_pred):
