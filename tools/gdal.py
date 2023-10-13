@@ -14,11 +14,12 @@ import time
 import os
 import sys
 
-from plateforme_lidar import utils
+from . import misc
+from ..config.config import GDAL_QUERY_ROOT
 
 
 gdal_bin = "C:\\Users\\pleroy\\miniconda3\\Library\\bin"
-gdal_scripts = "C:\Users\pleroy\miniconda3\Scripts"
+gdal_scripts = "C:\\Users\\pleroy\\miniconda3\\Scripts"
 gdalbuilddvrt = os.path.join(gdal_bin, "gdalbuildvrt")
 gdal_calc = os.path.join(gdal_scripts, "gdal_cal.py")
 
@@ -101,7 +102,7 @@ def merge(files, out_file):
     f.close()
     query = "gdal_merge -n -9999 -a_nodata -9999 -ot Float32 -of GTiff -o " \
             + out_file + " --optfile " + out_file[0:-4] + "_mergeInputFiles.txt"
-    utils.run(utils.GDAL_QUERY_ROOT + query, True, opt_shell=True)
+    misc.run(GDAL_QUERY_ROOT + query, verbose=True, shell=True)
     os.remove(out_file[0:-4] + "_mergeInputFiles.txt")
     print("done in %.1f sec" % (time.time() - begin))
 

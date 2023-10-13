@@ -71,14 +71,12 @@ def get_shift(config):
     return shift
 
 
-def extract_seed_from_water_surface(c3_cloud_with_c2c3_dist, water_surface, config):
+def extract_seed_from_water_surface(c3_cloud_with_c2c3_dist, water_surface, depth=-0.2):
     # c3_cloud_with_c2c3_dist shall contain C2C3_Z, C2C3 and C2C3_XY scalar fields
     head, tail, root, ext = misc.head_tail_root_ext(c3_cloud_with_c2c3_dist)
     odir = os.path.join(head, 'bathymetry')
     os.makedirs(odir, exist_ok=True)
     out = os.path.join(odir, root + f'_bathymetry_seed.bin')
-
-    shift = get_shift(config)
 
     cmd = cc_custom
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
@@ -86,16 +84,17 @@ def extract_seed_from_water_surface(c3_cloud_with_c2c3_dist, water_surface, conf
     cmd += f' -O {water_surface}'  # global shift not needed with a bin file
     cmd += ' -C2C_DIST -SPLIT_XY_Z'
     cmd += ' -POP_CLOUDS'
-    cmd += f' -SET_ACTIVE_SF {i_c2c_xy + shift} -FILTER_SF 0 5.'
-    cmd += f' -SET_ACTIVE_SF {i_c2c_z + shift} -FILTER_SF MIN -0.2'
-    cmd += f' -SET_ACTIVE_SF {i_c2c3_z + shift} -FILTER_SF MIN -0.2'
+    cmd += f' -SET_ACTIVE_SF "C2C absolute distances (XY)" -FILTER_SF 0 5.'  # C2C XY
+    cmd += f' -SET_ACTIVE_SF "C2C absolute distances (Z)" -FILTER_SF -10 {depth}'  # C2C Z
+    # prevent the collection of C3 points being above C2 points
+    cmd += f' -SET_ACTIVE_SF C2C3_Z -FILTER_SF -10 {depth}'  # C2C3 Z
     cmd += f' -SAVE_CLOUDS FILE {out}'
     misc.run(cmd, verbose=True, advanced=True)
 
     return out
 
 
-def propagate(c3_cloud_with_c2c3_dist, current_bathymetry, config, deepness=-0.2, step=None):
+def propagate(c3_cloud_with_c2c3_dist, current_bathymetry, depth=-0.2, step=None):
     # c3_cloud_with_c2c3_dist shall contain C2C3_Z, C2C3 and C2C3_XY scalar fields
     head, tail, root, ext = misc.head_tail_root_ext(c3_cloud_with_c2c3_dist)
     odir = os.path.join(head, 'bathymetry')
@@ -105,17 +104,15 @@ def propagate(c3_cloud_with_c2c3_dist, current_bathymetry, config, deepness=-0.2
         out = os.path.join(odir, root + f'_propagation.bin')
     dip = np.tan(1. * np.pi / 180)  # dip 1 degree
 
-    shift = get_shift(config)
-
     cmd = cc_custom
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
     cmd += f' -O {c3_cloud_with_c2c3_dist}'
     cmd += f' -O {current_bathymetry}'
     cmd += ' -C2C_DIST -SPLIT_XY_Z'
     cmd += ' -POP_CLOUDS'
-    cmd += f' -SET_ACTIVE_SF {i_c2c_xy + shift} -FILTER_SF 0.001 10.'  # keep closest points, no duplicates (i.e. xy = 0)
-    cmd += f' -SET_ACTIVE_SF {i_c2c_z + shift} -FILTER_SF -0.1 0.1'
-    cmd += f' -SET_ACTIVE_SF {i_c2c3_z + shift} -FILTER_SF MIN {deepness}'  # consider only points with C3 below C2
+    cmd += f' -SET_ACTIVE_SF "C2C absolute distances (XY)" -FILTER_SF 0.001 10.'  # avoid duplicates (i.e. xy = 0)
+    cmd += f' -SET_ACTIVE_SF "C2C absolute distances (Z)" -FILTER_SF -0.1 0.1'
+    cmd += f' -SET_ACTIVE_SF C2C3_Z -FILTER_SF MIN {depth}'  # consider only points with C3 below C2
     cmd += f' -O {current_bathymetry} -MERGE_CLOUDS'  # merge new points with the previous ones
     cmd += f' -SAVE_CLOUDS FILE {out}'
     misc.run(cmd, verbose=True, advanced=True)
@@ -282,7 +279,7 @@ def replace_class_in_line(line, class_, lines_15_16_dir, global_shift, in_place=
     return out
 
 
-def get_fwf_from_class_15(line, class_15, global_shift=None, octree_level=11):
+def get_fwf_from_class_15(line, class_15, global_shift=None, octree_level=11, silent=True, export_fmt='SBF', odir=None):
     # c2_cloud_with_c2c3_dist shall contain C2C3_Z, C2C3 and C2C3_XY scalar fields
     if not misc.exists(line):
         return
@@ -293,27 +290,34 @@ def get_fwf_from_class_15(line, class_15, global_shift=None, octree_level=11):
 
     head_15, tail_15, root_15, ext_15 = misc.head_tail_root_ext(class_15)
     head_line, tail_line, root_line, ext_line = misc.head_tail_root_ext(line)
-    odir = os.path.join(head_line, 'selection')
+    if odir is None:
+        odir = os.path.join(head_line, 'selection')
+    else:
+        odir = os.path.join(head_line, odir)
     os.makedirs(odir, exist_ok=True)
-    out = os.path.join(odir, root_line + '.sbf')
+    out = os.path.join(odir, root_line + f'.{export_fmt.lower()}')
 
     cmd = cc_custom
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
+    if silent:
+        cmd += f' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT {export_fmt} -AUTO_SAVE OFF'
+    else:
+        cmd += f' -NO_TIMESTAMP -C_EXPORT_FMT {export_fmt} -AUTO_SAVE OFF'
 
     if global_shift:
         x, y, z = global_shift
-        cmd += f' -FWF_O -GLOBAL_SHIFT {x} {y} {z} {line}'
-        cmd += f' -FWF_O -GLOBAL_SHIFT {x} {y} {z} {class_15}'
+        cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {line}'
+        cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {class_15}'
     else:
         cmd += f' -O {line}'
         cmd += f' -O {class_15}'
-    cmd += f' -C2C_DIST -SPLIT_XYZ -MAX_DIST 20 -OCTREE_LEVEL {octree_level}'  # 1st = compared / 2nd = reference
+    if octree_level is not None:
+        cmd += f' -C2C_DIST -SPLIT_XYZ -MAX_DIST 20 -OCTREE_LEVEL {octree_level}'  # 1st = compared / 2nd = reference
+    else:
+        cmd += f' -C2C_DIST -SPLIT_XYZ -MAX_DIST 20'  # 1st = compared / 2nd = reference
     cmd += ' -POP_CLOUDS'
-    # keep points around class 15, order of the scalar fields Z / _ / X / Y
-    i_z = 8
-    i_ = 9
-    cmd += f' -SET_ACTIVE_SF {i_z} -FILTER_SF -10 2'  # filter absolute distances
-    cmd += f' -SET_ACTIVE_SF {i_} -FILTER_SF MIN 10'  # filter absolute distances
+    # keep points around class 15
+    cmd += f' -SET_ACTIVE_SF "C2C absolute distances[<20] (Z)" -FILTER_SF -10 2'  # filter wrt Z
+    cmd += f' -SET_ACTIVE_SF "C2C absolute distances[<20]" -FILTER_SF MIN 10'  # filter wrt to absolute distances
     cmd += f' -SAVE_CLOUDS FILE {out}'
     misc.run(cmd)
 

@@ -27,13 +27,15 @@ EXIT_SUCCESS = 0
 
 
 class CCCommand(list):
-    def __init__(self, cc_exe, silent=True, fmt='SBF'):
+    def __init__(self, cc_exe, silent=True, auto_save='OFF', fmt='SBF'):
         self.append(cc_exe)
         if silent:
             self.append('-SILENT')
         self.append('-NO_TIMESTAMP')
+        if auto_save.lower() == 'off':
+            self.extend(['-AUTO_SAVE', 'OFF'])
         self.append('-C_EXPORT_FMT')
-        if fmt.lower() == 'laz':  # needed to export to laz
+        if fmt.lower() == 'laz':  # needed to export to laz /!\ OLD SYNTAX, not with new las/laz plugin qLASIO /!\
             self.append('LAS')
             self.append("-EXT")
             self.append("laz")
@@ -219,10 +221,13 @@ def q3dmasc_get_labels(training_file):
         clouds = []
         core_points = None
         for line in f.readlines():
-            if 'CLOUD:' in line.upper():
-                clouds.append(line[7:].strip().split('=')[0])
-            if 'CORE_POINTS:' in line.upper():
-                core_points = line[12:].strip().split('_')[0]
+            if line[0] == '#':
+                pass
+            else:
+                if 'CLOUD:' in line.upper():
+                    clouds.append(line[7:].strip().split('=')[0])
+                if 'CORE_POINTS:' in line.upper():
+                    core_points = line[12:].strip().split('_')[0]
         if core_points is not None:
             main_cloud = core_points
         else:
@@ -230,8 +235,8 @@ def q3dmasc_get_labels(training_file):
         return main_cloud, clouds
 
 
-def q3dmasc_only_features(clouds, training_file,
-                          silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
+def q3dmasc(clouds, training_file, only_features=False,
+            silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
     """Command line call to 3DMASC with the only_features option.
 
     In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
@@ -259,7 +264,8 @@ def q3dmasc_only_features(clouds, training_file,
         cmd.open_file(clouds, global_shift=global_shift)
 
     cmd.append('-3DMASC_CLASSIFY')
-    cmd.append('-ONLY_FEATURES')
+    if only_features:
+        cmd.append('-ONLY_FEATURES')
     cmd.append(training_file)
 
     # generate the string where roles are associated with open clouds, e.g. 'pc1=1 pc2=2'
@@ -366,7 +372,7 @@ def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
     if not os.path.exists(cloud):
         raise FileNotFoundError
 
-    cmd = CCCommand(cc_std_alt, silent=silent, fmt=fmt)
+    cmd = CCCommand(cc, silent=silent, fmt=fmt)
     cmd.open_file(cloud, global_shift=global_shift)
     cmd.append('-RASTERIZE')
     cmd.append('-GRID_STEP')
@@ -377,6 +383,26 @@ def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
     misc.run(cmd, verbose=debug)
     
     return os.path.splitext(cloud)[0] + ext + f'.{fmt.lower()}'
+
+
+def compress_fwf(cloud, in_place=True,
+              silent=True, debug=False, global_shift='AUTO', cc=cc_custom):
+
+    if not os.path.exists(cloud):
+        raise FileNotFoundError
+
+    cmd = CCCommand(cc, silent=silent, fmt='LAS')
+    cmd.open_file(cloud, global_shift=global_shift)
+    cmd.append('-COMPRESS_FWF')
+    if in_place:
+        out = cloud
+    else:
+        out = os.path.splitext(cloud)[0] + '_compressed.laz'
+    cmd.extend(['-SAVE_CLOUDS', 'file', out])
+
+    misc.run(cmd, verbose=debug)
+
+    return out
 
 ##########
 #  ICPM3C2
@@ -653,9 +679,9 @@ def get_from_bin(bin_):
         for k in range(3):
             print(chr(bytes_[k]))
 
-#################
-#  SBF READ/WRITE
-#################
+################
+# SBF READ/WRITE
+################
 
 
 def is_int(str_):

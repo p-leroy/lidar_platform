@@ -67,6 +67,11 @@ def from_tiles(idir, date, tile_size=1000, coords_loc=1, epsg_src="epsg:2154", e
 
 
 def from_lines(lines, odir, epsg_src="epsg:2154", epsg_dst="epsg:4171"):
+    # epsg 2154 => RGF93 v1 / Lambert-93 -- France
+    # epsg 4171 => RGF93 v1
+    # epsg 31370 => BD72 / Belgian Lambert 72 -- Belgium
+    # epsg 4313 => BD72
+
     kml = simplekml.Kml()
     logger.info(f'source EPSG {epsg_src}, destination EPSG {epsg_dst}')
 

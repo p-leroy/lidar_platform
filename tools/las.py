@@ -120,9 +120,9 @@ def read_vlr_body(vlrs):
     # Can only read waveform, bbox tile and projection vlrs
     list_ = {}
     for vlr in vlrs:
-        if 100 <= vlr.record_id <= 356:
+        if 100 <= vlr.record_id < 355:
             #read waveform vlrs
-            # (Bits/sample,wavefm compression type,nbr of samples,Temporal spacing,digitizer gain,digitizer offset)
+            # (Bits/sample, wavefm compression type, nbr of samples, Temporal spacing, digitizer gain, digitizer offset)
             list_[vlr.record_id] = struct.unpack("=BBLLdd", vlr.record_data_bytes())
         elif vlr.record_id == 10:
             #read bbox tile vlrs :
@@ -130,9 +130,10 @@ def read_vlr_body(vlrs):
             list_[vlr.record_id] = struct.unpack("=2IH2?4f", vlr.record_data)
         elif vlr.record_id == 34735:
             #read Projection
-            # (KeyDirectoryVersion,KeyRevision,MinorRevision,NumberofKeys)+ n*(KeyId,TIFFTagLocation,Count,Value_offset)
+            # (KeyDirectoryVersion, KeyRevision, MinorRevision, NumberofKeys)
+            # + n * (KeyId, TIFFTagLocation, Count, Value_offset)
             geo_key_list = struct.unpack("=4H", vlr.record_data_bytes()[0:8])
-            for i in range(0,int((len(vlr.record_data_bytes())-8)/8)):
+            for i in range(0, int((len(vlr.record_data_bytes()) - 8) / 8)):
                 temp = struct.unpack("=4H", vlr.record_data_bytes()[8 * (i + 1): 8 * (i + 1) + 8])
                 if temp[1] == 0 and temp[2] == 1:
                     geo_key_list += temp
@@ -147,7 +148,7 @@ def pack_vlr_body(dictio):
     size = 0
     if len(dictio) > 0:
         for i in dictio.keys():
-            if 100 <= i <= 356:
+            if 100 <= i < 355:
                 # waveform vlrs
                 # (Bits/sample, waveform compression type, nbr of samples, Temporal spacing,
                 # digitizer gain, digitizer offset)
@@ -164,12 +165,12 @@ def pack_vlr_body(dictio):
                 # Projection
                 # (KeyDirectoryVersion, KeyRevision, MinorRevision, NumberofKeys)
                 # + n * (KeyId,TIFFTagLocation,Count,Value_offset)
-                fmt = "="+str(len(dictio[i]))+"H"
+                fmt = "=" + str(len(dictio[i])) + "H"
                 temp = laspy.header.VLR(user_id="LASF_Projection",
                                         record_id=i,
                                         record_data=struct.pack(fmt, *dictio[i]))
             else:
-                raise Exception("VLR.record_id unknown : "+str(i))
+                raise Exception("VLR.record_id unknown : " + str(i))
 
             size += len(temp.record_data_bytes())
             list_ += [temp]
@@ -209,32 +210,41 @@ def vlrs_keys(vlrs, geokey):
 
 
 class WriteLAS(object):
-    def __init__(self, filepath, data, format_id=1, extra_fields=[], waveforms=[], parallel=True):
+    def __init__(self, filepath, data, point_format=1, extra_fields=[], waveforms=[], parallel=True):
         """Write LAS 1.3 with laspy
 
         Args:
             filepath (str): output file path (extensions= .las or .laz)
             data ('plateforme_lidar.utils.lasdata'): lasdata object
-            format_id (int, optional): data format id according to ASPRS convention (standard mode=1, fwf mode=4). Defaults to 1.
+            point_format (int, optional): data format id according to ASPRS convention (standard mode=1, fwf mode=4). Defaults to 1.
             extraField (list, optional): list of additional fields [(("name","type format"),listData),...]
                 ex: [(("depth","float32"),numpy.ndarray),(("value","uint8"),numpy.ndarray)]. Defaults to [].
-            waveforms (list, optional): list of waveforms to save in external WDP file. Make sure that format_id is compatible with wave packet (ie. 4,5,9 or 10). Default to []
+            waveforms (list, optional): list of waveforms to save in external WDP file.
+            Make sure that point_format is compatible with wave packet (ie. 4,5,9 or 10). Default to []
         """
-        # standard : format_id=1 ; fwf : format_id=4
-        print("[Writing LAS file]..", end="")
+        # standard : point_format=1 ; fwf : point_format=4
+        print("[Writing LAS file]")
         self._start = time.time()
         self.output_data = data
         self.LAS_fmt = las_fmt.LASFormat()
-        # new_header=self.createHeader("1.3",format_id)
-        # pointFormat=laspy.PointFormat(format_id)
+        # new_header=self.createHeader("1.3",point_format)
+        # pointFormat=laspy.PointFormat(point_format)
         # for extraField in extraFields:
         #     pointFormat.add_extra_dimension(laspy.ExtraBytesParams(name=extraField["name"],type=extraField["type"],description="Extras_fields"))
         # new_points=laspy.PackedPointRecord(points,point_format=pointFormat)
 
-        self.point_record = laspy.LasData(header=self.create_header("1.3", format_id),
+        if point_format in [4, 5, 9, 10]:
+            version = "1.4"
+            backend = laspy.compression.LazBackend(2)
+        else:
+            version = "1.3"
+            backend = laspy.compression.LazBackend(int(not parallel))
+
+        header = self.create_header(version, point_format)
+        self.point_record = laspy.LasData(header=header,
                                           points=laspy.ScaleAwarePointRecord.zeros(
                                               len(self.output_data),
-                                              header=self.create_header("1.3", format_id))
+                                              header=header)
                                           )
 
         for extraField in extra_fields:
@@ -247,18 +257,14 @@ class WriteLAS(object):
             setattr(self.point_record, name_, data_)
 
         self.write_attr()
-        if format_id in [4, 5, 9, 10]:
-            backend = laspy.compression.LazBackend(2)
-        else:
-            backend = laspy.compression.LazBackend(int(not parallel))
         self.point_record.write(filepath, laz_backend=backend)
         print("done")
 
-        if len(waveforms) > 0 and format_id in [4, 5, 9, 10]:
+        if len(waveforms) > 0 and point_format in [4, 5, 9, 10]:
             self.wave_data_packet(filepath, waveforms)
     
     def __repr__(self):
-        return "Write "+str(len(self.output_data))+" points in "+str(round(time.time()-self._start,1))+" sec"
+        return "Write " + str(len(self.output_data)) + " points in " + str(round(time.time() - self._start, 1)) + " sec"
 
     def wave_data_packet(self, filepath, waveforms):
         # write external waveforms in WDP file not compressed
@@ -275,10 +281,10 @@ class WriteLAS(object):
         start = time.time()
         print("[Writing waveform data packet] %d waveforms" %len(waveforms))
         displayer = misc.Timing(nbrPoints, 20)
-        with open(filepath[0:-4]+".wdp","wb") as wdpFile :
+        with open(filepath[0:-4] + ".wdp", "wb") as wdpFile :
             wdpFile.write(HEADER_WDP_BYTE)
-            for i in range(0,nbrPoints):
-                msg=displayer.timer(i)
+            for i in range(0, nbrPoints):
+                msg = displayer.timer(i)
                 if msg is not None:
                     print("[Writing waveform data packet] "+msg)
                 
@@ -297,31 +303,30 @@ class WriteLAS(object):
                     wdpFile.write(test)
                 except:
                     raise ValueError(str(length))
-        print("[Writing waveform data packet] done in %d sec" %(time.time()-start))
+        print("[Writing waveform data packet] done in %d sec" %(time.time() - start))
 
-    def create_header(self, version, formatId):
-        #Create header from point cloud in LAS 1.3 only
-        new_header = laspy.LasHeader(version=version, point_format=formatId)
+    def create_header(self, version, point_format):
+        header = laspy.LasHeader(version=version, point_format=point_format)
         scale = 0.001
-        if formatId in [4, 5, 9, 10]:
-            new_header.global_encoding.value = 2
+        if point_format in [4, 5, 9, 10]:
+            header.global_encoding.waveform_data_packets_external = True
 
-        new_header.system_identifier = self.LAS_fmt.identifier["system_identifier"]
-        new_header.generating_software = self.LAS_fmt.identifier["generating_software"]
-        new_header.vlrs, vlrs_size = pack_vlr_body(self.output_data.metadata['vlrs'])
-        new_header.offset_to_point_data = 235 + vlrs_size
+        header.system_identifier = self.LAS_fmt.identifier["system_identifier"]
+        header.generating_software = self.LAS_fmt.identifier["generating_software"]
+        header.vlrs, vlrs_size = pack_vlr_body(self.output_data.metadata['vlrs'])
+        header.offset_to_point_data = 235 + vlrs_size
 
-        new_header.mins = np.min(self.output_data.XYZ, axis=0)
-        new_header.maxs = np.max(self.output_data.XYZ, axis=0)
-        new_header.offsets = np.int64(new_header.mins*scale)/scale
-        new_header.scales = np.array([scale]*3)
+        header.mins = np.min(self.output_data.XYZ, axis=0)
+        header.maxs = np.max(self.output_data.XYZ, axis=0)
+        header.offsets = np.int64(header.mins*scale)/scale
+        header.scales = np.array([scale]*3)
 
-        new_header.x_scale, new_header.y_scale, new_header.z_scale = new_header.scales
-        new_header.x_offset, new_header.y_offset, new_header.z_offset = new_header.offsets
-        new_header.x_min, new_header.y_min, new_header.z_min = new_header.mins
-        new_header.x_max, new_header.y_max, new_header.z_max = new_header.maxs
+        header.x_scale, header.y_scale, header.z_scale = header.scales
+        header.x_offset, header.y_offset, header.z_offset = header.offsets
+        header.x_min, header.y_min, header.z_min = header.mins
+        header.x_max, header.y_max, header.z_max = header.maxs
 
-        new_header.point_count = len(self.output_data)
+        header.point_count = len(self.output_data)
                 
         pt_return_count = [0] * 5
         unique,counts = np.unique(self.output_data.return_number, return_counts=True)
@@ -329,8 +334,9 @@ class WriteLAS(object):
             try:
                 pt_return_count[i-1] = counts[i-1]
             except: pass
-        new_header.number_of_points_by_return = pt_return_count
-        return new_header
+        header.number_of_points_by_return = pt_return_count
+
+        return header
         
     def write_attr(self):
         # point_dtype=[('X','int32'),('Y','int32'),('Z','int32')]
@@ -373,11 +379,11 @@ def read(filepath, extra_fields=False, parallel=True):
     else:
         backend = laspy.compression.LazBackend(int(not parallel))
 
-    las = laspy.read(filepath, laz_backend=backend)
-    gps_time_type = las.header.global_encoding.gps_time_type
-    print(f'[lastools.ReadLAS] gps_time_type read in header: {gps_time_type.name}')
+    las_data = laspy.read(filepath, laz_backend=backend)
+    gps_time_type = las_data.header.global_encoding.gps_time_type
+    print(f'[las.read] gps_time_type read in header: {gps_time_type.name}')
     
-    metadata = {"vlrs": read_vlr_body(las.vlrs),
+    metadata = {"vlrs": read_vlr_body(las_data.vlrs),
                 "extraField": [],
                 'filepath': filepath}
     output = las_fmt.lasdata()
@@ -385,23 +391,23 @@ def read(filepath, extra_fields=False, parallel=True):
 
     for field, dtype in LAS_fmt.record_format[point_format]:
         try:
-            output[field] = np.array(getattr(las, field), dtype=dtype)
+            output[field] = np.array(getattr(las_data, field), dtype=dtype)
         except:
             print("[LasPy] " + str(field) + " not found")
 
-    output['XYZ'] = las.xyz
+    output['XYZ'] = las_data.xyz
 
     if extra_fields:
-        for extra_dimension_name in las.point_format.extra_dimension_names:
+        for extra_dimension_name in las_data.point_format.extra_dimension_names:
             name = extra_dimension_name.replace('(', '').replace(')', '').replace(' ', '_').lower()
             print(f'rename extra field {extra_dimension_name} to {name}')
             metadata['extraField'] += [name]
-            output[name] = las[extra_dimension_name]
+            output[name] = las_data[extra_dimension_name]
 
-    if 'GpsTime' in las.point_format.extra_dimension_names:
+    if 'GpsTime' in las_data.point_format.extra_dimension_names:
         print('[lastools.ReadLAS] WARNING GpsTime found in extra_dimension_names (CloudCompare convention)')
         print('[lastools.ReadLAS] replace standard field gps_time by extra field GpsTime')
-        output['gps_time'] = las['GpsTime']
+        output['gps_time'] = las_data['GpsTime']
 
     output['metadata'] = metadata
 
@@ -493,6 +499,39 @@ def read_ortho_fwf(workspace, las_file):
     return np.stack([lines,prof]), vlr_body[3], np.round_(step_z, decimals=2)
 
 
+offset_time = int(10 ** 9)
+sec_in_week = int(3600 * 24 * 7)
+gps_epoch_datetime = datetime(1980, 1, 6, tzinfo=timezone.utc)
+
+
+def get_week_number(standard_time, adjusted=False):
+    """Compute the week number in GPS standard time
+
+    Args:
+        standard_time (float or list): timestamp in standard GPS time format
+
+    Raises:
+        ValueError: if there are GPS time from different week in list
+
+    Returns:
+        int : week number since GPS epoch starting
+    """
+    if adjusted:
+        standard_time = standard_time + offset_time
+
+    if np.ndim(standard_time) == 0:
+        week_number = int(standard_time // sec_in_week)
+    else:
+        week_num_first = min(standard_time) // sec_in_week
+        week_num_last = max(standard_time) // sec_in_week
+        if week_num_first == week_num_last:
+            week_number = int(week_num_first)
+        else:
+            print(f'week_num_first {week_num_first}, week_num_last {week_num_last}')
+            raise ValueError("[lastools.GPSTime._get_week_number] Time values aren't in same week")
+    return week_number
+
+
 class GPSTime(object):
     def __init__(self, gpstime: list):
         """Manage GPS Time and convert between Adjusted Standard and Week GPS time
@@ -503,43 +542,16 @@ class GPSTime(object):
             gpstime (list): GPS time
         """
 
-        self.gps_epoch_datetime = datetime(1980, 1, 6, tzinfo=timezone.utc)
-        self.offset_time = int(10 ** 9)
-        self.sec_in_week = int(3600 * 24 * 7)
         self.gpstime = np.atleast_1d(gpstime)
         self.gps_time_type = self.get_gps_time_type()
 
     def __repr__(self):
         return self.gps_time_type
-
-    def _get_week_number(self, standard_time):
-        """Compute the week number in GPS standard time
-
-        Args:
-            standard_time (float or list): timestamp in standard GPS time format
-
-        Raises:
-            ValueError: if there are GPS time from different week in list
-
-        Returns:
-            int : week number since GPS epoch starting
-        """
-        if np.ndim(standard_time) == 0:
-            week_number = int(standard_time // self.sec_in_week)
-        else:
-            week_num_first = min(standard_time) // self.sec_in_week
-            week_num_last = max(standard_time) // self.sec_in_week
-            if week_num_first == week_num_last:
-                week_number = int(week_num_first)
-            else:
-                print(f'week_num_first {week_num_first}, week_num_last {week_num_last}')
-                raise ValueError("[lastools.GPSTime._get_week_number] Time values aren't in same week")
-        return week_number
         
     def get_gps_time_type(self):
-        if all(self.gpstime < self.sec_in_week):
+        if all(self.gpstime < sec_in_week):
             gps_time_type = laspy.header.GpsTimeType.WEEK_TIME
-        elif all(self.gpstime < self.offset_time):
+        elif all(self.gpstime < offset_time):
             gps_time_type = laspy.header.GpsTimeType.STANDARD
         else:
             raise ValueError("[lastools.GPSTime.get_format] Unexpected gps_time_type, neither WEEK_TIME nor STANDARD")
@@ -559,9 +571,9 @@ class GPSTime(object):
         if self.gps_time_type != laspy.header.GpsTimeType.STANDARD:
             raise ValueError("GPS time format is not " + laspy.header.GpsTimeType.STANDARD.name)
         else:
-            temp = self.gpstime + self.offset_time
+            temp = self.gpstime + offset_time
             week_number = self._get_week_number(temp)
-            return week_number, temp % self.sec_in_week
+            return week_number, temp % sec_in_week
 
     def week_time_2_adjusted_standard(self, date_in_week=[], week_number=0):
         """Conversion from week GPS time format to Adjusted Standard time
@@ -582,10 +594,11 @@ class GPSTime(object):
         
         elif len(date_in_week) > 0:
             date_datetime = datetime(*date_in_week, tzinfo=timezone.utc)
-            week_number = self._get_week_number(date_datetime.timestamp() - self.gps_epoch_datetime.timestamp())
+            week_number = get_week_number(date_datetime.timestamp() - gps_epoch_datetime.timestamp())
+            print(f'week_number {week_number}')
 
         elif week_number == 0:
             raise ValueError("You have to give date_in_week OR week_number")
 
-        adjusted_standard_time = (self.gpstime + week_number * self.sec_in_week) - self.offset_time
+        adjusted_standard_time = (self.gpstime + week_number * sec_in_week) - offset_time
         return adjusted_standard_time
