@@ -27,7 +27,7 @@ def interpolation(workspace,filename,surface_water,params):
     tools.cloudcompare.last_file(workspace + filename[0:-4] + "_sample_mesh_1_C2C_DIST_20*.laz", filename[0:-4] + "_sample_mesh_1_C2C.laz")
     temp= tools.cloudcompare.last_file(workspace + surface_water[0:-4] + "_20*.laz")
     os.remove(temp)
-    data= tools.lastools.read(workspace + filename[0:-4] + "_sample_mesh_1_C2C.laz", extra_field=True)
+    data= tools.lastools.read_bfe(workspace + filename[0:-4] + "_sample_mesh_1_C2C.laz", extra_field=True)
     select=np.logical_and(data.c2c_absolute_distances<100,
                           np.logical_and(data.c2c_absolute_distances_z>-10,data.c2c_absolute_distances_z<-1))
     
@@ -41,7 +41,7 @@ def interpolation(workspace,filename,surface_water,params):
         tools.cloudcompare.last_file(workspace + filename[0:-4] + "_sample_mesh_1_1_C2C_DIST_20*.laz", filename[0:-4] + "_sample_mesh_1_1_C2C.laz")
         temp= tools.cloudcompare.last_file(workspace + filename[0:-4] + "_20*.laz")
         os.remove(temp)
-        data= tools.lastools.read(workspace + filename[0:-4] + "_sample_mesh_1_1_C2C.laz", extra_field=True)
+        data= tools.lastools.read_bfe(workspace + filename[0:-4] + "_sample_mesh_1_1_C2C.laz", extra_field=True)
         select=np.logical_and(data.c2c_absolute_distances>0.5,
                               data.c2c_absolute_distances<200)
         os.remove(workspace+filename[0:-4]+"_sample_mesh_1_1_C2C.laz")
@@ -78,7 +78,7 @@ def interp_step2(workspace,filename,surface_water,params):
     tools.cloudcompare.last_file(workspace + filename[0:-4] + "_sample_mesh_1_C2C_DIST_20*.laz", filename[0:-4] + "_sample_mesh_1_C2C.laz")
     temp= tools.cloudcompare.last_file(workspace + surface_water[0:-4] + "_20*.laz")
     os.remove(temp)
-    data= tools.lastools.read(workspace + filename[0:-4] + "_sample_mesh_1_C2C.laz", extra_field=True)
+    data= tools.lastools.read_bfe(workspace + filename[0:-4] + "_sample_mesh_1_C2C.laz", extra_field=True)
     select=np.logical_and(data.c2c_absolute_distances<100,
                           np.logical_and(data.c2c_absolute_distances_z>-10,data.c2c_absolute_distances_z<-1))
     os.remove(workspace+filename[0:-4]+"_sample_mesh_1_C2C.laz")
@@ -91,7 +91,7 @@ def interp_step2(workspace,filename,surface_water,params):
         tools.cloudcompare.last_file(workspace + filename[0:-4] + "_sample_mesh_1_1_C2C_DIST_20*.laz", filename[0:-4] + "_sample_mesh_1_1_C2C.laz")
         temp= tools.cloudcompare.last_file(workspace + filename[0:-4] + "_20*.laz")
         os.remove(temp)
-        data= tools.lastools.read(workspace + filename[0:-4] + "_sample_mesh_1_1_C2C.laz", extra_field=True)
+        data= tools.lastools.read_bfe(workspace + filename[0:-4] + "_sample_mesh_1_1_C2C.laz", extra_field=True)
         select=np.logical_and(data.c2c_absolute_distances>0.5,
                               data.c2c_absolute_distances<200)
         os.remove(workspace+filename[0:-4]+"_sample_mesh_1_1_C2C.laz")
@@ -179,7 +179,7 @@ for i in liste_noms:
 for i in liste_noms:
     print(i)
     if os.path.exists(workspace+i[0:-4]+"_sample_mesh_step1.laz"):
-        data= tools.lastools.read(workspace + i[0:-4] + "_sample_mesh_step1.laz")
+        data= tools.lastools.read_bfe(workspace + i[0:-4] + "_sample_mesh_step1.laz")
         splitname=i[0:-4].split(sep="_")
         coords_LL=[int(splitname[bbox_place]),int(splitname[bbox_place+1])]
         dictioNeigh=neighbors_4(coords_LL,tile_size)

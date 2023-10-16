@@ -326,7 +326,7 @@ def get_fwf_from_class_15(line, class_15, global_shift=None, octree_level=11, si
 
 def extract_lines_from_class_16_fwf(class_16_fwf, id_name):
     head, tail = os.path.split(class_16_fwf)
-    data = las.read(class_16_fwf, extra_field=True)
+    data = las.read_bfe(class_16_fwf, extra_field=True)
     ids = np.unique(data.point_source_id)
 
     n = data['point_source_id'].size

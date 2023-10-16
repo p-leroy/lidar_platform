@@ -84,7 +84,7 @@ def format_name(in_, name_):
     # generating a cloud_file full name for the subprocess call can be tricky
     # especially when the path contains whitespaces...
     # handling all these whitespaces is really tricky...
-    # sigh... (read CC command line help, option -FILE)
+    # sigh... (read_bfe CC command line help, option -FILE)
     normpath = os.path.normpath(os.path.join(in_, name_))
     list_ = [f'"{item}"' if ' ' in item else item for item in normpath.split('\\')]
     if ':' in list_[0]:
@@ -239,7 +239,7 @@ def q3dmasc(clouds, training_file, only_features=False,
             silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
     """Command line call to 3DMASC with the only_features option.
 
-    In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
+    In command line, the clouds to load are not read_bfe in the parameter file, you have to specify them in the call
     and you also have to associate each label to a number, the number representing the order in which the clouds
     have been loaded
 
@@ -735,7 +735,7 @@ def rename_sf(name, new_name, config):
 
 def shift_array(array, shift, config=None, debug=False):
     newArray = array.astype(float)
-    # apply the shift read in the SBF file
+    # apply the shift read_bfe in the SBF file
     newArray += np.array(shift).reshape(1, -1)
     # apply GlobalShift if any
     if config is not None:

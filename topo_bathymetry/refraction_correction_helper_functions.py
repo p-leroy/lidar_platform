@@ -99,8 +99,8 @@ class PyC2C(object):
 
         else:
             self.compared_file, self.reference_file = compared, reference
-            self.compared = las.read(compared, True)
-            self.reference = las.read(reference)
+            self.compared = las.read_bfe(compared, True)
+            self.reference = las.read_bfe(reference)
         
         if dim not in [2,3]:
             raise Exception("dim must be in [2,3]")
@@ -195,7 +195,7 @@ def compute_dbscan(filepath, maxdist=1, minsamples=5):
         mindist (int, optional): Maximum distance between two samples. Defaults to 1.
         minsamples (int, optional): Minimum number of samples in each cluster. Defaults to 5.
     """
-    data= las.read(filepath)
+    data= las.read_bfe(filepath)
     model=DBSCAN(eps=maxdist,min_samples=minsamples,algorithm='kd_tree',leaf_size=1000,n_jobs=46).fit(data.XYZ)
     
     if len(np.unique(model.labels_))>1:
@@ -228,8 +228,8 @@ def compute_density(points, core_points=[], radius=1, p_norm=2):
 
 
 def merge_c2c_fwf(workspace,fichier):
-    tab_fwf,metadata_fwf= las.read(workspace + fichier, "fwf")
-    tab_extra,metadata_extra= las.read(workspace + fichier[0:-4] + "_extra.laz", "standard", True)
+    tab_fwf,metadata_fwf= las.read_bfe(workspace + fichier, "fwf")
+    tab_extra,metadata_extra= las.read_bfe(workspace + fichier[0:-4] + "_extra.laz", "standard", True)
     names_fwf=metadata_fwf['col_names']
     names_extra=metadata_extra['col_names']
     
@@ -251,7 +251,7 @@ def select_pairs_overlap(filepath, shifts):
     polygons = []
     num_list = []
     for file in files:
-        data = las.read(file)
+        data = las.read_bfe(file)
         head, tail = os.path.split(file)
         num_list += [str(tail[shifts[0]: shifts[0] + shifts[1]])]
         pca_pts = PCA(n_components=2, svd_solver='full')

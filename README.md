@@ -54,31 +54,11 @@ See more : https://trac.osgeo.org/osgeo4w/
 ### Read / Write LAS file
 
 ```python
-from lidar_platform import las
-workspace = "D:/yourDirectory/"
-dataset = las.read(workspace + "inFile.laz")
-intensity = dataset.intensity
-numberOfPoints = len(intensity)
-...
-addFieldList = [{"name": "addField1", "type": "float32", "data": extraField1},
-                {"name": "addField2", "type": "uint8", "data": extraField2}]
-las.WriteLAS(workspace + "outFile.laz", dataset, extraFields=addFieldList)
+
 ```
 
 ### Read / View / Filter full waveform LAS file
 
 ```python
-from lidar_platform import las
-from lidar_platform.fwf import las_fwf
-workspace = "D:/yourDirectory/"
-dataset = las.read(workspace + "inFile_fwf.laz")
-waveforms = las.read_wdp(workspace + "inFile_fwf.laz", dataset)
-indexPoint = 99
-las_fwf.viewerFWF(las.filter_las(dataset, indexPoint), waveforms[indexPoint])
-listPoints = [12, 102, 30]
-dataExtract = las.filter_las(dataset, listPoints)
-waveExtract = las.filter_wdp(waveforms, listPoints)
-las.update_byte_offset(dataExtract, waveExtract)
-las.WriteLAS(workspace + "outFile_fwf.laz",
-             dataExtract, format_id=4, waveforms=waveExtract)
+
 ```

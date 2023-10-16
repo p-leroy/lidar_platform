@@ -58,7 +58,7 @@ class Overlap(object):
         return rootname[0] + line_number + rootname[1]
 
     def _filtering(self, workspace, inFile, out_file, c2c=50, c2c_z=0.2):
-        data = tools.lastools.read(workspace + inFile, extra_field=True)
+        data = tools.lastools.read_bfe(workspace + inFile, extra_field=True)
         select = np.logical_or(data["c2c_absolute_distances"] > c2c, data["c2c_absolute_distances_z"] > c2c_z)
         out_data = tools.lastools.filter_las(data, select)
         out = os.path.join(workspace, out_file)
@@ -180,7 +180,7 @@ class Overlap(object):
             print(error)
 
     def filter_data(self, filepath, compare_id):
-        in_data = tools.lastools.read(filepath, extra_field=True)
+        in_data = tools.lastools.read_bfe(filepath, extra_field=True)
         selection = ~(np.isnan(in_data["distance__uncertainty"]))
         in_data2 = tools.lastools.filter_las(in_data, selection)
         selection = in_data2["distance__uncertainty"] < self.max_uncertainty

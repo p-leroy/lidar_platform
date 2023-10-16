@@ -2,6 +2,8 @@
 
 from struct import pack, unpack
 
+import laspy
+
 
 def unpack_vlr_extra_bytes(vlr):
     fh = unpack('=2sBB32s4sq16sq16sq16sq16sq16s32s', vlr.record_data)
@@ -24,7 +26,7 @@ def unpack_vlr_extra_bytes(vlr):
      }
 
 
-def unpack_vlr_record_waveform_packet_descriptor(vlr, asList=False):
+def unpack_vlr_record_waveform_packet_descriptor(vlr, as_list=False):
     # 26 bytes
     # 1 byte, bits per sample [unsigned char]
     # 1 byte, waveform compression type [unsigned char]
@@ -32,16 +34,24 @@ def unpack_vlr_record_waveform_packet_descriptor(vlr, asList=False):
     # 4 bytes, temporal sample spacing [unsigned long]
     # 8 bytes, digitizer gain [double]
     # 8 bytes, digitizer offset [double]
-    fh = unpack('=2B2L2d', vlr.record_data)
-    if asList:
-        return fh[0], fh[1], fh[2], fh[3], fh[4], fh[5]
-    else:
-        return {"bits_per_sample": fh[0],
-                "waveform_compression_type": fh[1],
-                "number_of_samples": fh[2],
-                "temporal_sample_spacing": fh[3],
-                "digitizer_gain": fh[4],
-                "digitizer_offset": fh[5]}
+    try:
+        fh = unpack('=2B2L2d', vlr.record_data)
+        if as_list:
+            return fh[0], fh[1], fh[2], fh[3], fh[4], fh[5]
+        else:
+            return {"bits_per_sample": fh[0],
+                    "waveform_compression_type": fh[1],
+                    "number_of_samples": fh[2],
+                    "temporal_sample_spacing": fh[3],
+                    "digitizer_gain": fh[4],
+                    "digitizer_offset": fh[5]}
+    except AttributeError:
+        return {"bits_per_sample": vlr.parsed_record.bits_per_sample,
+                "waveform_compression_type": vlr.parsed_record.waveform_compression_type,
+                "number_of_samples": vlr.parsed_record.number_of_samples,
+                "temporal_sample_spacing": vlr.parsed_record.temporal_sample_spacing,
+                "digitizer_gain": vlr.parsed_record.digitizer_gain,
+                "digitizer_offset": vlr.parsed_record.digitizer_offset}
 
 
 def pack_vlr_record_waveform_packet_descriptor(descriptor):
@@ -119,6 +129,7 @@ class lasdata(object):
     def __setitem__(self, key, item):
         self.__dict__[key] = item
         pass
+
 
 class LASFormat(object):
     def __init__(self):

@@ -18,7 +18,7 @@ liste_names=[]
 plan=simplekml.Kml()
 for i in liste_noms :
     print(i)
-    data= tools.lastools.read(workspace + i)
+    data= tools.lastools.read_bfe(workspace + i)
     pca_pts=PCA(n_components=2,svd_solver='full')
     dat_new=pca_pts.fit_transform(data.XYZ[:,0:2])
     borne=np.array([[min(dat_new[:,0]),min(dat_new[:,1])],

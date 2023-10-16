@@ -9,7 +9,7 @@ def corbathy_discret(filepath,data_sbet):
     offsetName=-10
     output_suffix="_corbathy"
     # Ouverture du fichier contenant la bathy
-    inData= tools.lastools.read(filepath, extra_field=True)
+    inData= tools.lastools.read_bfe(filepath, extra_field=True)
 
     select=inData.depth<0.01
     dataUnderWater= tools.lastools.filter_las(inData, select)
