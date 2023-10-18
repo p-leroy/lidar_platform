@@ -15,7 +15,7 @@ import numpy as np
 
 from . import las_fmt
 from ..tools import misc
-from ..tools.las_fmt import unpack_vlr_record_waveform_packet_descriptor
+from ..tools.las_fmt import unpack_vlr_waveform_packet_descriptor
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
@@ -38,7 +38,8 @@ def get_wpds(las_data):
     vlrs = las_data.header.vlrs
     for vlr in vlrs:
         if 99 < vlr.record_id < 355:
-            wpds[vlr.record_id - 99] = unpack_vlr_record_waveform_packet_descriptor(vlr)
+            wavepacket_index = vlr.record_id - 99
+            wpds[wavepacket_index] = unpack_vlr_waveform_packet_descriptor(vlr)
 
     return wpds
 
@@ -50,6 +51,7 @@ class LasData(laspy.LasData):  # extends the LasData class of laspy
         super().__init__(las_data.header, las_data.points)
         self.filename = filename
         self.wdp = os.path.splitext(filename)[0] + '.wdp'
+        self.waveform_packets_descriptors = None
 
     def get_waveform(self, index, offset=0, make_positive=False):
         # get the Waveform Packet Descriptor
@@ -86,9 +88,34 @@ class LasData(laspy.LasData):  # extends the LasData class of laspy
 
         return None
 
+    def get_waveform_data_packet_header(self):
+        with open(self.wdp, "rb") as f:
+            evlr = las_fmt.unpack_evlr_header_waveform_data_packet(f.read(60))
+        return evlr
+
+    def get_number_of_samples(self, index):
+        wavepacket_index = self.wavepacket_index[index]
+        # get the waveform packet descriptors if needed
+        if self.waveform_packets_descriptors is None:
+            self.waveform_packets_descriptors = get_wpds(self)
+        # get the number of samples from the good descriptor
+        wpd = wpds[las_data_orig.wavepacket_index[echo]]
+        number_of_samples = wpd["number_of_samples"]
+        bytes_per_sample = int(wpd["bits_per_sample"] / 8)
+        number_of_bytes = number_of_samples * bytes_per_sample
+
+        return number_of_bytes
+
 
 def read(filename):
     return LasData(filename)
+
+
+def create_file_and_get_appender(filename, point_format=9, file_version="1.4"):
+    las_data = laspy.create(point_format=point_format, file_version=file_version)
+    las_data.write(filename)
+    appender = laspy.open(filename, mode='a')
+    return appender
 
 
 ##########
