@@ -33,18 +33,31 @@ GEOKEY_STANDARD = {1: (1, 0, 4),
                    4099: (0, 1, 9001)}
 
 
-def get_wpds(las_data):
-    wpds = {}
+def get_waveform_packet_descriptors(las_data):
+    waveform_packet_descriptors = {}
     vlrs = las_data.header.vlrs
     for vlr in vlrs:
         if 99 < vlr.record_id < 355:
             wavepacket_index = vlr.record_id - 99
-            wpds[wavepacket_index] = unpack_vlr_waveform_packet_descriptor(vlr)
+            waveform_packet_descriptors[wavepacket_index] = unpack_vlr_waveform_packet_descriptor(vlr)
 
-    return wpds
+    return waveform_packet_descriptors
 
 
-class LasData(laspy.LasData):  # extends the LasData class of laspy
+def read_waveform(file_object, wpd, offset=0, make_positive=False):
+    number_of_samples = wpd['number_of_samples']
+    bytes_per_sample = int(wpd['bits_per_sample'] / 8)
+    count = number_of_samples * bytes_per_sample
+    b = file_object.read(count)
+    a = np.frombuffer(b, dtype=np.uint16, count=number_of_samples)
+    time = np.arange(number_of_samples) * wpd['temporal_sample_spacing']
+    waveform = a * wpd['digitizer_gain'] + wpd['digitizer_offset'] + offset
+    if make_positive:
+        waveform = np.abs(waveform)
+    return time, waveform
+
+
+class LasData(laspy.LasData):  # subclass laspy.LasData
 
     def __init__(self, filename):
         las_data = laspy.read(filename)
@@ -52,41 +65,27 @@ class LasData(laspy.LasData):  # extends the LasData class of laspy
         self.filename = filename
         self.wdp = os.path.splitext(filename)[0] + '.wdp'
         self.waveform_packets_descriptors = None
+        self.waveform_packets_descriptors = get_waveform_packet_descriptors(self)
+        self.file_version = f'{las_data.header.version[0]}.{las_data.header.version[1]}'
 
     def get_waveform(self, index, offset=0, make_positive=False):
-        # get the Waveform Packet Descriptor
-        wpds = get_wpds(self)
-        wpd = wpds[self.wavepacket_index[index]]
-        # get the number of samples
-        number_of_samples = wpd['number_of_samples']
-        bytes_per_sample = int(wpd['bits_per_sample'] / 8)
+
+        wpd = self.waveform_packets_descriptors[self.wavepacket_index[index]]  # get the Waveform Packet Descriptor
 
         if self.header.global_encoding.waveform_data_packets_internal:
             with open(self.filename, 'rb') as bf:
                 bf.seek(int(self.header.start_of_waveform_data_packet_record +
                             self.byte_offset_to_waveform_data[index]))
-                count = number_of_samples * bytes_per_sample
-                b = bf.read(count)
-                a = np.frombuffer(b, dtype=np.uint16, count=number_of_samples)
-                time = np.arange(number_of_samples) * wpd['temporal_sample_spacing']
-                waveform = a * wpd['digitizer_gain'] + wpd['digitizer_offset'] + offset
-                if make_positive:
-                    waveform = np.abs(waveform)
-                return time, waveform
+                return read_waveform(bf, wpd, offset=offset, make_positive=make_positive)
 
-        if self.header.global_encoding.waveform_data_packets_external:
+        elif self.header.global_encoding.waveform_data_packets_external:
             with open(self.wdp, 'rb') as bf:
                 bf.seek(self.byte_offset_to_waveform_data[index])
-                count = number_of_samples * bytes_per_sample
-                b = bf.read(count)
-                a = np.frombuffer(b, dtype=np.uint16, count=number_of_samples)
-                time = np.arange(number_of_samples) * wpd['temporal_sample_spacing']
-                waveform = a * wpd['digitizer_gain'] + wpd['digitizer_offset'] + offset
-                if make_positive:
-                    waveform = np.abs(waveform)
-                return time, waveform
+                return read_waveform(bf, wpd, offset=offset, make_positive=make_positive)
 
-        return None
+        else:
+            print(f'[get_waveform] no waveform to return (index {index})')
+            return None
 
     def get_waveform_data_packet_header(self):
         with open(self.wdp, "rb") as f:
@@ -95,12 +94,8 @@ class LasData(laspy.LasData):  # extends the LasData class of laspy
 
     def get_number_of_samples(self, index):
         wavepacket_index = self.wavepacket_index[index]
-        # get the waveform packet descriptors if needed
-        if self.waveform_packets_descriptors is None:
-            self.waveform_packets_descriptors = get_wpds(self)
-        # get the number of samples from the good descriptor
-        wpd = wpds[las_data_orig.wavepacket_index[echo]]
-        number_of_samples = wpd["number_of_samples"]
+        wpd = self.waveform_packets_descriptors[wavepacket_index]  # get the waveform packet descriptor
+        number_of_samples = wpd["number_of_samples"]  # get the number of samples from the descriptor
         bytes_per_sample = int(wpd["bits_per_sample"] / 8)
         number_of_bytes = number_of_samples * bytes_per_sample
 
@@ -111,8 +106,9 @@ def read(filename):
     return LasData(filename)
 
 
-def create_file_and_get_appender(filename, point_format=9, file_version="1.4"):
-    las_data = laspy.create(point_format=point_format, file_version=file_version)
+def create_file_and_get_appender(filename, las_data_in):
+    las_data = laspy.create(point_format=las_data_in.point_format, file_version=las_data_in.header.version)
+    las_data.header = las_data_in.header
     las_data.write(filename)
     appender = laspy.open(filename, mode='a')
     return appender
