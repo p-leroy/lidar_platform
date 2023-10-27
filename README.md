@@ -47,18 +47,3 @@ See more : http://www.cloudcompare.org/
 See more: https://www.cs.jhu.edu/~misha/Code/PoissonRecon/Version13.8/
 - In case of failure during the gdal installation, it is possible to try to install it using OSGeo4W<br>You will have to add the root path to OSGEO4W (containing OSGeo4W.bat) to your environment variables.<br>
 See more : https://trac.osgeo.org/osgeo4w/
-
----
-
-## Basic Usage
-### Read / Write LAS file
-
-```python
-
-```
-
-### Read / View / Filter full waveform LAS file
-
-```python
-
-```

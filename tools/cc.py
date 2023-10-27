@@ -209,6 +209,7 @@ def density(pc, radius, density_type,
     root, ext = os.path.splitext(pc)
     return root + '_DENSITY.sbf'
 
+
 #########################################################
 #  3DMASC KEEP_ATTRIBUTES / ONLY_FEATURES / SKIP_FEATURES
 #########################################################
@@ -404,6 +405,7 @@ def compress_fwf(cloud, in_place=True,
 
     return out
 
+
 ##########
 #  ICPM3C2
 ##########
@@ -445,6 +447,7 @@ def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', debug=False):
     root2, ext2 = os.path.splitext(tail2)
     results = os.path.join(head2, root2 + f'_ICPM3C2.{ext}')
     return results
+
 
 #################
 #  TO BIN, TO SBF
@@ -667,6 +670,7 @@ def transform_cloud(cloud, R, T, shift=None, silent=True, debug=False):
     logger.info(f'[CC] transformation of {tail}')
     apply_transformation(cloud, transformation, cloud_trans, silent=silent, debug=debug, shift=shift)
 
+
 ###################
 #  BIN READ / WRITE
 ###################
@@ -678,6 +682,7 @@ def get_from_bin(bin_):
         # 'I' unsigned int / integer / 4
         for k in range(3):
             print(chr(bytes_[k]))
+
 
 ################
 # SBF READ/WRITE
@@ -883,7 +888,8 @@ def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
         # 36-63 Reserved for later
         sbf_data.write(bytes(63-36+1))
         sbf_data.write(a)
-        
+
+
 ##########
 # C2C_DIST
 ##########
@@ -950,6 +956,7 @@ def closest_point_set(compared, reference, silent=True, debug = False):
     misc.run(cc_custom + args, verbose=debug)
     
     return os.path.join(compHead, f'[{refBase}]_CPSet({compBase}).sbf')
+
 
 #####
 # ICP

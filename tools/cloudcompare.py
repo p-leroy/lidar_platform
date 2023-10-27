@@ -1,6 +1,7 @@
 # coding: utf-8
-# Baptiste Feldmann, Paul Leroy
-# CloudCompare calls
+# Baptiste Feldmann
+# Paul Leroy
+# CloudCompare calls (this module is kept for compatibility with old codes from Baptiste Feldman)
 
 import glob
 import os
