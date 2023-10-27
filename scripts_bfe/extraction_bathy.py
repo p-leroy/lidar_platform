@@ -11,7 +11,7 @@ import numpy as np
 def extract_bathy(filename, filter_z=(0.25, -10), filter_xy=250):
     head, tail = os.path.split(filename)
     odir = os.path.join(head, "extraction")
-    in_data = tools.lastools.read(filename, extra_fields=True)
+    in_data = tools.lastools.read_bfe(filename, extra_fields=True)
     dist_xy = np.sqrt((in_data['c2c_absolute_distances_x'] ** 2) + (in_data['c2c_absolute_distances_y'] ** 2))
 
     select = (in_data['c2c_absolute_distances_z'] < filter_z[0]) & (in_data['c2c_absolute_distances_z'] > filter_z[1])

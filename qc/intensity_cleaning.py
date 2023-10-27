@@ -59,7 +59,7 @@ def qc_check(pc_with_imax_minus_i, threshold=83, shift=103):
     if not os.path.exists(odir):
         os.makedirs(odir)
 
-    pc, sf, config = cc.read_sbf(pc_with_imax_minus_i)  # read the SBF file
+    pc, sf, config = cc.read_sbf(pc_with_imax_minus_i)  # read_bfe the SBF file
 
     # limit intensity values range
     loc = sf[:, i_intensity] < 400

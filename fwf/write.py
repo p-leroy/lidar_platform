@@ -24,7 +24,7 @@ def add_point(record, point_idx, return_number, r_peak, i_peak, las_i, idx_wfrm)
     y_t = record.y_t[point_idx]
     z_t = record.z_t[point_idx]
 
-    anchor_x = X + x_t * return_point_wave_location * 1000
+    anchor_x = X + x_t * return_point_wave_location * 1000  # should be replaced by one of the las_i.header.scales
     anchor_y = Y + y_t * return_point_wave_location * 1000
     anchor_z = Z + z_t * return_point_wave_location * 1000
     new_x = anchor_x - x_t * peak_return_point_wave_location * 1000
@@ -52,12 +52,12 @@ def add_point(record, point_idx, return_number, r_peak, i_peak, las_i, idx_wfrm)
     return point_idx + 1
 
 
-def add_point_copy(record, point_idx, las_data, idx_wfrm):
+def add_point_copy(record, idx_record, las_data, idx_las_data):
 
     # resize the ScaleAwarePointRecord
-    if point_idx == len(record):
+    if idx_record == len(record):
         record.resize(len(record) + 10000)
         print(f"[add_point] increase the size of the record => {len(record)}")
 
     # copy the fields from the anchor point record
-    record.array[point_idx] = las_data.points.array[idx_wfrm]
+    record.array[idx_record] = las_data.points.array[idx_las_data]

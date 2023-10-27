@@ -72,7 +72,7 @@ def run(cmd, shell=False, advanced=True, verbose=True):
             for line in process.stdout.readlines():
                 if verbose is True:
                     print(line.strip())
-        # Process has finished, read rest of the output
+        # Process has finished, read_bfe rest of the output
         for line in process.stdout.readlines():
             if verbose is True:
                 print(line.strip())

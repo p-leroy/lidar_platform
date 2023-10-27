@@ -124,7 +124,7 @@ class Reader(object):
                      'InternalShift':(head_tmp[4],head_tmp[5],head_tmp[6]),'User_data':head_buff[36::]}
         self.NbSF=int(self.header['NbScalarFields']+3)
         if self.NbSF*4*self.header['NbPoints']!=self._data_size:
-            raise OSError("Unable to read data file :\n\tsize of each point and NbPoints don't match exactly file size !")
+            raise OSError("Unable to read_bfe data file :\n\tsize of each point and NbPoints don't match exactly file size !")
 
     def ComputePoints(self):
         try:

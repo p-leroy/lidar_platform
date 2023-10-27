@@ -19,7 +19,7 @@ tools.cloudcompare.c2c_dist(query)
 os.remove(tools.cloudcompare.last_file(workspace + C2_filename[0:-4] + "_20*.laz"))
 tools.cloudcompare.last_file(workspace + C3_filename[0:-4] + "_C2C_DIST_*.laz", C3_filename[0:-4] + "_C2C.laz")
 
-C3_data = tools.lastools.read(workspace + C3_filename[0:-4] + "_C2C.laz", True)
+C3_data = tools.lastools.read_bfe(workspace + C3_filename[0:-4] + "_C2C.laz", True)
 outData = tools.lastools.filter_las(C3_data,
                                     np.logical_and(C3_data.c2c_absolute_distances_z > filterVert[0],
                                                 C3_data.c2c_absolute_distances_z < filterVert[1])
@@ -50,7 +50,7 @@ os.remove(tools.cloudcompare.last_file(workspace + C3_filename[0:-4] + "_rawbath
 tools.cloudcompare.last_file(workspace + C2_filename[0:-4] + "_normals_C2C_DIST_*.laz",
                           C2_filename[0:-4] + "_normals_C2C.laz")
 
-C2_data = tools.lastools.read(workspace + C2_filename[0:-4] + "_normals_C2C.laz", True)
+C2_data = tools.lastools.read_bfe(workspace + C2_filename[0:-4] + "_normals_C2C.laz", True)
 
 select1 = C2_data.dip_degrees < filterNormal
 select2 = (C2_data.c2c_absolute_distances_x**2 + C2_data.c2c_absolute_distances_y**2)**0.5 < filterDist

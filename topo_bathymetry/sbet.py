@@ -90,7 +90,7 @@ class SBET(object):
     
     def load_data(self):
         if os.path.splitext(self.filepath)[-1] != ".out":
-            raise OSError("Unknown file extension, can read only .out file !")
+            raise OSError("Unknown file extension, can read_bfe only .out file !")
         else:
             print(f'[SBET.load_data] load data from {self.filepath}')
 

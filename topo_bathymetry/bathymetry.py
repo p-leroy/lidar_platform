@@ -102,7 +102,6 @@ def propagate(c3_cloud_with_c2c3_dist, current_bathymetry, depth=-0.2, step=None
         out = os.path.join(odir, root + f'_propagation_step_{step}.bin')
     else:
         out = os.path.join(odir, root + f'_propagation.bin')
-    dip = np.tan(1. * np.pi / 180)  # dip 1 degree
 
     cmd = cc_custom
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
@@ -326,7 +325,7 @@ def get_fwf_from_class_15(line, class_15, global_shift=None, octree_level=11, si
 
 def extract_lines_from_class_16_fwf(class_16_fwf, id_name):
     head, tail = os.path.split(class_16_fwf)
-    data = las.read(class_16_fwf, extra_field=True)
+    data = las.read_bfe(class_16_fwf, extra_field=True)
     ids = np.unique(data.point_source_id)
 
     n = data['point_source_id'].size

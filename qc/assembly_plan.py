@@ -77,7 +77,7 @@ def from_lines(lines, odir, epsg_src="epsg:2154", epsg_dst="epsg:4171"):
 
     for line in lines:
         print(line)
-        data = las.read(line)
+        data = las.read_bfe(line)
         pca_pts = PCA(n_components=2, svd_solver='full')
         data_new = pca_pts.fit_transform(data.XYZ[:, 0:2])
         boundaries = np.array([[min(data_new[:, 0]), min(data_new[:, 1])],

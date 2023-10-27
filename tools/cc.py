@@ -84,7 +84,7 @@ def format_name(in_, name_):
     # generating a cloud_file full name for the subprocess call can be tricky
     # especially when the path contains whitespaces...
     # handling all these whitespaces is really tricky...
-    # sigh... (read CC command line help, option -FILE)
+    # sigh... (read_bfe CC command line help, option -FILE)
     normpath = os.path.normpath(os.path.join(in_, name_))
     list_ = [f'"{item}"' if ' ' in item else item for item in normpath.split('\\')]
     if ':' in list_[0]:
@@ -209,6 +209,7 @@ def density(pc, radius, density_type,
     root, ext = os.path.splitext(pc)
     return root + '_DENSITY.sbf'
 
+
 #########################################################
 #  3DMASC KEEP_ATTRIBUTES / ONLY_FEATURES / SKIP_FEATURES
 #########################################################
@@ -239,7 +240,7 @@ def q3dmasc(clouds, training_file, only_features=False,
             silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
     """Command line call to 3DMASC with the only_features option.
 
-    In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
+    In command line, the clouds to load are not read_bfe in the parameter file, you have to specify them in the call
     and you also have to associate each label to a number, the number representing the order in which the clouds
     have been loaded
 
@@ -404,6 +405,7 @@ def compress_fwf(cloud, in_place=True,
 
     return out
 
+
 ##########
 #  ICPM3C2
 ##########
@@ -445,6 +447,7 @@ def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', debug=False):
     root2, ext2 = os.path.splitext(tail2)
     results = os.path.join(head2, root2 + f'_ICPM3C2.{ext}')
     return results
+
 
 #################
 #  TO BIN, TO SBF
@@ -667,6 +670,7 @@ def transform_cloud(cloud, R, T, shift=None, silent=True, debug=False):
     logger.info(f'[CC] transformation of {tail}')
     apply_transformation(cloud, transformation, cloud_trans, silent=silent, debug=debug, shift=shift)
 
+
 ###################
 #  BIN READ / WRITE
 ###################
@@ -678,6 +682,7 @@ def get_from_bin(bin_):
         # 'I' unsigned int / integer / 4
         for k in range(3):
             print(chr(bytes_[k]))
+
 
 ################
 # SBF READ/WRITE
@@ -735,7 +740,7 @@ def rename_sf(name, new_name, config):
 
 def shift_array(array, shift, config=None, debug=False):
     newArray = array.astype(float)
-    # apply the shift read in the SBF file
+    # apply the shift read_bfe in the SBF file
     newArray += np.array(shift).reshape(1, -1)
     # apply GlobalShift if any
     if config is not None:
@@ -883,7 +888,8 @@ def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
         # 36-63 Reserved for later
         sbf_data.write(bytes(63-36+1))
         sbf_data.write(a)
-        
+
+
 ##########
 # C2C_DIST
 ##########
@@ -950,6 +956,7 @@ def closest_point_set(compared, reference, silent=True, debug = False):
     misc.run(cc_custom + args, verbose=debug)
     
     return os.path.join(compHead, f'[{refBase}]_CPSet({compBase}).sbf')
+
 
 #####
 # ICP

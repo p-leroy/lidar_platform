@@ -2,19 +2,23 @@
 # Baptiste Feldmann
 # Paul Leroy
 
-import copy, os, mmap, struct, time
+import copy
 from datetime import datetime, timezone
 import logging
+import mmap
+import os
+import struct
+import time
 
-import numpy as np
 import laspy
+import numpy as np
 
 from . import las_fmt
 from ..tools import misc
+from ..tools.las_fmt import unpack_vlr_waveform_packet_descriptor
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
-
 
 # LAS full waveform
 HEADER_WDP_BYTE = struct.pack("=H16sHQ32s", * (0, b'LASF_Spec', 65535, 0, b'WAVEFORM_DATA_PACKETS'))
@@ -27,6 +31,93 @@ GEOKEY_STANDARD = {1: (1, 0, 4),
                    1024: (0, 1, 1),
                    3076: (0, 1, 9001),
                    4099: (0, 1, 9001)}
+
+
+def get_waveform_packet_descriptors(las_data):
+    waveform_packet_descriptors = {}
+    vlrs = las_data.header.vlrs
+    for vlr in vlrs:
+        if 99 < vlr.record_id < 355:
+            wavepacket_index = vlr.record_id - 99
+            waveform_packet_descriptors[wavepacket_index] = unpack_vlr_waveform_packet_descriptor(vlr)
+
+    return waveform_packet_descriptors
+
+
+def read_waveform(file_object, wpd, offset=0, make_positive=False):
+    number_of_samples = wpd['number_of_samples']
+    bytes_per_sample = int(wpd['bits_per_sample'] / 8)
+    count = number_of_samples * bytes_per_sample
+    b = file_object.read(count)
+    a = np.frombuffer(b, dtype=np.uint16, count=number_of_samples)
+    time = np.arange(number_of_samples) * wpd['temporal_sample_spacing']
+    waveform = a * wpd['digitizer_gain'] + wpd['digitizer_offset'] + offset
+    if make_positive:
+        waveform = np.abs(waveform)
+    return time, waveform
+
+
+class LasData(laspy.LasData):  # subclass laspy.LasData
+
+    def __init__(self, filename):
+        las_data = laspy.read(filename)
+        super().__init__(las_data.header, las_data.points)
+        self.filename = filename
+        self.wdp = os.path.splitext(filename)[0] + '.wdp'
+        self.waveform_packets_descriptors = None
+        self.waveform_packets_descriptors = get_waveform_packet_descriptors(self)
+        self.file_version = f'{las_data.header.version[0]}.{las_data.header.version[1]}'
+
+    def get_waveform(self, index, offset=0, make_positive=False):
+
+        wpd = self.waveform_packets_descriptors[self.wavepacket_index[index]]  # get the Waveform Packet Descriptor
+
+        if self.header.global_encoding.waveform_data_packets_internal:
+            with open(self.filename, 'rb') as bf:
+                bf.seek(int(self.header.start_of_waveform_data_packet_record +
+                            self.byte_offset_to_waveform_data[index]))
+                return read_waveform(bf, wpd, offset=offset, make_positive=make_positive)
+
+        elif self.header.global_encoding.waveform_data_packets_external:
+            with open(self.wdp, 'rb') as bf:
+                bf.seek(self.byte_offset_to_waveform_data[index])
+                return read_waveform(bf, wpd, offset=offset, make_positive=make_positive)
+
+        else:
+            print(f'[get_waveform] no waveform to return (index {index})')
+            return None
+
+    def get_waveform_data_packet_header(self):
+        with open(self.wdp, "rb") as f:
+            evlr = las_fmt.unpack_evlr_header_waveform_data_packet(f.read(60))
+        return evlr
+
+    def get_number_of_samples(self, index):
+        wavepacket_index = self.wavepacket_index[index]
+        wpd = self.waveform_packets_descriptors[wavepacket_index]  # get the waveform packet descriptor
+        number_of_samples = wpd["number_of_samples"]  # get the number of samples from the descriptor
+        bytes_per_sample = int(wpd["bits_per_sample"] / 8)
+        number_of_bytes = number_of_samples * bytes_per_sample
+
+        return number_of_bytes
+
+
+def read(filename):
+    return LasData(filename)
+
+
+def create_file_and_get_appender(filename, las_data_in):
+    las_data = laspy.create(point_format=las_data_in.point_format, file_version=las_data_in.header.version)
+    las_data.header = las_data_in.header
+    las_data.write(filename)
+    appender = laspy.open(filename, mode='a')
+    return appender
+
+
+##########
+# OLD CODE
+##########
+
 
 def filter_las(obj, select):
     """Filter lasdata
@@ -115,40 +206,48 @@ def update_byte_offset(las_obj, waveforms, byte_offset_start=60):
     las_obj.wavepacket_offset = new_offset[0:-1]
 
 
-def read_vlr_body(vlrs):
-    # read VLR in LAS file with PyLas
-    # Can only read waveform, bbox tile and projection vlrs
-    list_ = {}
+def read_vlrs(vlrs):
+    # read_bfe VLR in LAS file with laspy
+    # Can only read_bfe waveform, bbox tile and projection vlrs
+    record_id__tuple = {}
     for vlr in vlrs:
-        if 100 <= vlr.record_id < 355:
-            #read waveform vlrs
-            # (Bits/sample, wavefm compression type, nbr of samples, Temporal spacing, digitizer gain, digitizer offset)
-            list_[vlr.record_id] = struct.unpack("=BBLLdd", vlr.record_data_bytes())
+        if 99 < vlr.record_id < 355:  # Waveform Packet Descriptor
+            # Bits per Sample
+            # Waveform Compression Type
+            # Number of Samples
+            # Temporal Sample Spacing
+            # Digitizer Gain
+            # Digitizer Offset
+            record_id__tuple[vlr.record_id] = struct.unpack("=BBLLdd", vlr.record_data_bytes())
         elif vlr.record_id == 10:
-            #read bbox tile vlrs :
-            # (level,index,implicit_lvl,reversible,buffer,min_x,max_x,min_y,max_y)
-            list_[vlr.record_id] = struct.unpack("=2IH2?4f", vlr.record_data)
-        elif vlr.record_id == 34735:
-            #read Projection
-            # (KeyDirectoryVersion, KeyRevision, MinorRevision, NumberofKeys)
-            # + n * (KeyId, TIFFTagLocation, Count, Value_offset)
+            # read_bfe bbox tile vlrs :
+            # (level, index, implicit_lvl, reversible, buffer, min_x, max_x, min_y, max_y)
+            record_id__tuple[vlr.record_id] = struct.unpack("=2IH2?4f", vlr.record_data)
+        elif vlr.record_id == 34735:  # GeoKeyDirectoryTag Record
+            # Key values that define the coordinate system
+            # wKeyDirectoryVersion
+            # wKeyRevision
+            # wMinorRevision
+            # wNumberOfKeys
+            # + wNumberOfKeys * (wKeyID, wTIFFTagLocation, wCount, wValue_Offset)
             geo_key_list = struct.unpack("=4H", vlr.record_data_bytes()[0:8])
-            for i in range(0, int((len(vlr.record_data_bytes()) - 8) / 8)):
+            wNumberOfKeys = geo_key_list[3]  # Number of sets of 4 unsigned shorts to follow
+            for i in range(0, wNumberOfKeys):
                 temp = struct.unpack("=4H", vlr.record_data_bytes()[8 * (i + 1): 8 * (i + 1) + 8])
                 if temp[1] == 0 and temp[2] == 1:
                     geo_key_list += temp
-            list_[vlr.record_id] = geo_key_list
-    return list_
+            record_id__tuple[vlr.record_id] = geo_key_list
+    return record_id__tuple
 
 
-def pack_vlr_body(dictio):
+def pack_vlr(dictio):
     # write VLR in LAS file with LasPy
     # Can only write waveform, bbox tile and projection vlrs
     list_ = []
     size = 0
     if len(dictio) > 0:
         for i in dictio.keys():
-            if 100 <= i < 355:
+            if 99 < i < 355:
                 # waveform vlrs
                 # (Bits/sample, waveform compression type, nbr of samples, Temporal spacing,
                 # digitizer gain, digitizer offset)
@@ -158,7 +257,7 @@ def pack_vlr_body(dictio):
             elif i == 10:
                 # bbox tile vlrs :
                 # (level,index,implicit_lvl,reversible,buffer,min_x,max_x,min_y,max_y)
-                temp=laspy.header.VLR(user_id="LAStools",
+                temp = laspy.header.VLR(user_id="LAStools",
                                       record_id=i,
                                       record_data=struct.pack("=2IH2?4f", *dictio[i]))
             elif i == 34735:
@@ -174,6 +273,7 @@ def pack_vlr_body(dictio):
 
             size += len(temp.record_data_bytes())
             list_ += [temp]
+
     return list_, size
 
 
@@ -286,7 +386,7 @@ class WriteLAS(object):
             for i in range(0, nbrPoints):
                 msg = displayer.timer(i)
                 if msg is not None:
-                    print("[Writing waveform data packet] "+msg)
+                    print("[Writing waveform data packet] " + msg)
                 
                 if len(waveforms[i]) != (sizes[i] / 2):
                     raise ValueError("Size of waveform n°"+str(i)+" is not the same in LAS file")
@@ -313,7 +413,7 @@ class WriteLAS(object):
 
         header.system_identifier = self.LAS_fmt.identifier["system_identifier"]
         header.generating_software = self.LAS_fmt.identifier["generating_software"]
-        header.vlrs, vlrs_size = pack_vlr_body(self.output_data.metadata['vlrs'])
+        header.vlrs, vlrs_size = pack_vlr(self.output_data.metadata['vlrs'])
         header.offset_to_point_data = 235 + vlrs_size
 
         header.mins = np.min(self.output_data.XYZ, axis=0)
@@ -355,7 +455,7 @@ class WriteLAS(object):
                 print("[lastools.WriteLAS.writeAttr] Warning: not possible to write attribute: " + i[0])
 
 
-def read(filepath, extra_fields=False, parallel=True):
+def read_bfe(filepath, extra_fields=False, parallel=True):
     """Read a LAS file with laspy
 
     Args:
@@ -381,9 +481,9 @@ def read(filepath, extra_fields=False, parallel=True):
 
     las_data = laspy.read(filepath, laz_backend=backend)
     gps_time_type = las_data.header.global_encoding.gps_time_type
-    print(f'[las.read] gps_time_type read in header: {gps_time_type.name}')
+    print(f'[las.read_bfe] gps_time_type read_bfe in header: {gps_time_type.name}')
     
-    metadata = {"vlrs": read_vlr_body(las_data.vlrs),
+    metadata = {"vlrs": read_vlrs(las_data.vlrs),
                 "extraField": [],
                 'filepath': filepath}
     output = las_fmt.lasdata()
@@ -441,7 +541,7 @@ def read_wdp(las_data):
 
     lines = []
     displayer = misc.Timing(point_number, 20)
-    for i in range(0,point_number):
+    for i in range(0, point_number):
         msg = displayer.timer(i)
         if msg is not None:
             print("[Reading waveform data packet] " + msg)
@@ -474,7 +574,7 @@ def read_ortho_fwf(workspace, las_file):
     data = mmap.mmap(wdp.fileno(),
                      0,
                      access=mmap.ACCESS_READ)
-    temp = read_vlr_body(f.header.vlrs)
+    temp = read_vlrs(f.header.vlrs)
     if len(f.header.vlrs) == 1:
         vlr_body = temp[list(temp.keys())[0]]
     else:

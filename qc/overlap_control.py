@@ -88,7 +88,7 @@ class Overlap(object):
 
     def _filtering_c2c(self, in_file, out_file, c2c=50, c2c_z=0.2):
         head, tail = os.path.split(in_file)
-        data = las.read(in_file, extra_field=True)
+        data = las.read_bfe(in_file, extra_field=True)
 
         try:  # C2C absolute distances
             select_c2c = data["c2c__absolute__distances"] > c2c

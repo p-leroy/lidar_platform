@@ -20,7 +20,7 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1, force_sbet_std
     out = os.path.join(root + "_ref_corr.laz")
 
     # open bathymetry file and filter data by depth
-    in_data = las.read(filepath, extra_fields=True)
+    in_data = las.read_bfe(filepath, extra_fields=True)
     select = in_data.depth < minimum_depth
     data_under_water = las.filter_las(in_data, select)
     data_above_water = las.filter_las(in_data, np.logical_not(select))
@@ -72,7 +72,7 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1, force_sbet_std
 def refraction_correction_fwf(filepath, minimum_depth=-0.1, output_suffix = "_corbathy"):
 
     # open bathymetry file
-    in_data = las.read(filepath, True)
+    in_data = las.read_bfe(filepath, True)
 
     # correct the beam vector
     vect_app = np.vstack([in_data.x_t, in_data.y_t, in_data.z_t]).transpose()

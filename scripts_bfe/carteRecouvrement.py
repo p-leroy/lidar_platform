@@ -91,7 +91,7 @@ class Overlap(object):
         os.remove(new_file)
 
     def WritingFile(self,filepath):
-        inData= tools.lastools.read(filepath, extra_field=True)
+        inData= tools.lastools.read_bfe(filepath, extra_field=True)
         select1=inData["distance_uncertainty"]<self.filterDistUncertainty
         select2=np.logical_and(inData["m3c2_distance"]<self.m3c2Dist,inData["m3c2_distance"]>-self.m3c2Dist)
         select=np.logical_and(select1,select2)

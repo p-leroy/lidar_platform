@@ -132,7 +132,7 @@ class Overlap(object):
             print(error)
 
     def filter_m3c2_data(self, filepath):
-        data = las.read(filepath, extra_field=True)
+        data = las.read_bfe(filepath, extra_field=True)
         extra_fields = [key for key in data.metadata['extraField']]
 
         try:  # filter distance uncertainty
