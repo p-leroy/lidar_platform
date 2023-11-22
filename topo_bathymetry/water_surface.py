@@ -8,39 +8,33 @@ from ..config.config import cc_std, cc_custom
 from . import bathymetry as bathy
 
 
-def c2c_c2c3(compared, reference, xy_index, global_shift):
+def c2c_c2c3(compared, reference, global_shift):
     # compute cloud to cloud distances and rename the scalar fields for further processing
     head, tail = os.path.split(compared)
     root, ext = os.path.splitext(tail)
     out = os.path.join(head, root + '_C2C3.bin')
 
-    cmd = cc_custom
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
-    # if global_shift == 'auto':
-    #     cmd += f' -O -GLOBAL_SHIFT AUTO {compared}'
-    # else:
-    #     shift_x = global_shift[0]
-    #     shift_y = global_shift[1]
-    #     shift_z = global_shift[2]
+    cmd = [cc_custom]
+    cmd.extend(['-SILENT', '-NO_TIMESTAMP', '-C_EXPORT_FMT', 'BIN', '-AUTO_SAVE', 'OFF'])
 
     x, y, z = global_shift
-    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {compared}'
-    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {reference}'
-    cmd += f' -C2C_DIST -SPLIT_XY_Z'
-    cmd += ' -POP_CLOUDS'
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), compared])
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), reference])
+    cmd.extend(['-C2C_DIST', '-SPLIT_XY_Z'])
+    cmd.append('-POP_CLOUDS')
     # XY _ X Y Z scalar fields are in this order
-    cmd += f' -REMOVE_SF {xy_index + 3}'  # remove Y first
-    cmd += f' -REMOVE_SF {xy_index + 2}'   # then remove X
-    cmd += f' -RENAME_SF {xy_index + 2} C2C3_Z'
-    cmd += f' -RENAME_SF {xy_index + 1} C2C3'
-    cmd += f' -RENAME_SF {xy_index} C2C3_XY'
-    cmd += f' -SAVE_CLOUDS FILE {out}'
+    cmd.extend(['-REMOVE_SF', 'C2C absolute distances (X)'])
+    cmd.extend(['-REMOVE_SF', 'C2C absolute distances (Y)'])
+    cmd.extend(['-RENAME_SF', 'C2C absolute distances (Z)', 'C2C3_Z'])
+    cmd.extend(['-RENAME_SF', 'C2C absolute distances', 'C2C3'])
+    cmd.extend(['-RENAME_SF', 'C2C absolute distances (XY)', 'C2C3_XY'])
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd)
 
     return out
 
 
-def extract_seed(cloud, c2c3_xy_index, depth=0.5):
+def extract_seed(cloud, depth=0.5):
     if not misc.exists(cloud):
         return
     head, tail = os.path.split(cloud)
@@ -49,15 +43,15 @@ def extract_seed(cloud, c2c3_xy_index, depth=0.5):
     os.makedirs(odir, exist_ok=True)
     out = os.path.join(odir, root + f'_water_surface_seed.bin')
 
-    cmd = cc_custom
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
-    cmd += f' -O -GLOBAL_SHIFT AUTO {cloud}'
-    cmd += f' -SET_ACTIVE_SF {c2c3_xy_index + 2} -FILTER_SF {depth} 5.'  # C2C3_Z i.e. depth
-    cmd += ' -OCTREE_NORMALS 5. -MODEL LS -ORIENT PLUS_Z -NORMALS_TO_DIP'
-    cmd += f' -SET_ACTIVE_SF {c2c3_xy_index + 3} -FILTER_SF MIN 1.'  # DIP
-    cmd += ' -DENSITY 5. -TYPE KNN'
-    cmd += f' -SET_ACTIVE_SF LAST -FILTER_SF 10 MAX'
-    cmd += f' -SAVE_CLOUDS FILE {out}'
+    cmd = [cc_custom]
+    cmd.extend(['-SILENT', '-NO_TIMESTAMP', '-C_EXPORT_FMT', 'BIN', '-AUTO_SAVE', 'OFF'])
+    cmd.extend(['-O', '-GLOBAL_SHIFT', 'AUTO', cloud])
+    cmd.extend(['-SET_ACTIVE_SF', f'C2C3_Z', '-FILTER_SF', str(depth), str(5.)])  # C2C3_Z i.e. depth
+    cmd.extend(['-OCTREE_NORMALS', str(5.), '-MODEL', 'LS', '-ORIENT', 'PLUS_Z', '-NORMALS_TO_DIP'])
+    cmd.extend(['-SET_ACTIVE_SF', f'DIP', '-FILTER_SF', 'MIN', str(1.)])  # DIP
+    cmd.extend(['-DENSITY', str(5.), '-TYPE', 'KNN'])
+    cmd.extend(['-SET_ACTIVE_SF', 'LAST', '-FILTER_SF', str(10), 'MAX'])
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd)
 
     return out

@@ -70,7 +70,7 @@ def merge_sbet(sbet_list):
     return new
 
 
-class SBET(object):
+class SbetData(object):
     def __init__(self, filepath):
         self.filepath = filepath
 
@@ -90,15 +90,15 @@ class SBET(object):
     
     def load_data(self):
         if os.path.splitext(self.filepath)[-1] != ".out":
-            raise OSError("Unknown file extension, can read_bfe only .out file !")
+            raise OSError("Unknown file extension, can read only .out file!")
         else:
-            print(f'[SBET.load_data] load data from {self.filepath}')
+            print(f'[SbetData.load_data] load data from {self.filepath}')
 
         f = open(self.filepath, mode='rb')
         f_size = os.path.getsize(self.filepath)
         data = mmap.mmap(f.fileno(), f_size, access=mmap.ACCESS_READ)
         nbr_line = int(len(data) / LINE_SIZE)
-        print(f'[SBET.load_data] number of lines in SBET files: {nbr_line}')
+        print(f'[SbetData.load_data] number of lines in SBET files: {nbr_line}')
 
         temp = []
         for i in range(0, nbr_line):
@@ -197,10 +197,10 @@ def calc_grid(name_geoid, pts0, deltas):
     return True
 
 
-def Projection(epsg_in, epsg_out, x, y, z):
+def transform_coordinates(epsg_in, epsg_out, x, y, z):
     """
     Function for compute the transformation between
-    2 references system. This function use PyProj library.
+    2 references system. This function uses the PyProj library.
 
     Parameters
     ----------
@@ -233,24 +233,24 @@ def Projection(epsg_in, epsg_out, x, y, z):
     return np.transpose(result)
 
 
-def sbet_config(filepath):
-    sbet_dict = {}
+def read(filepath):
+    config = {}
     for i in np.loadtxt(filepath, str, delimiter="="):
-        sbet_dict[i[0]] = i[1]
+        config[i[0]] = i[1]
     
-    sbet_list = []
-    for i in sbet_dict['listFiles'].split(','):
-        sbet_file = os.path.join(sbet_dict['path'], str(i))
-        sbet_list += [SBET(sbet_file)]
+    sbet_data_list = []
+    for i in config['listFiles'].split(','):
+        sbet_file = os.path.join(config['path'], str(i))
+        sbet_data_list += [SbetData(sbet_file)]
     
-    if len(sbet_list) > 1:
-        sbet_obj = merge_sbet(sbet_list)
+    if len(sbet_data_list) > 1:
+        sbet_data = merge_sbet(sbet_data_list)
     else:
-        sbet_obj = sbet_list[0]
+        sbet_data = sbet_data_list[0]
     
-    if sbet_dict['Z'] == 'height':
-        sbet_obj.h2he(sbet_dict['geoidgrid'])
+    if config['Z'] == 'height':
+        sbet_data.h2he(config['geoidgrid'])
 
-    sbet_obj.projection(int(sbet_dict['epsg_source']), int(sbet_dict['epsg_target']))
+    sbet_data.projection(int(config['epsg_source']), int(config['epsg_target']))
 
-    return sbet_obj
+    return sbet_data

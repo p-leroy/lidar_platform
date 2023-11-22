@@ -46,7 +46,7 @@ class CCCommand(list):
         if not os.path.exists(fullname):
             raise FileNotFoundError(fullname)
         if fwf:
-            self.append('-fwf_o')
+            self.append('-fwf_o')  # old syntax for full waveform, only for backward compatibility
         else:
             self.append('-o')
         if global_shift is not None:
@@ -217,7 +217,7 @@ def density(pc, radius, density_type,
 
 def q3dmasc_get_labels(training_file):
     # if 'core_points:' is defined, the main cloud is the cloud defined by core_points
-    # if not, the main cloud is the first occurence of 'clouds:'
+    # if not, the main cloud is the first occurence of 'cloud:'
     with open(training_file, 'r') as f:
         clouds = []
         core_points = None
@@ -237,10 +237,10 @@ def q3dmasc_get_labels(training_file):
 
 
 def q3dmasc(clouds, training_file, only_features=False,
-            silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
+            silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom, fmt='sbf'):
     """Command line call to 3DMASC with the only_features option.
 
-    In command line, the clouds to load are not read_bfe in the parameter file, you have to specify them in the call
+    In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
     and you also have to associate each label to a number, the number representing the order in which the clouds
     have been loaded
 
@@ -255,9 +255,9 @@ def q3dmasc(clouds, training_file, only_features=False,
 
     main_label, labels = q3dmasc_get_labels(training_file)  # get cloud labels from the parameter file
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')  # create the command
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)  # create the command
     cloud_dict = {}  # will be used to generate the name of the output file
-    if type(clouds) == list:
+    if type(clouds) is list or type(clouds) is tuple:
         for i, cloud in enumerate(clouds):
             cmd.open_file(cloud, global_shift=global_shift)
             cloud_dict[labels[i]] = cloud
@@ -276,7 +276,7 @@ def q3dmasc(clouds, training_file, only_features=False,
     misc.run(cmd, verbose=verbose)
 
     root, ext = os.path.splitext(cloud_dict[main_label])
-    return root + '_WITH_FEATURES.sbf'
+    return root + f'_WITH_FEATURES.{fmt}'
 
 
 ################
