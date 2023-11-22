@@ -135,7 +135,7 @@ class SbetData(object):
         self.elevation = self.array['elevation']
 
     def projection(self, epsg_in, epsg_out):
-        # Conversion geo coordinates tp projected coordinates
+        # Conversion geo coordinates to projected coordinates
         # epsg:4171 -> ETRS89-géo lat,long,h
         # epsg:2154 -> RGF93-L93 E,N,H
         # epsg:4326 -> WGS84-géo lat,long,h
@@ -151,8 +151,8 @@ class SbetData(object):
 
         data = np.array([self.easting, self.northing, self.elevation, self.gps_time])
         out = self.filepath[0:-4] + "_ascii.txt"
-        f = np.savetxt(out, np.transpose(data),
-                       fmt="%.3f;%.3f;%.3f;%f", delimiter=";", header="X;Y;Z;gpstime")
+        np.savetxt(out, np.transpose(data),
+                   fmt="%.3f;%.3f;%.3f;%f", delimiter=";", header="X;Y;Z;gpstime")
         return out
 
     def interpolate(self, time_ref):
