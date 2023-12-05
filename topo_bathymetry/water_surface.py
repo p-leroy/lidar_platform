@@ -4,7 +4,7 @@ import shutil
 import numpy as np
 
 from ..tools import cc, misc
-from ..config.config import cc_std, cc_custom
+from ..config.config import cc_exe
 from . import bathymetry as bathy
 
 
@@ -14,7 +14,7 @@ def c2c_c2c3(compared, reference, global_shift):
     root, ext = os.path.splitext(tail)
     out = os.path.join(head, root + '_C2C3.bin')
 
-    cmd = [cc_custom]
+    cmd = [cc_exe]
     cmd.extend(['-SILENT', '-NO_TIMESTAMP', '-C_EXPORT_FMT', 'BIN', '-AUTO_SAVE', 'OFF'])
 
     x, y, z = global_shift
@@ -43,12 +43,12 @@ def extract_seed(cloud, depth=0.5):
     os.makedirs(odir, exist_ok=True)
     out = os.path.join(odir, root + f'_water_surface_seed.bin')
 
-    cmd = [cc_custom]
+    cmd = [cc_exe]
     cmd.extend(['-SILENT', '-NO_TIMESTAMP', '-C_EXPORT_FMT', 'BIN', '-AUTO_SAVE', 'OFF'])
     cmd.extend(['-O', '-GLOBAL_SHIFT', 'AUTO', cloud])
     cmd.extend(['-SET_ACTIVE_SF', f'C2C3_Z', '-FILTER_SF', str(depth), str(5.)])  # C2C3_Z i.e. depth
     cmd.extend(['-OCTREE_NORMALS', str(5.), '-MODEL', 'LS', '-ORIENT', 'PLUS_Z', '-NORMALS_TO_DIP'])
-    cmd.extend(['-SET_ACTIVE_SF', f'DIP', '-FILTER_SF', 'MIN', str(1.)])  # DIP
+    cmd.extend(['-SET_ACTIVE_SF', 'Dip (degrees)', '-FILTER_SF', 'MIN', str(1.)])  # DIP
     cmd.extend(['-DENSITY', str(5.), '-TYPE', 'KNN'])
     cmd.extend(['-SET_ACTIVE_SF', 'LAST', '-FILTER_SF', str(10), 'MAX'])
     cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
@@ -57,7 +57,7 @@ def extract_seed(cloud, depth=0.5):
     return out
 
 
-def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, c2c3_xy_index, depth=0.2, step=None):
+def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, depth=0.2, step=None):
     # c2_cloud_with_c2c3_dist shall contain C2C3_XY, C2C3 and C2C3_Z scalar fields
     if not misc.exists(c2_cloud_with_c2c3_dist):
         return
@@ -72,19 +72,24 @@ def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, c2c3_xy_index, dept
         out = os.path.join(odir, root + f'_propagation.bin')
     dip = np.tan(1. * np.pi / 180)  # dip 1 degree
 
-    cmd = cc_custom
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
-    cmd += f' -O {c2_cloud_with_c2c3_dist}'  # no global shift for bin file
-    cmd += f' -O {current_surface}'  # no global shift for a bin file
-    cmd += ' -C2C_DIST -SPLIT_XY_Z'
-    cmd += ' -POP_CLOUDS'
-    xy_index = c2c3_xy_index + 3
-    cmd += f' -SET_ACTIVE_SF "C2C absolute distances (XY)" -FILTER_SF 0.001 10.'  # keep closest points and avoid duplicates (i.e. xy = 0)
-    cmd += f' -SET_ACTIVE_SF C2C3_Z -FILTER_SF {depth} MAX'  # consider only points with C2 above C3
-    cmd += f' -SF_OP_SF "C2C absolute distances (Z)" DIV "C2C absolute distances (XY)"'  # compute the dip: Z / XY
-    cmd += f' -SET_ACTIVE_SF "Dip (degrees)" -FILTER_SF {-dip} {dip}'  # filter wrt dip
-    cmd += f' -O -GLOBAL_SHIFT FIRST {current_surface} -MERGE_CLOUDS' # merge new points with the previous ones
-    cmd += f' -SAVE_CLOUDS FILE {out}'
+    cmd = cc.CCCommand(cc_exe, silent=True, fmt='BIN')
+    cmd.open_file(c2_cloud_with_c2c3_dist)  # no global shift for bin file
+    cmd.open_file(current_surface)  # no global shift for bin file
+    cmd.extend(['-C2C_DIST', '-SPLIT_XY_Z'])
+    cmd.append('-POP_CLOUDS')
+
+    # keep closest points and avoid duplicates (i.e. xy = 0)
+    cmd.extend(['-SET_ACTIVE_SF', 'C2C absolute distances (XY)', '-FILTER_SF', str(0.001), str(10.)])
+    # consider only points with C2 above C3
+    cmd.extend(['-SET_ACTIVE_SF', 'C2C3_Z', '-FILTER_SF', str(depth), 'MAX'])
+    # compute the dip: Z / XY
+    cmd.extend(['-SF_OP_SF', 'C2C absolute distances (Z)', 'DIV', 'C2C absolute distances (XY)'])
+    # filter wrt dip
+    cmd.extend(['-SET_ACTIVE_SF', 'Dip (degrees)', '-FILTER_SF', str(-dip), str(dip)])
+    # merge new points with the previous ones
+    cmd.open_file(current_surface, global_shift='FIRST')
+    cmd.append('-MERGE_CLOUDS')
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd)
 
     return out
@@ -103,7 +108,7 @@ def c2c_class_9(line, class_9, global_shift, octree_level=10, odir='c2c_class_9'
 
     x, y, z = global_shift
     print(f'process line {line}')
-    cmd = cc_custom
+    cmd = cc_exe
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
     cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {line}'
     cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {class_9}'
