@@ -236,7 +236,7 @@ def q3dmasc_get_labels(training_file):
         return main_cloud, clouds
 
 
-def q3dmasc(clouds, training_file, only_features=False,
+def q3dmasc(clouds, training_file, only_features=False, keep_attributes=False,
             silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom, fmt='sbf'):
     """Command line call to 3DMASC with the only_features option.
 
@@ -255,7 +255,7 @@ def q3dmasc(clouds, training_file, only_features=False,
 
     main_label, labels = q3dmasc_get_labels(training_file)  # get cloud labels from the parameter file
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)  # create the command
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt, auto_save='ON')  # create the command
     cloud_dict = {}  # will be used to generate the name of the output file
     if type(clouds) is list or type(clouds) is tuple:
         for i, cloud in enumerate(clouds):
@@ -267,6 +267,9 @@ def q3dmasc(clouds, training_file, only_features=False,
     cmd.append('-3DMASC_CLASSIFY')
     if only_features:
         cmd.append('-ONLY_FEATURES')
+    else:
+        if keep_attributes:
+            cmd.append('-KEEP_ATTRIBUTES')
     cmd.append(training_file)
 
     # generate the string where roles are associated with open clouds, e.g. 'pc1=1 pc2=2'
@@ -276,7 +279,12 @@ def q3dmasc(clouds, training_file, only_features=False,
     misc.run(cmd, verbose=verbose)
 
     root, ext = os.path.splitext(cloud_dict[main_label])
-    return root + f'_WITH_FEATURES.{fmt}'
+    if only_features:
+        output_name = root + '_WITH_FEATURES.' + fmt.lower()
+    else:
+        output_name = root + '_CLASSIFIED.' + fmt.lower()
+
+    return output_name
 
 
 ################

@@ -134,6 +134,7 @@ class SbfData:
         self.config = None
 
         self.read_sbf(filename)  # set pc, sf and config
+        self.sf_names = self.get_sf_names()
 
     def read_sbf(self, verbose=False):
         config = read_sbf_header(self.filename, verbose=verbose)  # READ .sbf header
@@ -176,13 +177,18 @@ class SbfData:
             sf = None
 
         self.pc = pc
-        self.sf = sf
+        self.sf = sf.astype(np.float32)
         self.config = config
 
     def get_name_index_dict(self):
         dict_ = {self.config['SBF'][name]: int(name.split('SF')[1]) - 1
                  for name in self.config['SBF'] if len(name.split('SF')) == 2 and is_int(name.split('SF')[1])}
         return dict_
+
+    def get_sf_names(self):
+        list_ = [self.config['SBF'][name]
+                 for name in self.config['SBF'] if len(name.split('SF')) == 2 and is_int(name.split('SF')[1])]
+        return list_
 
     def remove_sf(self, name, sf, config):
         name_index = self.get_name_index_dict(config)
@@ -218,5 +224,9 @@ class SbfData:
         self.config['SBF'][f'SF{index + 1}'] = new_name
 
 
-def read(filename):
+def read_sbf(filename):
     return SbfData(filename)
+
+
+def open_sbf(filename):
+    return read_sbf_header(filename)
