@@ -135,6 +135,7 @@ class SbfData:
 
         self.read_sbf(filename)  # set pc, sf and config
         self.sf_names = self.get_sf_names()
+        self.name_index = self.get_name_index_dict()
 
     def read_sbf(self, verbose=False):
         config = read_sbf_header(self.filename, verbose=verbose)  # READ .sbf header
@@ -190,27 +191,31 @@ class SbfData:
                  for name in self.config['SBF'] if len(name.split('SF')) == 2 and is_int(name.split('SF')[1])]
         return list_
 
-    def remove_sf(self, name, sf, config):
-        name_index = self.get_name_index_dict(config)
+    def remove_sf(self, name):
         # remove the scalar field from the sf array
-        index = name_index[name]
-        new_sf = np.delete(sf, index, axis=1)
+        index = self.name_index[name]
+        new_sf = np.delete(self.sf, index, axis=1)
         # copy the configuration
         new_config = configparser.ConfigParser()
         new_config.optionxform = str
-        new_config.read_dict(config)
+        new_config.read_dict(self.config)
         sf_index = index + 1
-        sf_count = int(config['SBF']['SFCount'])
+        sf_count = int(self.config['SBF']['SFCount'])
         # update the configuration
         new_config['SBF']['SFCount'] = str(sf_count - 1)  # decrease the counter of scalar fields
         new_config.remove_option('SBF', f'SF{sf_count}')  # remove the last option
         for idx in range(1, sf_index):
-            new_config['SBF'][f'SF{idx}'] = config['SBF'][f'SF{idx}']
+            new_config['SBF'][f'SF{idx}'] = self.config['SBF'][f'SF{idx}']
         for idx in range(sf_index, sf_count):
-            new_config['SBF'][f'SF{idx}'] = config['SBF'][f'SF{idx + 1}']
+            new_config['SBF'][f'SF{idx}'] = self.config['SBF'][f'SF{idx + 1}']
 
         self.sf = new_sf
-        self.config = new_config
+        self.set_config(new_config)
+
+    def set_config(self, config):
+        self.config = config
+        self.name_index = self.get_name_index_dict()
+        self.sf_names = self.get_sf_names()
 
     def add_sf(self, name, sf_to_add):
         sf_count = int(self.config['SBF']['SFCount'])
@@ -219,8 +224,7 @@ class SbfData:
         self.sf = np.c_[self.sf, sf_to_add]  # add the clumn to the array
 
     def rename_sf(self, name, new_name):
-        name_index = self.get_name_index_dict(self.config)
-        index = name_index[name]
+        index = self.name_index[name]
         self.config['SBF'][f'SF{index + 1}'] = new_name
 
 

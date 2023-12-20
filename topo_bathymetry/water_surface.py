@@ -1,11 +1,9 @@
 import os
-import shutil
 
 import numpy as np
 
-from ..tools import cc, misc
+from ..tools import cc, misc, sbf
 from ..config.config import cc_exe
-from . import bathymetry as bathy
 
 
 def c2c_c2c3(compared, reference, global_shift):
@@ -131,7 +129,8 @@ def classify_class_9_in_line(c2c, zmin_zmax=(-0.2, 0.05), xy_max=5, lastools_gc=
         print(f'[classify_class_9_in_line] sbf already exists, nothing to do {out}')
         return out
 
-    pc, sf, config = cc.read_sbf(c2c)
+    sbf_data = sbf.read(c2c)
+    pc, sf, config = sbf_data.pc, sbf_data.sf, sbf_data.config
     zmin, zmax = zmin_zmax
 
     name_index = cc.get_name_index_dict(config)
@@ -166,7 +165,7 @@ def classify_class_9_in_line(c2c, zmin_zmax=(-0.2, 0.05), xy_max=5, lastools_gc=
     return out
 
 
-def c2c_class_15_16(line, class_15_16, global_shift, octree_level=10, odir='c2c_class_15_16'):
+def c2c_class_15_16(line, class_15_16, global_shift, octree_level=10, odir='c2c_15_16'):
 
     head, tail, root, ext = misc.head_tail_root_ext(line)
     odir = os.path.join(head, odir)
@@ -179,20 +178,23 @@ def c2c_class_15_16(line, class_15_16, global_shift, octree_level=10, odir='c2c_
 
     x, y, z = global_shift
     print(f'process line {line}')
-    cmd = cc_custom
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
-    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {line}'
-    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {class_15_16}'
-    cmd += f' -C2C_DIST -SPLIT_XY_Z -MAX_DIST 20 -OCTREE_LEVEL {octree_level}'
-    cmd += ' -POP_CLOUDS'  # remove class_9 from the database
-    cmd += f' -SAVE_CLOUDS FILE {out}'
+    cmd = [cc_exe]
+    cmd.extend(['-SILENT', '-NO_TIMESTAMP', '-C_EXPORT_FMT', 'SBF', '-AUTO_SAVE', 'OFF'])
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), line])
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), class_15_16])
+    cmd.extend(['-C2C_DIST', '-SPLIT_XY_Z', '-MAX_DIST', str(10), '-OCTREE_LEVEL', str(octree_level)])
+    cmd.append('-POP_CLOUDS')  # remove class_9 from the database
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd)
 
     return out
 
 
-def reclassify_class_2_using_class_15_16(c2c, xy_max=3, dir_name='lines_with_2_corr'):
+def reclassify_class_2_using_class_15_16(c2c, xy_max=3, dir_name='with_2_corr'):
     # look for c2c results
+    if not os.path.exists(c2c):
+        print('WARNING reclassify_class_2_using_class_15_16 failed silently because c2c file does not exists')
+        return
     head, tail, root, ext = misc.head_tail_root_ext(c2c)
     odir = os.path.join(head, dir_name)
     os.makedirs(odir, exist_ok=True)
@@ -202,10 +204,12 @@ def reclassify_class_2_using_class_15_16(c2c, xy_max=3, dir_name='lines_with_2_c
         print(f'[classify_class_9_in_line] sbf already exists, nothing to do {out}')
         return out
 
-    pc, sf, config = cc.read_sbf(c2c)
+    sbf_data = sbf.read(c2c)
+    sf = sbf_data.sf
 
-    name_index = cc.get_name_index_dict(config)
-    xy = sf[:, name_index['C2C absolute distances[<20] (XY)']]
+    name_index = sbf_data.get_name_index_dict()
+    dist = sf[:, name_index['C2C absolute distances[<10]']]
+    dist_xy = sf[:, name_index['C2C absolute distances[<10] (XY)']]
 
     try:
         classification = sf[:, name_index['Classification']]
@@ -217,18 +221,18 @@ def reclassify_class_2_using_class_15_16(c2c, xy_max=3, dir_name='lines_with_2_c
 
     # reclassify ground points in C2 which are too close to class 15 and 16 of C3
     # this is to avoid having water surface points classified as ground points (where we have C3 data)
-    select = (classification == 2) & (xy < xy_max)
+    select = (classification == 2) & (dist_xy < xy_max) & (dist < 10)
     classification[select] = 1
     print(f'{np.count_nonzero(select)}/{len(classification)} reclassified as undetermined (1 instead of 2)')
 
     # remove unused scalar fields
-    sf, config = cc.remove_sf('C2C absolute distances[<20] (XY)', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<20]', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<20] (X)', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<20] (Y)', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<20] (Z)', sf, config)
+    sbf_data.remove_sf('C2C absolute distances[<10] (XY)')
+    sbf_data.remove_sf('C2C absolute distances[<10]')
+    sbf_data.remove_sf('C2C absolute distances[<10] (X)')
+    sbf_data.remove_sf('C2C absolute distances[<10] (Y)')
+    sbf_data.remove_sf('C2C absolute distances[<10] (Z)')
 
-    cc.write_sbf(out, pc, sf, config)
+    sbf.write(out, sbf_data.pc, sbf_data.sf, sbf_data.config)
 
     return out
 

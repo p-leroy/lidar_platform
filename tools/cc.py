@@ -494,8 +494,7 @@ def all_to_bin(dir_, shift, debug=False):
                 to_bin(path, debug=debug, shift=shift)
 
 
-def to_laz(fullname, remove=False, save_clouds='SAVE_CLOUDS',
-           silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe):
+def to_laz(fullname, remove=False, silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe):
     """
 
     :param fullname:
@@ -514,10 +513,11 @@ def to_laz(fullname, remove=False, save_clouds='SAVE_CLOUDS',
     root, ext = os.path.splitext(fullname)
     if ext == '.laz':  # nothing to do, simply return the name
         return fullname
+    out = root + '.laz'
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='LAZ')
     cmd.open_file(fullname, global_shift=global_shift)
-    cmd.append(f'-{save_clouds}')
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd, verbose=debug)
 
     if remove:
@@ -527,7 +527,8 @@ def to_laz(fullname, remove=False, save_clouds='SAVE_CLOUDS',
             to_remove = fullname + '.data'
             print(f'remove {to_remove}')
             os.remove(to_remove)
-    return os.path.splitext(fullname)[0] + '.laz'
+
+    return out
 
 
 def to_sbf(fullname,
@@ -696,7 +697,7 @@ def get_from_bin(bin_):
 # SBF READ/WRITE
 ################
 
-error_message_sbf = "There is a dedicated module for SBF format handling, from lidar_platform import sbf"
+error_message_sbf = "There is a dedicated module for SBF format handling, use 'from lidar_platform import sbf'"
 
 
 def get_name_index_dict(config):
