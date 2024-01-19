@@ -26,7 +26,7 @@ classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Build
 
 def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False):
     """
-    This function can be used to read 3DMASC features saved in an SBF file.
+    Read an SBF file containing a point cloud with 3DMASC features.
 
     Parameters
     ---------
@@ -79,7 +79,7 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
 
 def feature_clean(features):
     """
-    Function to clean the features (no normalization, juste NaN and Inf values cleaning)
+    Delete NaN and Inf values in the features set (no normalization, juste NaN and Inf values cleaning)
 
     Parameters
     ----------
@@ -107,8 +107,8 @@ def feature_clean(features):
 
 def train(trads, model=0):
     """
-    Function to train a random forest model for point cloud features classification.
-    Handles two types of RF models: scikit-learn (parallelized computing), and
+    Train a random forest model for point cloud features classification.
+    This function handles two types of RF models: scikit-learn (parallelized computing), and
     OpenCV (same as in CloudCompare, but not parallelized).
 
     Parameters
@@ -147,7 +147,7 @@ def train(trads, model=0):
 
 def test(testds, classifier, model=0):
     """
-    Function to test the random forest model obtained.
+    Test the random forest model obtained.
     The model is tested on the test dataset, and classification metrics are computed.
 
     Parameters
@@ -195,8 +195,8 @@ def test(testds, classifier, model=0):
 
 def get_acc_expe(trads, testds, plot=True, save=False, model=0):
     """
-    Function to train a random forest model for point cloud features classification
-    and get metrics describing its performances.
+    Train a random forest model for point cloud features classification and
+    get metrics describing its performances.
 
     Parameters
     ----------
@@ -275,7 +275,7 @@ def get_acc_expe(trads, testds, plot=True, save=False, model=0):
 
 def plot_feat_imp(feat_imp, trads, save=False, plot=True):
     """
-    Function to get a graph plot of the RF feature importance.
+    Plot the random forest feature importance.
 
     Parameters
     ----------
@@ -305,7 +305,7 @@ def plot_feat_imp(feat_imp, trads, save=False, plot=True):
 
 def plot_corr_mat(trads, plot=True, save=False):
     """
-    Function to visualize correlation between features as a heatmap.
+    Visualize correlation between features as a heatmap.
 
     Parameters
     ----------
@@ -340,7 +340,7 @@ def plot_corr_mat(trads, plot=True, save=False):
 
 def get_shap_expl(classifier, testds, save=True):
     """
-    Function to get the shap summary plot of a random forest classifier trained on the given dataset
+    Get the shap summary plot of a random forest classifier trained on the given dataset
     (only works with scikit-learn models).
 
     Parameters
@@ -372,7 +372,7 @@ def get_shap_expl(classifier, testds, save=True):
 
 def classif_errors_confidence(pred, true, confid_pred):
     """
-    Function to get statistics of prediction probability of a classifier when he predicts wrong classes.
+    Get statistics about the prediction probability obtained by misclassified points.
 
     Args:
         pred: numpy array
