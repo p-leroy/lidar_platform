@@ -27,7 +27,6 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1, force_sbet_std
 
     # GPS time format handling
     my_gps_time = las.GPSTime(in_data['gps_time'])
-    in_data_gps_time = in_data['gps_time']
     detected_gps_time_format = my_gps_time.gps_time_type.name
     las_data = laspy.open(filepath)
     las_header_gps_time_format = las_data.header.global_encoding.gps_time_type.name
@@ -64,7 +63,7 @@ def refraction_correction(filepath, sbet_obj, minimum_depth=-0.1, force_sbet_std
     data_under_water.XYZ = coords_true
     data_corbathy = las.merge_las([data_under_water, data_above_water])
 
-    las.WriteLAS(out, data_corbathy, format_id=las_point_format_id, extra_fields=extra)
+    las.WriteLAS(out, data_corbathy, point_format=las_point_format_id, extra_fields=extra)
 
     return out
 
@@ -106,25 +105,31 @@ def refraction_correction_fwf(filepath, minimum_depth=-0.1, output_suffix = "_co
     shutil.copyfile(src, dst)
 
 
-def do_work(files, sbet_params, n_jobs, fwf=False, minimum_depth=-0.1, force_sbet_std_time=False):
+def correct(files, sbet_params, n_jobs, fwf=False, minimum_depth=-0.1, force_sbet_std_time=False):
     start = time.time()
 
     if fwf:
-        print("[do_work] full waveform mode")
-        results = Parallel(n_jobs=n_jobs, verbose=1)(
-            delayed(refraction_correction_fwf)(f)
-            for f in files)
+        print("[correct] full waveform mode")
+        if type(files) is list or type(files) is tuple:
+            results = Parallel(n_jobs=n_jobs, verbose=1)(
+                delayed(refraction_correction_fwf)(f)
+                for f in files)
+        else:
+            results = refraction_correction_fwf(files)
     else:
-        print("[do_work] SBET data processing: start")
-        sbet_obj = sbet.sbet_config(sbet_params)
-        print("[do_work] SBET data processing: done")
-        print("[do_work] normal mode")
-        results = Parallel(n_jobs=n_jobs, verbose=1)(
-            delayed(refraction_correction)(file, sbet_obj, force_sbet_std_time=force_sbet_std_time)
-            for file in files)
+        print("[correct] SBET data processing: start")
+        sbet_data = sbet.read(sbet_params)
+        print("[correct] SBET data processing: done")
+        print("[correct] normal mode")
+        if type(files) is list or type(files) is tuple:
+            results = Parallel(n_jobs=n_jobs, verbose=1)(
+                delayed(refraction_correction)(file, sbet_data, force_sbet_std_time=force_sbet_std_time)
+                for file in files)
+        else:
+            results = refraction_correction(files, sbet_data, force_sbet_std_time=force_sbet_std_time)
 
     stop = time.time()
-    print("[do_work] done in " + str(round(stop - start, 1)) + " sec")
+    print("[correct] done in " + str(round(stop - start, 1)) + " sec")
 
     return results
 
@@ -139,4 +144,4 @@ if __name__ == '__main__':
     parser.add_argument('-n_jobs', metavar='N', type=int, default=1, help='number of jobs (1 by default)')
     args = parser.parse_args()
     # define parameters
-    do_work(args.input, args.sbet, args.n_jobs, args.fwf)
+    correct(args.input, args.sbet, args.n_jobs, args.fwf)

@@ -481,7 +481,7 @@ def read_bfe(filepath, extra_fields=False, parallel=True):
 
     las_data = laspy.read(filepath, laz_backend=backend)
     gps_time_type = las_data.header.global_encoding.gps_time_type
-    print(f'[las.read_bfe] gps_time_type read_bfe in header: {gps_time_type.name}')
+    print(f'[las.read_bfe] gps_time_type read in header: {gps_time_type.name}')
     
     metadata = {"vlrs": read_vlrs(las_data.vlrs),
                 "extraField": [],

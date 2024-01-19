@@ -1,46 +1,38 @@
 import os
-import shutil
 
 import numpy as np
 
-from ..tools import cc, misc
-from ..config.config import cc_std, cc_custom
-from . import bathymetry as bathy
+from ..tools import cc, misc, sbf
+from ..config.config import cc_exe
 
 
-def c2c_c2c3(compared, reference, xy_index, global_shift):
+def c2c_c2c3(compared, reference, global_shift):
     # compute cloud to cloud distances and rename the scalar fields for further processing
     head, tail = os.path.split(compared)
     root, ext = os.path.splitext(tail)
     out = os.path.join(head, root + '_C2C3.bin')
 
-    cmd = cc_custom
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
-    # if global_shift == 'auto':
-    #     cmd += f' -O -GLOBAL_SHIFT AUTO {compared}'
-    # else:
-    #     shift_x = global_shift[0]
-    #     shift_y = global_shift[1]
-    #     shift_z = global_shift[2]
+    cmd = [cc_exe]
+    cmd.extend(['-SILENT', '-NO_TIMESTAMP', '-C_EXPORT_FMT', 'BIN', '-AUTO_SAVE', 'OFF'])
 
     x, y, z = global_shift
-    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {compared}'
-    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {reference}'
-    cmd += f' -C2C_DIST -SPLIT_XY_Z'
-    cmd += ' -POP_CLOUDS'
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), compared])
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), reference])
+    cmd.extend(['-C2C_DIST', '-SPLIT_XY_Z'])
+    cmd.append('-POP_CLOUDS')
     # XY _ X Y Z scalar fields are in this order
-    cmd += f' -REMOVE_SF {xy_index + 3}'  # remove Y first
-    cmd += f' -REMOVE_SF {xy_index + 2}'   # then remove X
-    cmd += f' -RENAME_SF {xy_index + 2} C2C3_Z'
-    cmd += f' -RENAME_SF {xy_index + 1} C2C3'
-    cmd += f' -RENAME_SF {xy_index} C2C3_XY'
-    cmd += f' -SAVE_CLOUDS FILE {out}'
+    cmd.extend(['-REMOVE_SF', 'C2C absolute distances (X)'])
+    cmd.extend(['-REMOVE_SF', 'C2C absolute distances (Y)'])
+    cmd.extend(['-RENAME_SF', 'C2C absolute distances (Z)', 'C2C3_Z'])
+    cmd.extend(['-RENAME_SF', 'C2C absolute distances', 'C2C3'])
+    cmd.extend(['-RENAME_SF', 'C2C absolute distances (XY)', 'C2C3_XY'])
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd)
 
     return out
 
 
-def extract_seed(cloud, c2c3_xy_index, depth=0.5):
+def extract_seed(cloud, depth=0.5):
     if not misc.exists(cloud):
         return
     head, tail = os.path.split(cloud)
@@ -49,21 +41,21 @@ def extract_seed(cloud, c2c3_xy_index, depth=0.5):
     os.makedirs(odir, exist_ok=True)
     out = os.path.join(odir, root + f'_water_surface_seed.bin')
 
-    cmd = cc_custom
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
-    cmd += f' -O -GLOBAL_SHIFT AUTO {cloud}'
-    cmd += f' -SET_ACTIVE_SF {c2c3_xy_index + 2} -FILTER_SF {depth} 5.'  # C2C3_Z i.e. depth
-    cmd += ' -OCTREE_NORMALS 5. -MODEL LS -ORIENT PLUS_Z -NORMALS_TO_DIP'
-    cmd += f' -SET_ACTIVE_SF {c2c3_xy_index + 3} -FILTER_SF MIN 1.'  # DIP
-    cmd += ' -DENSITY 5. -TYPE KNN'
-    cmd += f' -SET_ACTIVE_SF LAST -FILTER_SF 10 MAX'
-    cmd += f' -SAVE_CLOUDS FILE {out}'
+    cmd = [cc_exe]
+    cmd.extend(['-SILENT', '-NO_TIMESTAMP', '-C_EXPORT_FMT', 'BIN', '-AUTO_SAVE', 'OFF'])
+    cmd.extend(['-O', '-GLOBAL_SHIFT', 'AUTO', cloud])
+    cmd.extend(['-SET_ACTIVE_SF', f'C2C3_Z', '-FILTER_SF', str(depth), str(5.)])  # C2C3_Z i.e. depth
+    cmd.extend(['-OCTREE_NORMALS', str(5.), '-MODEL', 'LS', '-ORIENT', 'PLUS_Z', '-NORMALS_TO_DIP'])
+    cmd.extend(['-SET_ACTIVE_SF', 'Dip (degrees)', '-FILTER_SF', 'MIN', str(1.)])  # DIP
+    cmd.extend(['-DENSITY', str(5.), '-TYPE', 'KNN'])
+    cmd.extend(['-SET_ACTIVE_SF', 'LAST', '-FILTER_SF', str(10), 'MAX'])
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd)
 
     return out
 
 
-def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, c2c3_xy_index, depth=0.2, step=None):
+def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, depth=0.2, step=None):
     # c2_cloud_with_c2c3_dist shall contain C2C3_XY, C2C3 and C2C3_Z scalar fields
     if not misc.exists(c2_cloud_with_c2c3_dist):
         return
@@ -78,19 +70,24 @@ def propagate_1deg(c2_cloud_with_c2c3_dist, current_surface, c2c3_xy_index, dept
         out = os.path.join(odir, root + f'_propagation.bin')
     dip = np.tan(1. * np.pi / 180)  # dip 1 degree
 
-    cmd = cc_custom
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT BIN -AUTO_SAVE OFF'
-    cmd += f' -O {c2_cloud_with_c2c3_dist}'  # no global shift for bin file
-    cmd += f' -O {current_surface}'  # no global shift for a bin file
-    cmd += ' -C2C_DIST -SPLIT_XY_Z'
-    cmd += ' -POP_CLOUDS'
-    xy_index = c2c3_xy_index + 3
-    cmd += f' -SET_ACTIVE_SF "C2C absolute distances (XY)" -FILTER_SF 0.001 10.'  # keep closest points and avoid duplicates (i.e. xy = 0)
-    cmd += f' -SET_ACTIVE_SF C2C3_Z -FILTER_SF {depth} MAX'  # consider only points with C2 above C3
-    cmd += f' -SF_OP_SF "C2C absolute distances (Z)" DIV "C2C absolute distances (XY)"'  # compute the dip: Z / XY
-    cmd += f' -SET_ACTIVE_SF "Dip (degrees)" -FILTER_SF {-dip} {dip}'  # filter wrt dip
-    cmd += f' -O -GLOBAL_SHIFT FIRST {current_surface} -MERGE_CLOUDS' # merge new points with the previous ones
-    cmd += f' -SAVE_CLOUDS FILE {out}'
+    cmd = cc.CCCommand(cc_exe, silent=True, fmt='BIN')
+    cmd.open_file(c2_cloud_with_c2c3_dist)  # no global shift for bin file
+    cmd.open_file(current_surface)  # no global shift for bin file
+    cmd.extend(['-C2C_DIST', '-SPLIT_XY_Z'])
+    cmd.append('-POP_CLOUDS')
+
+    # keep closest points and avoid duplicates (i.e. xy = 0)
+    cmd.extend(['-SET_ACTIVE_SF', 'C2C absolute distances (XY)', '-FILTER_SF', str(0.001), str(10.)])
+    # consider only points with C2 above C3
+    cmd.extend(['-SET_ACTIVE_SF', 'C2C3_Z', '-FILTER_SF', str(depth), 'MAX'])
+    # compute the dip: Z / XY
+    cmd.extend(['-SF_OP_SF', 'C2C absolute distances (Z)', 'DIV', 'C2C absolute distances (XY)'])
+    # filter wrt dip
+    cmd.extend(['-SET_ACTIVE_SF', 'Dip (degrees)', '-FILTER_SF', str(-dip), str(dip)])
+    # merge new points with the previous ones
+    cmd.open_file(current_surface, global_shift='FIRST')
+    cmd.append('-MERGE_CLOUDS')
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd)
 
     return out
@@ -109,7 +106,7 @@ def c2c_class_9(line, class_9, global_shift, octree_level=10, odir='c2c_class_9'
 
     x, y, z = global_shift
     print(f'process line {line}')
-    cmd = cc_custom
+    cmd = cc_exe
     cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
     cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {line}'
     cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {class_9}'
@@ -132,7 +129,8 @@ def classify_class_9_in_line(c2c, zmin_zmax=(-0.2, 0.05), xy_max=5, lastools_gc=
         print(f'[classify_class_9_in_line] sbf already exists, nothing to do {out}')
         return out
 
-    pc, sf, config = cc.read_sbf(c2c)
+    sbf_data = sbf.read(c2c)
+    pc, sf, config = sbf_data.pc, sbf_data.sf, sbf_data.config
     zmin, zmax = zmin_zmax
 
     name_index = cc.get_name_index_dict(config)
@@ -167,7 +165,7 @@ def classify_class_9_in_line(c2c, zmin_zmax=(-0.2, 0.05), xy_max=5, lastools_gc=
     return out
 
 
-def c2c_class_15_16(line, class_15_16, global_shift, octree_level=10, odir='c2c_class_15_16'):
+def c2c_class_15_16(line, class_15_16, global_shift, octree_level=10, odir='c2c_15_16'):
 
     head, tail, root, ext = misc.head_tail_root_ext(line)
     odir = os.path.join(head, odir)
@@ -180,20 +178,23 @@ def c2c_class_15_16(line, class_15_16, global_shift, octree_level=10, odir='c2c_
 
     x, y, z = global_shift
     print(f'process line {line}')
-    cmd = cc_custom
-    cmd += ' -SILENT -NO_TIMESTAMP -C_EXPORT_FMT SBF -AUTO_SAVE OFF'
-    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {line}'
-    cmd += f' -O -GLOBAL_SHIFT {x} {y} {z} {class_15_16}'
-    cmd += f' -C2C_DIST -SPLIT_XY_Z -MAX_DIST 20 -OCTREE_LEVEL {octree_level}'
-    cmd += ' -POP_CLOUDS'  # remove class_9 from the database
-    cmd += f' -SAVE_CLOUDS FILE {out}'
+    cmd = [cc_exe]
+    cmd.extend(['-SILENT', '-NO_TIMESTAMP', '-C_EXPORT_FMT', 'SBF', '-AUTO_SAVE', 'OFF'])
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), line])
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), class_15_16])
+    cmd.extend(['-C2C_DIST', '-SPLIT_XY_Z', '-MAX_DIST', str(10), '-OCTREE_LEVEL', str(octree_level)])
+    cmd.append('-POP_CLOUDS')  # remove class_9 from the database
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd)
 
     return out
 
 
-def reclassify_class_2_using_class_15_16(c2c, xy_max=3, dir_name='lines_with_2_corr'):
+def reclassify_class_2_using_class_15_16(c2c, xy_max=3, dir_name='with_2_corr'):
     # look for c2c results
+    if not os.path.exists(c2c):
+        print('WARNING reclassify_class_2_using_class_15_16 failed silently because c2c file does not exists')
+        return
     head, tail, root, ext = misc.head_tail_root_ext(c2c)
     odir = os.path.join(head, dir_name)
     os.makedirs(odir, exist_ok=True)
@@ -203,10 +204,12 @@ def reclassify_class_2_using_class_15_16(c2c, xy_max=3, dir_name='lines_with_2_c
         print(f'[classify_class_9_in_line] sbf already exists, nothing to do {out}')
         return out
 
-    pc, sf, config = cc.read_sbf(c2c)
+    sbf_data = sbf.read(c2c)
+    sf = sbf_data.sf
 
-    name_index = cc.get_name_index_dict(config)
-    xy = sf[:, name_index['C2C absolute distances[<20] (XY)']]
+    name_index = sbf_data.get_name_index_dict()
+    dist = sf[:, name_index['C2C absolute distances[<10]']]
+    dist_xy = sf[:, name_index['C2C absolute distances[<10] (XY)']]
 
     try:
         classification = sf[:, name_index['Classification']]
@@ -218,18 +221,18 @@ def reclassify_class_2_using_class_15_16(c2c, xy_max=3, dir_name='lines_with_2_c
 
     # reclassify ground points in C2 which are too close to class 15 and 16 of C3
     # this is to avoid having water surface points classified as ground points (where we have C3 data)
-    select = (classification == 2) & (xy < xy_max)
+    select = (classification == 2) & (dist_xy < xy_max) & (dist < 10)
     classification[select] = 1
     print(f'{np.count_nonzero(select)}/{len(classification)} reclassified as undetermined (1 instead of 2)')
 
     # remove unused scalar fields
-    sf, config = cc.remove_sf('C2C absolute distances[<20] (XY)', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<20]', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<20] (X)', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<20] (Y)', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<20] (Z)', sf, config)
+    sbf_data.remove_sf('C2C absolute distances[<10] (XY)')
+    sbf_data.remove_sf('C2C absolute distances[<10]')
+    sbf_data.remove_sf('C2C absolute distances[<10] (X)')
+    sbf_data.remove_sf('C2C absolute distances[<10] (Y)')
+    sbf_data.remove_sf('C2C absolute distances[<10] (Z)')
 
-    cc.write_sbf(out, pc, sf, config)
+    sbf.write(out, sbf_data.pc, sbf_data.sf, sbf_data.config)
 
     return out
 

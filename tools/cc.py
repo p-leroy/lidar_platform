@@ -13,7 +13,7 @@ import struct
 
 import numpy as np
 
-from ..config.config import cc_custom, cc_std, cc_std_alt
+from ..config.config import cc_custom, cc_std, cc_exe
 from ..tools import misc
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class CCCommand(list):
         if not os.path.exists(fullname):
             raise FileNotFoundError(fullname)
         if fwf:
-            self.append('-fwf_o')
+            self.append('-fwf_o')  # old syntax for full waveform, only for backward compatibility
         else:
             self.append('-o')
         if global_shift is not None:
@@ -140,7 +140,7 @@ def move_cloud(cloud, odir):
 
 
 def merge(files, fmt='sbf',
-          silent=True, debug=False, global_shift='AUTO', cc=cc_std_alt):
+          silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
 
     if len(files) == 1 or files is None:
         print("[cc.merge] only one file in parameter 'files', this is quite unexpected!")
@@ -196,7 +196,7 @@ def density(pc, radius, density_type,
     :return:
     """
 
-    cmd = CCCommand(cc_std_alt, silent=silent, fmt='SBF')
+    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
     cmd.append('-SAVE_CLOUDS')
     cmd.open_file(pc, global_shift=global_shift)
     cmd.append('-REMOVE_ALL_SFS')
@@ -217,7 +217,7 @@ def density(pc, radius, density_type,
 
 def q3dmasc_get_labels(training_file):
     # if 'core_points:' is defined, the main cloud is the cloud defined by core_points
-    # if not, the main cloud is the first occurence of 'clouds:'
+    # if not, the main cloud is the first occurence of 'cloud:'
     with open(training_file, 'r') as f:
         clouds = []
         core_points = None
@@ -236,11 +236,11 @@ def q3dmasc_get_labels(training_file):
         return main_cloud, clouds
 
 
-def q3dmasc(clouds, training_file, only_features=False,
-            silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom):
+def q3dmasc(clouds, training_file, only_features=False, keep_attributes=False,
+            silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom, fmt='sbf'):
     """Command line call to 3DMASC with the only_features option.
 
-    In command line, the clouds to load are not read_bfe in the parameter file, you have to specify them in the call
+    In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
     and you also have to associate each label to a number, the number representing the order in which the clouds
     have been loaded
 
@@ -255,9 +255,9 @@ def q3dmasc(clouds, training_file, only_features=False,
 
     main_label, labels = q3dmasc_get_labels(training_file)  # get cloud labels from the parameter file
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')  # create the command
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt, auto_save='ON')  # create the command
     cloud_dict = {}  # will be used to generate the name of the output file
-    if type(clouds) == list:
+    if type(clouds) is list or type(clouds) is tuple:
         for i, cloud in enumerate(clouds):
             cmd.open_file(cloud, global_shift=global_shift)
             cloud_dict[labels[i]] = cloud
@@ -267,6 +267,9 @@ def q3dmasc(clouds, training_file, only_features=False,
     cmd.append('-3DMASC_CLASSIFY')
     if only_features:
         cmd.append('-ONLY_FEATURES')
+    else:
+        if keep_attributes:
+            cmd.append('-KEEP_ATTRIBUTES')
     cmd.append(training_file)
 
     # generate the string where roles are associated with open clouds, e.g. 'pc1=1 pc2=2'
@@ -276,7 +279,12 @@ def q3dmasc(clouds, training_file, only_features=False,
     misc.run(cmd, verbose=verbose)
 
     root, ext = os.path.splitext(cloud_dict[main_label])
-    return root + '_WITH_FEATURES.sbf'
+    if only_features:
+        output_name = root + '_WITH_FEATURES.' + fmt.lower()
+    else:
+        output_name = root + '_CLASSIFIED.' + fmt.lower()
+
+    return output_name
 
 
 ################
@@ -312,7 +320,7 @@ def get_orientation_matrix(filename):
 
 
 def m3c2(pc1, pc2, params, core=None, fmt='SBF',
-         silent=True, debug=False, global_shift='AUTO', cc=cc_std_alt):
+         silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
 
     cmd = CCCommand(cc, silent=silent, fmt=fmt)
     if global_shift == 'FIRST':
@@ -368,7 +376,7 @@ def remove_scalar_fields(cloud, silent=True):
 
 
 def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
-              silent=True, debug=False, global_shift='AUTO', cc=cc_std_alt):
+              silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
     cloud_exists(cloud)
     if not os.path.exists(cloud):
         raise FileNotFoundError
@@ -486,8 +494,7 @@ def all_to_bin(dir_, shift, debug=False):
                 to_bin(path, debug=debug, shift=shift)
 
 
-def to_laz(fullname, remove=False, save_clouds='SAVE_CLOUDS',
-           silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt):
+def to_laz(fullname, remove=False, silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe):
     """
 
     :param fullname:
@@ -506,10 +513,11 @@ def to_laz(fullname, remove=False, save_clouds='SAVE_CLOUDS',
     root, ext = os.path.splitext(fullname)
     if ext == '.laz':  # nothing to do, simply return the name
         return fullname
+    out = root + '.laz'
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='LAZ')
     cmd.open_file(fullname, global_shift=global_shift)
-    cmd.append(f'-{save_clouds}')
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd, verbose=debug)
 
     if remove:
@@ -519,11 +527,12 @@ def to_laz(fullname, remove=False, save_clouds='SAVE_CLOUDS',
             to_remove = fullname + '.data'
             print(f'remove {to_remove}')
             os.remove(to_remove)
-    return os.path.splitext(fullname)[0] + '.laz'
+
+    return out
 
 
 def to_sbf(fullname,
-           silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt, fwf=False):
+           silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe, fwf=False):
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
     cmd.open_file(fullname, global_shift=global_shift, fwf=fwf)
@@ -544,7 +553,7 @@ def to_sbf(fullname,
 
 
 def ss(fullname, algorithm='OCTREE', parameter=8, odir=None, fmt='SBF',
-       silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt):
+       silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe):
     """
     Use CloudCompare to subsample a cloud.
 
@@ -649,7 +658,7 @@ def apply_transformation(cloudfile, transformation, fmt='SBF',
     if debug is True:
         logger.setLevel(logging.DEBUG)
 
-    cmd = CCCommand(cc_std_alt, silent=silent, fmt=fmt)
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
     cmd.open_file(cloudfile, global_shift=global_shift)
 
     cmd.append('-APPLY_TRANS')
@@ -688,206 +697,39 @@ def get_from_bin(bin_):
 # SBF READ/WRITE
 ################
 
-
-def is_int(str_):
-    try:
-        int(str_)
-        return True
-    except ValueError:
-        return False
+error_message_sbf = "There is a dedicated module for SBF format handling, use 'from lidar_platform import sbf'"
 
 
 def get_name_index_dict(config):
-    dict_ = {config['SBF'][name]: int(name.split('SF')[1]) - 1
-             for name in config['SBF'] if len(name.split('SF')) == 2 and is_int(name.split('SF')[1])}
-    return dict_
+    raise AttributeError(error_message_sbf)
 
 
 def remove_sf(name, sf, config):
-    name_index = get_name_index_dict(config)
-    # remove the scalar field from the sf array
-    index = name_index[name]
-    new_sf = np.delete(sf, index, axis=1)
-    # copy the configuration
-    new_config = configparser.ConfigParser()
-    new_config.optionxform = str
-    new_config.read_dict(config)
-    sf_index = index + 1
-    sf_count = int(config['SBF']['SFCount'])
-    # update the configuration
-    new_config['SBF']['SFCount'] = str(sf_count - 1)  # decrease the counter of scalar fields
-    new_config.remove_option('SBF', f'SF{sf_count}')  # remove the last option
-    for idx in range(1, sf_index):
-        new_config['SBF'][f'SF{idx}'] = config['SBF'][f'SF{idx}']
-    for idx in range(sf_index, sf_count):
-        new_config['SBF'][f'SF{idx}'] = config['SBF'][f'SF{idx + 1}']
-    return new_sf, new_config
+    raise AttributeError(error_message_sbf)
 
 
 def add_sf(name, sf, config, sf_to_add):
-    sf_count = int(config['SBF']['SFCount'])
-    config['SBF'][f'SF{sf_count + 1}'] = name
-    config['SBF']['SFCount'] = str(sf_count + 1)  # add 1 to sf count
-    sf = np.c_[sf, sf_to_add]  # add the clumn to the array
-    return sf
+    raise AttributeError(error_message_sbf)
 
 
 def rename_sf(name, new_name, config):
-    name_index = get_name_index_dict(config)
-    index = name_index[name]
-    config['SBF'][f'SF{index + 1}'] = new_name
+    raise AttributeError(error_message_sbf)
 
 
 def shift_array(array, shift, config=None, debug=False):
-    newArray = array.astype(float)
-    # apply the shift read_bfe in the SBF file
-    newArray += np.array(shift).reshape(1, -1)
-    # apply GlobalShift if any
-    if config is not None:
-        try:
-            globalShift = eval(config['SBF']['GlobalShift'])
-            logger.debug(f'use GlobalShift {globalShift}')
-            newArray += np.array(globalShift).reshape(1, -1)
-        except:
-            pass
-    return newArray
+    raise AttributeError(error_message_sbf)
 
 
 def read_sbf_header(sbf, verbose=False):
-    config = configparser.ConfigParser() 
-    config.optionxform = str
-    with open(sbf) as f:
-        config.read_file(f)
-        if 'SBF' not in config:
-            print('sbf badly formatted, no [SBF] section')
-        else:
-            return config
+    raise AttributeError(error_message_sbf)
 
 
 def read_sbf(sbf, verbose=False):
-
-    config = read_sbf_header(sbf, verbose=verbose)  # READ .sbf header
-    
-    ################
-    # READ .sbf.data
-    # be careful, sys.byteorder is probably 'little' (different from Cloud Compare)
-    sbf_data = sbf + '.data'
-    with open(sbf_data, 'rb') as f:
-        bytes_ = f.read(64)
-        # 0-1 SBF header flag
-        flag = bytes_[0:2]
-        # 2-9 Point count (Np)
-        Np = struct.unpack('>Q', bytes_[2:10])[0]
-        # 10-11 ScalarField count (Ns)
-        Ns = struct.unpack('>H', bytes_[10:12])[0]
-        if verbose is True:
-            print(f'flag {flag}, Np {Np}, Ns {Ns}')
-        # 12-19 X coordinate shift
-        x_shift = struct.unpack('>d', bytes_[12:20])[0]
-        # 20-27 Y coordinate shift
-        y_shift = struct.unpack('>d', bytes_[20:28])[0]
-        # 28-35 Z coordinate shift
-        z_shift = struct.unpack('>d', bytes_[28:36])[0]
-        # 36-63 Reserved for later
-        if verbose is True:
-            print(f'shift ({x_shift, y_shift, z_shift})')
-            print(bytes_[37:])
-            print(len(bytes_[37:]))
-        array = np.fromfile(f, dtype='>f').reshape(Np, Ns+3)
-        shift = np.array((x_shift, y_shift, z_shift)).reshape(1, 3)
-        
-    # shift point cloud
-    pc = shift_array(array[:, :3], shift, config)
-    
-    # get scalar fields if any
-    if Ns != 0:
-        sf = array[:, 3:]
-    else:
-        sf = None
-        
-    return pc, sf, config
+    raise AttributeError(error_message_sbf)
 
 
 def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
-    head, tail = os.path.split(sbf)
-    path_to_sbf = sbf
-    path_to_sbf_data = sbf + '.data'
-    if sf is not None:
-        SFCount = sf.shape[1]
-    else:
-        SFCount = 0
-    
-    # write .sbf
-    Points = pc.shape[0] 
-    if config is None:
-        dict_SF = {f'SF{k+1}':f'{k+1}' for k in range(SFCount)}
-        config = configparser.ConfigParser()
-        config.optionxform = str
-        config['SBF'] = {'Points': str(Points),
-                         'SFCount': str(SFCount),
-                         'GlobalShift': '0., 0., 0.',
-                         **dict_SF}
-    else:
-        # enforce the coherence of the number of points
-        config['SBF']['Points'] = str(Points)
-        config['SBF']['SFCount'] = str(SFCount)
-
-    if add_index is True:
-        if 'SFCount' in config['SBF']:
-            SFCount += 1
-        else:
-            SFCount = 1
-        config['SBF']['SFcount'] = str(SFCount)
-        config['SBF'][f'SF{SFCount}'] = 'index'
-    if normals is not None:
-        if 'SFCount' in config['SBF']:
-            SFCount += 3
-        else:
-            SFCount = 3
-        config['SBF']['SFcount'] = str(SFCount)
-        config['SBF'][f'SF{SFCount+1}'] = 'Nx'
-        config['SBF'][f'SF{SFCount+2}'] = 'Ny'
-        config['SBF'][f'SF{SFCount+3}'] = 'Nz'
-    
-    # write .sbf configuration file
-    with open(path_to_sbf, 'w') as sbf:
-        config.write(sbf)
-    
-    # remove GlobalShift
-    globalShift = eval(config['SBF']['GlobalShift'])
-    pcOrig = pc - np.array(globalShift).reshape(1, -1)
-    # compute sbf internal shift
-    shift = np.mean(pcOrig, axis=0).astype(float)
-    # build the array that will effectively be stored (32 bits float)
-    a = np.zeros((Points, SFCount + 3)).astype('>f')
-    a[:, :3] = (pcOrig - shift).astype('>f')
-    if SFCount != 0:
-        a[:, 3:] = sf.astype('>f')
-
-    if add_index is True:
-        b = np.zeros((Points, SFCount + 1)).astype('>f')
-        b[:, :-1] = a
-        b[:, -1] = np.arange(Points).astype('>f')
-        a = b
-    
-    # write .sbf.data
-    with open(path_to_sbf_data, 'wb') as sbf_data:
-        # 0-1 SBF header flag
-        flag = bytearray([42, 42])
-        sbf_data.write(flag)
-        # 2-9 Point count (Np)
-        sbf_data.write(struct.pack('>Q', Points))
-        # 10-11 ScalarField count (Ns)
-        sbf_data.write(struct.pack('>H', SFCount))
-        # 12-19 X coordinate shift
-        sbf_data.write(struct.pack('>d', shift[0]))
-        # 20-27 Y coordinate shift
-        sbf_data.write(struct.pack('>d', shift[1]))
-        # 28-35 Z coordinate shift
-        sbf_data.write(struct.pack('>d', shift[2]))
-        # 36-63 Reserved for later
-        sbf_data.write(bytes(63-36+1))
-        sbf_data.write(a)
+    raise AttributeError(error_message_sbf)
 
 
 ##########
@@ -896,7 +738,7 @@ def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
 
 
 def c2c_dist(compared, reference, max_dist=None, split_XYZ=False, odir=None, export_fmt='SBF',
-             silent=True, debug=False, global_shift='AUTO', cc_exe=cc_std_alt):
+             silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe):
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')  # create the command
     cmd.open_file(compared, global_shift=global_shift)
