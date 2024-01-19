@@ -22,28 +22,24 @@ classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Build
            11: 'Artificial_ground', 13: 'Power_Line', 14: 'Surf_zone', 15: 'Water_Column', 16: 'Bathymetry',
            18: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
            29: 'Swimming_pools'}
-# classes = {0: 'Ground', 1: 'Low_veg', 2: 'Interm_veg', 3: 'High_veg.', 4: 'Building', 5: 'Water',
-#            6: 'Artificial_ground', 7: 'Power_Line', 8: 'Surf_zone', 9: 'Water_Column', 10: 'Bathymetry',
-#            11: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
-#            29: 'Swimming_pools'}
 
 
 def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False):
     """
-    Loading computed features after using 3DMASC plugin
+    This function can be used to read 3DMASC features saved in an SBF file.
 
     Parameters
     ---------
-    sbf_filepath : str, absolute path to core-points file
-    params_filepath : str, parameters file for 3DMASC
-    labels : bool (default=False), in case of training model you need the labels
-    coords : bool (default=False), if you want to get the coordinates too
+    sbf_filepath : str, absolute path to core-points SBF file (containing the features)
+    params_filepath : str, txt parameters file for 3DMASC
+    labels : bool (default=False), to train a model, set it to True (you need to read the labels)
+    coords : bool (default=False), set to True if you want to get the coordinates too
 
     Returns
     --------
     data : dict,
-         'features' : numpy.array of computed features
-         'names' : list of str, name of each column feature
+         'features' : numpy.array of containing the features present in the SBF file
+         'names' : list of str, name of each feature column
          'labels' : list of int, class labels
          'coords' : numpy.array of point coordinates
     """
@@ -52,11 +48,8 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
     sf_dict = cc.get_name_index_dict(cc.read_sbf_header(sbf_filepath))
     for sfn in sf_dict.keys():
         sfn = sfn.replace(' ', '_')
-    #features = np.loadtxt(params_filepath[0:-4]+"_feature_sources.txt",str)
     f = open(params_filepath[0:-4]+"_feature_sources.txt", "r")
     features = f.readlines()
-    # if len(features.shape) == 0:
-    #     features = [features.tolist()]
     sf_to_load = []
     loaded_sf_names = []
     for i in features[1:]:
@@ -91,12 +84,13 @@ def feature_clean(features):
     Parameters
     ----------
     features : numpy array
-        input features dataset.
+        input features dataset (for ex., the "features" field of a dict obtained with
+        load_sbf_features.
 
     Returns
     -------
     dataset : numpy array
-        a clean dataset.
+        a dataset containing no more NaN of Inf values.
     """
     for i in range(0, len(features[0, :])):
         col = features[:, i]
@@ -113,7 +107,9 @@ def feature_clean(features):
 
 def train(trads, model=0):
     """
-    Function to train a random forest model for point cloud features classification
+    Function to train a random forest model for point cloud features classification.
+    Handles two types of RF models: scikit-learn (parallelized computing), and
+    OpenCV (same as in CloudCompare, but not parallelized).
 
     Parameters
     ----------
@@ -151,7 +147,8 @@ def train(trads, model=0):
 
 def test(testds, classifier, model=0):
     """
-    Function to test the random forest model obtained on the test dataset and compute classification metrics.
+    Function to test the random forest model obtained.
+    The model is tested on the test dataset, and classification metrics are computed.
 
     Parameters
     ----------
@@ -199,6 +196,7 @@ def test(testds, classifier, model=0):
 def get_acc_expe(trads, testds, plot=True, save=False, model=0):
     """
     Function to train a random forest model for point cloud features classification
+    and get metrics describing its performances.
 
     Parameters
     ----------
@@ -277,7 +275,7 @@ def get_acc_expe(trads, testds, plot=True, save=False, model=0):
 
 def plot_feat_imp(feat_imp, trads, save=False, plot=True):
     """
-    Function to get a graph plot of the RF model's feature importances
+    Function to get a graph plot of the RF feature importance.
 
     Parameters
     ----------
@@ -307,7 +305,7 @@ def plot_feat_imp(feat_imp, trads, save=False, plot=True):
 
 def plot_corr_mat(trads, plot=True, save=False):
     """
-    Function to visualize correlation between features.
+    Function to visualize correlation between features as a heatmap.
 
     Parameters
     ----------
@@ -339,39 +337,55 @@ def plot_corr_mat(trads, plot=True, save=False):
 
     return corr_mat
 
-#
-# def get_shap_expl(classifier, testds, save=True):
-#     """
-#     Function to get the shap summary plot of a random forest classifier trained on the given dataset
-#
-#     Parameters
-#     ----------
-#     classifier : scikit-learn RandomForestClassifier
-#         trained classifier.
-#     testds : dict,
-#          'features' : numpy.array of computed features
-#          'names' : list of str, name of each column feature
-#          'labels' : list of int, class labels
-#         training dataset.
-#     save : bool
-#         whether to save the resulting plot.
-#     """
-#     labels = np.unique(testds['labels'])
-#     cn = []
-#     for l in labels:
-#         cn.append(classes[int(l)])
-#     explainer = shap.TreeExplainer(classifier)
-#     fig = plt.figure()
-#     fig.set_size_inches(32, 18)
-#     shap_values = explainer.shap_values(testds['features'], approximate=True)
-#     shap.summary_plot(shap_values, testds['features'], feature_names=testds['names'], class_names=cn,
-#                       max_display=testds['features'].shape[1], plot_type="bar")
-#     if save:
-#         plt.savefig('SHAP_explainer.jpg', bbox_inches='tight')
-#     return shap_values
+
+def get_shap_expl(classifier, testds, save=True):
+    """
+    Function to get the shap summary plot of a random forest classifier trained on the given dataset
+    (only works with scikit-learn models).
+
+    Parameters
+    ----------
+    classifier : scikit-learn RandomForestClassifier
+        trained classifier.
+    testds : dict,
+         'features' : numpy.array of computed features
+         'names' : list of str, name of each column feature
+         'labels' : list of int, class labels
+        training dataset.
+    save : bool
+        whether to save the resulting plot.
+    """
+    labels = np.unique(testds['labels'])
+    cn = []
+    for l in labels:
+        cn.append(classes[int(l)])
+    explainer = shap.TreeExplainer(classifier)
+    fig = plt.figure()
+    fig.set_size_inches(32, 18)
+    shap_values = explainer.shap_values(testds['features'], approximate=True)
+    shap.summary_plot(shap_values, testds['features'], feature_names=testds['names'], class_names=cn,
+                      max_display=testds['features'].shape[1], plot_type="bar")
+    if save:
+        plt.savefig('SHAP_explainer.jpg', bbox_inches='tight')
+    return shap_values
 
 
 def classif_errors_confidence(pred, true, confid_pred):
+    """
+    Function to get statistics of prediction probability of a classifier when he predicts wrong classes.
+
+    Args:
+        pred: numpy array
+            array containing the predicted labels
+        true: numpy array
+            array containing the true labels
+        confid_pred: numpy array
+            array containing the prediction probabilities
+
+    Returns: dict
+        dictionary with mean, median, min, max, and std of prediction probability for misclassified points.
+
+    """
     idx_err = np.where((pred != true))[0]
     err_confid = confid_pred[idx_err]
     err_stats = {'Mean_confidence': np.mean(err_confid), 'Median_confidence': np.median(err_confid),
@@ -381,12 +395,47 @@ def classif_errors_confidence(pred, true, confid_pred):
 
 
 def apply_confidence_threshold(pred, true, confid_pred, threshold):
+    """
+    Compute the classification accuracy when discarding points classified with a prediction
+    probability below a given threshold.
+
+    Args:
+        pred: numpy array
+            array containing predicted labels
+        true: numpy array
+            array containing true labels
+        confid_pred: numpy array
+            array containing the prediction probabilities
+        threshold: float
+            prediction probability threshold to apply
+
+    Returns: float
+        new classification accuracy
+
+    """
     idx_ok = np.where(confid_pred >= threshold)[0]
     accuracy = metrics.accuracy_score(true[idx_ok], pred[idx_ok])
     return accuracy
 
 
 def confidence_filtering_report(pred, true, confid_pred):
+    """
+    Get a report of the evolution of classification accuracy depending on the prediction probability threshold applied.
+    All points with prediction probabilities below a given threshold are not consided for accuracy computation.
+
+    Args:
+        pred: numpy array
+            array containing predicted labels
+        true: numpy array
+            array containing true labels
+        confid_pred: numpy array
+            array containing prediction probabilities
+
+    Returns: dict
+        dictionary containing the accuracy and the percentage of remaining points for the following prediction
+        probability thresholds: 0.5, 0.6, 0.7, 0.8, 0.9, 0.95
+
+    """
     thresholded_acc = {0.5: '', 0.6: '', 0.7: '', 0.8: '', 0.9: '', 0.95: ''}
     percent = {0.5: '', 0.6: '', 0.7: '', 0.8: '', 0.9: '', 0.95: ''}
     for t in thresholded_acc.keys():
