@@ -227,6 +227,20 @@ class SbfData:
         index = self.name_index[name]
         self.config['SBF'][f'SF{index + 1}'] = new_name
 
+    def merge(self, sbf_data):
+        if sbf_data.pc.shape[1] != 3:
+            raise ValueError('[SbfData.merge] number of columns of pc shall be 3')
+
+        if sbf_data.sf.shape[1] != self.sf.shape[1]:
+            raise ValueError('[SbfData.merge] number of scalar fields shall be the same for merging')
+
+        self.pc = np.r_[self.pc, sbf_data.pc]
+        self.sf = np.r_[self.sf, sbf_data.sf]
+
+        print(f'[SbfData.merge] {len(sbf_data.pc)} points added, new total = {self.pc.shape[0]}')
+
+        self.config['SBF']['Points'] = str(self.pc.shape[0])
+
 
 def read_sbf(filename):
     return SbfData(filename)

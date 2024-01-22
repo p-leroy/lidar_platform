@@ -146,7 +146,7 @@ def merge(files, fmt='sbf',
         print("[cc.merge] only one file in parameter 'files', this is quite unexpected!")
         return None
 
-    cmd = CCCommand(cc, silent=silent, fmt=fmt)
+    cmd = CCCommand(cc, silent=silent, fmt=fmt, auto_save='on')
     if global_shift == 'FIRST':
         raise "'FIRST' is not a valid option, the default is 'AUTO' or pass a valid global shift 3-tuple"
     elif global_shift =='AUTO':
@@ -322,7 +322,7 @@ def get_orientation_matrix(filename):
 def m3c2(pc1, pc2, params, core=None, fmt='SBF',
          silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
 
-    cmd = CCCommand(cc, silent=silent, fmt=fmt)
+    cmd = CCCommand(cc, silent=silent, auto_save='ON', fmt=fmt)
     if global_shift == 'FIRST':
         raise "'FIRST' is not a valid option, the default is 'AUTO' or pass a valid global shift 3-tuple"
     elif global_shift =='AUTO':
@@ -383,15 +383,14 @@ def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
 
     cmd = CCCommand(cc, silent=silent, fmt=fmt)
     cmd.open_file(cloud, global_shift=global_shift)
-    cmd.append('-RASTERIZE')
-    cmd.append('-GRID_STEP')
-    cmd.append(str(spacing))
-    cmd.append('-PROJ')
-    cmd.append(proj)
+    cmd.extend(['-RASTERIZE', '-GRID_STEP', str(spacing), '-PROJ', proj])
+
+    out = os.path.splitext(cloud)[0] + ext + f'.{fmt.lower()}'
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
 
     misc.run(cmd, verbose=debug)
     
-    return os.path.splitext(cloud)[0] + ext + f'.{fmt.lower()}'
+    return out
 
 
 def compress_fwf(cloud, in_place=True,
