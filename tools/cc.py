@@ -237,7 +237,7 @@ def q3dmasc_get_labels(training_file):
 
 
 def q3dmasc(clouds, training_file, only_features=False, keep_attributes=False,
-            silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_custom, fmt='sbf'):
+            silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe, fmt='sbf'):
     """Command line call to 3DMASC with the only_features option.
 
     In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
