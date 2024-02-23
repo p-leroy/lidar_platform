@@ -2,7 +2,7 @@
 """
 Created on Fri Aug  5 18:12:03 2022
 
-@author: Baptiste Feldmann / Mathilde Letard
+@author: Mathilde Letard, Baptiste Feldmann
 """
 import sys
 
