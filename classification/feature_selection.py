@@ -16,12 +16,12 @@ from .cc_3dmasc import get_acc_expe, feature_clean
 
 def get_scales_feats(ds):
     """
-    Get the list of scales and features present in the file.
+    Get the scales and features present in the dataset read by load_sbf_features() (in cc_3dmasc.py).
 
     Parameters
     ----------
     ds : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained using load_sbf_features().
 
     Returns
     -------
@@ -51,12 +51,15 @@ def get_scales_feats(ds):
 
 def nan_percentage(ds):
     """
-    Get the percentage of NaN values for each feature.
+    Get the percentage of NaN values for each feature. This can be useful to better understand why a feature at a
+    given scale is not contributing, or to identify relevant minimal scales to use.
+    (reminder: 3DMASC outputs NaN for points for which the feature was impossible to compute - for ex. due to
+    no neighbors in the specified sphere scale).
 
     Parameters
     ----------
     ds : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
 
     Returns
     -------
@@ -92,11 +95,12 @@ def nan_percentage(ds):
 def info_score(ds):
     """
     Get the mutual information score of each feature (computed with respect to the labels to predict).
+    This metric is used in the classifier optimization procedure.
 
     Parameters
     ----------
     ds : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
 
     Returns
     -------
@@ -109,23 +113,27 @@ def info_score(ds):
     return dictio_ft
 
 
-def correlation_score_filter(features_set, features_score, threshold):
+def inter_ft_corr_filter(features_set, features_score, threshold):
     """
     Prune a set of predictors by keeping only the most informative elements among correlated pairs.
+    First, linear correlation between all provided features at all provided scales is computed.
+    Then, when the correlation between two predictors exceeds a given threshold, only the one with the highest
+    mutual info. score is kept.
 
     Parameters
     ----------
     features_set : numpy array (n_points x n_predictors)
-        array containing the value of each predictor evaluated for each point.
+        array containing the value of each predictor evaluated for each point (e.g., "features" field of the
+        dictionary obtained with load_sbf_features()).
     features_score : numpy array (n_predictors x 1)
-        array containing the information score of each predictor.
+        array containing the information score of each predictor (obtained with info_score()).
     threshold : float
         accepted value of correlation between predictors.
 
     Returns
     -------
     select : list(int)
-        list of the indices of the selected features in the original features_set array.
+        indices of the selected features in the original features_set array (column indices).
     """
     feats_df = pd.DataFrame(features_set)
     corr_mat = feats_df.corr().to_numpy()
@@ -143,53 +151,59 @@ def correlation_score_filter(features_set, features_score, threshold):
     return select  # indices of selected features
 
 
-def correlation_selection_filter(features, features_set, ft_select, threshold):
+def filter_corr_with_selected_ft(all_ft, candidate_ft, selected_ft, threshold):
     """
-    Check compatibility of features considering their linear correlation.
+    Check compatibility of features considering their linear correlation with an existing set of features.
+    This function allows to evaluate whether a new predictor can be added to a set of previously selected features and
+    scales without overcoming the maximum accepted inter-feature linear correlation coefficient.
 
     Parameters
     ----------
-    features : numpy array (n_points x n_predictors)
-        array containing the value of each predictor for each point.
-    features_set : list(int)
-        indices of the elements to consider for selection (candidates to evaluate).
-    ft_select : numpy array (n_points x n_selected)
-        array containing the value of each predictor that already passed the selection.
+    all_ft : numpy array (n_points x n_predictors)
+        array containing the value of each predictor for each point ("features" fields of the dict obtained with
+        obtained using load_sbf_features()).
+    candidate_ft : list(int)
+        indices of the elements to consider for selection in the all_ft array (column index of the
+        candidates to evaluate).
+    selected_ft : numpy array (n_points x n_selected)
+        array containing the features that are already selected.
     threshold : float
         accepted value of correlation between predictors.
 
     Returns
     -------
     valides : list(int)
-        list of the indices of the selected features in the original ds['features'] array.
+        list of the indices of the selected features in the original ds['features'] array (obtained with
+        load_sbf_features()).
     """
-    feats_df = pd.DataFrame(features[:, features_set])
+    feats_df = pd.DataFrame(all_ft[:, candidate_ft])
     corr_mat = feats_df.corr().to_numpy()
     half = np.abs(corr_mat)
     for i in range(corr_mat.shape[0]):
         half[i, ] = 0
-    select = np.arange(0, len(ft_select), 1)  # indices of already selected features
+    select = np.arange(0, len(selected_ft), 1)  # indices of already selected features
     cor = np.where((half >= threshold))  # indices of correlated features
     todel = []
     for s in select:
         todel += cor[1][np.where((cor[0] == s))[0].tolist()].tolist()  # features correlated to validated features set
         todel += cor[0][np.where((cor[1] == s))[0].tolist()].tolist()  # features correlated to validated features set
     invalides = select.tolist() + np.unique(np.array(todel)).tolist()  # indices of invalid features
-    valides = np.delete(features_set, invalides)
+    valides = np.delete(candidate_ft, invalides)
     return valides.tolist()
 
 
-def selection(ft_all, ft_select, ft_score, nf, threshold):
+def get_n_uncorr_ft(ft_all, ft_select, ft_score, nf, threshold):
     """
-    Among features that passed the correlation and information score criteria, select those that are compatible
-    with previously elected features.
+    Iteratively complete an unfilled set of uncorrelated features.
+    This function iteratively looks for additional features to select to reach nf uncorrelated features.
 
     Parameters
     ----------
     ft_all : numpy array (n_points x n_predictors)
-        array containing the value of each predictor for each point.
-    ft_select : numpy array (n_points x n_selected)
-        array containing the value of each predictor that already passed the selection.
+        array containing the value of each predictor for each point ("features" field of the dict
+        obtained with load_sbf_features()).
+    ft_select : numpy array (n_selected)
+        index in ft_all of each predictor that already passed the selection.
     ft_score : numpy array (n_predictors x 1)
         array containing the information score of each predictor.
     nf : int
@@ -200,7 +214,8 @@ def selection(ft_all, ft_select, ft_score, nf, threshold):
     Returns
     -------
     ft_select : list(int)
-        list of the indices of the selected features in the original ds['features'] array.
+        list of the indices of the selected features in the original ds['features'] array (obtained with
+        load_sbf_features()).
     """
     n_select = len(ft_select)
     argsort_sc = np.argsort(ft_score)
@@ -210,8 +225,8 @@ def selection(ft_all, ft_select, ft_score, nf, threshold):
         possib = argsort_sc[:-1 * nb_tested]
         rem = nf - n_select
         test = ft_select + possib[-1 * rem:].tolist()  # indices of selected features and best features
-        compatibles = correlation_selection_filter(ft_all, test, ft_select, threshold)  # all selected features
-        valides_id = correlation_score_filter(ft_all[:, compatibles], ft_score[compatibles], threshold)
+        compatibles = filter_corr_with_selected_ft(ft_all, test, ft_select, threshold)  # all selected features
+        valides_id = inter_ft_corr_filter(ft_all[:, compatibles], ft_score[compatibles], threshold)
         valides = np.array(compatibles)[valides_id]
         ft_select += valides.tolist()
         n_select = len(ft_select)
@@ -219,14 +234,14 @@ def selection(ft_all, ft_select, ft_score, nf, threshold):
     return ft_select
 
 
-def select_best_feature_set(ds, nf, corr_threshold):
+def n_best_uncorr_ft(ds, nf, corr_threshold):
     """
-    Select best feature set for a given dataset, using information score and correlation between predictors.
+    Select nf uncorrelated features depending on their mutual information score and linear correlation.
 
     Parameters
     ----------
     ds : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
     nf : int
         number of different features to select.
     corr_threshold : float
@@ -235,26 +250,29 @@ def select_best_feature_set(ds, nf, corr_threshold):
     Returns
     -------
     select : list(int)
-        list of the indices of the selected features in the original ds['features'] array.
+        list of the indices of the selected features in the original ds['features'] array (obtained with
+        load_sbf_features()).
     """
     ft_score = info_score(ds)['MutualInfo']
     possib = np.argsort(ft_score)[-1 * nf:]
-    select_id = correlation_score_filter(ds['features'][:, possib], ft_score[possib], corr_threshold).tolist()
+    select_id = inter_ft_corr_filter(ds['features'][:, possib], ft_score[possib], corr_threshold).tolist()
     select = np.array(possib)[select_id]
     if len(select.tolist()) != nf:
-        select = selection(ds['features'], select.tolist(), ft_score, nf, corr_threshold)
+        select = get_n_uncorr_ft(ds['features'], select.tolist(), ft_score, nf, corr_threshold)
     return select
 
 
-def select_best_scales(ds, ns, corr_threshold):
+def n_best_uncorr_sc(ds, ns, corr_threshold):
     """
-    Select best feature computation scales for a given dataset, using information score, correlation between predictors,
+    Select ns uncorrelated scales depending on their mutual information score, linear correlation,
     and a voting process.
+    For each investigated features, all available scales are investigated and pruned depending on their correlations.
+    Then the ns most frequently retained scales among all features are kept as the final set of scales.
 
     Parameters
     ----------
     ds : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
     ns : int
         number of different scales to select.
     corr_threshold : float
@@ -272,7 +290,7 @@ def select_best_scales(ds, ns, corr_threshold):
     for f in np.unique(names):
         f_id = np.where((names == f))[0]
         search_ds = {'features': ds['features'][:, f_id], 'labels': ds['labels'], 'names': ds_names[f_id]}
-        result = select_best_feature_set(search_ds, ns, corr_threshold)
+        result = n_best_uncorr_ft(search_ds, ns, corr_threshold)
         best_scales += scales[result].tolist()
     sc, freq = np.unique(best_scales, return_counts=True)
     frequencysorted = freq[np.argsort(freq)]
@@ -289,16 +307,19 @@ def select_best_scales(ds, ns, corr_threshold):
     return optim_ok, freq_optim[-1 * ns:]
 
 
-def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold=0.85, step=1):
+def rf_ft_selection(trads, testds, nscales, nfeats, eval_sc, threshold=0.85, step=1):
     """
-    Perform iterative feature selection using the RF embedded feature importance as criteria.
+    Perform iterative feature selection using the random forest embedded feature importance as criteria.
+    First, nscales and nfeats are selected based on their linear correlations and mutual information.
+    Then, this set is iteratively reduced by discarding the feature having the lowest random forest feature importance.
+    At each step, the model is trained again to update the feature importance ranking.
 
     Parameters
     ----------
     trads : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
     testds : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
     nscales : int
         number of different scales to select at the begining of the process.
     nfeats : int
@@ -321,13 +342,13 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold=0.85
               'Class_confidence': [], 'Class_recall': [], 'Class_precision': [], 'Labels': np.unique(trads['labels'])}
     search_set = np.array(np.where(scales == eval_sc)[0].tolist() + np.where(scales == 0)[0].tolist())
     search_ft_ds = {'features': trads['features'][:, search_set], 'labels': trads['labels'], 'names': names[search_set]}
-    sel = select_best_feature_set(search_ft_ds, nfeats, threshold)
+    sel = n_best_uncorr_ft(search_ft_ds, nfeats, threshold)
     scale_search_set = []
     for sn in search_ft_ds['names'][sel]:
         scale_search_set += np.where((sn == names))[0].tolist()  # indices of selected features at all scales
     search_sc_ds = {'features': trads['features'][:, scale_search_set], 'labels': trads['labels'],
                  'names': ds_names[scale_search_set]}
-    sel_sc, freq_sel_sc = select_best_scales(search_sc_ds, nscales, threshold)
+    sel_sc, freq_sel_sc = n_best_uncorr_sc(search_sc_ds, nscales, threshold)
     id_es = []
     for es in sel_sc:
         id_es += np.where(scales[scale_search_set] == es)[0].tolist()
@@ -371,16 +392,16 @@ def embedded_f_selection(trads, testds, nscales, nfeats, eval_sc, threshold=0.85
     return dictio
 
 
-def get_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
+def get_n_optimal_sc_ft(trads, testds, nscales, nfeats, eval_sc, threshold):
     """
     Get the best nfeats and nscales for classification based on inter-feature correlation and information score.
 
     Parameters
     ----------
     trads : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
     testds : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
     nscales : int
         number of different scales to select.
     nfeats : int
@@ -398,13 +419,13 @@ def get_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
     scales, names, ds_names = get_scales_feats(trads)
     search_set = np.array(np.where(scales == eval_sc)[0].tolist() + np.where(scales == 0)[0].tolist())
     search_ft_ds = {'features': trads['features'][:, search_set], 'labels': trads['labels'], 'names': names[search_set]}
-    sel = select_best_feature_set(search_ft_ds, nfeats, threshold)
+    sel = n_best_uncorr_ft(search_ft_ds, nfeats, threshold)
     scale_search_set = []
     for sn in search_ft_ds['names'][sel]:
         scale_search_set += np.where((sn == names))[0].tolist()
     search_sc_ds = {'features': trads['features'][:, scale_search_set], 'labels': trads['labels'],
                     'names': ds_names[scale_search_set]}
-    sel_sc, freq_sel_sc = select_best_scales(search_sc_ds, nscales, threshold)
+    sel_sc, freq_sel_sc = n_best_uncorr_sc(search_sc_ds, nscales, threshold)
     id_es = []
     for es in sel_sc:
         print(es)
@@ -425,19 +446,19 @@ def get_selection(trads, testds, nscales, nfeats, eval_sc, threshold):
     return dictio
 
 
-def get_best_iter(dictio_rf_select, trads, testds, wait, threshold):
+def get_best_rf_select_iter(dictio_rf_select, trads, testds, wait, threshold):
     """
-    Get the theoretically optimal predictor set for classification by monitoring OA drops when performing embedded
-    feature selection.
+    Get an optimized set of features and scales by analyzing the variations of OA or oob-score when performing
+    random forest feature importance-based iterative selection.
 
     Parameters
     ----------
     dictio_rf_select : dictionary
         dictionary obtained when performing embedded_rf_selection.
     trads : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
     testds : dictionary
-        data dictionary containing features, labels, names.
+        data dictionary containing features, labels, names obtained with load_sbf_features().
     wait : int
         number of iterations to take into account for monitoring.
     threshold : float
