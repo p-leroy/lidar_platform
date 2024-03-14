@@ -364,7 +364,7 @@ def drop_global_shift(cloud, silent=True):
     return ret
 
 
-def remove_scalar_fields(cloud, silent=True):
+def remove_all_scalar_fields(cloud, silent=True):
     args = ''
     if silent is True:
         args += ' -SILENT -NO_TIMESTAMP'
@@ -373,6 +373,17 @@ def remove_scalar_fields(cloud, silent=True):
     args += ' -o ' + cloud
     args += ' -REMOVE_ALL_SFS -SAVE_CLOUDS'
     misc.run(cc_custom + args)
+
+
+def remove_scalar_fields(file, scalar_fields, silent=True):
+    root, ext = os.path.splitext(file)
+    cmd = CCCommand(cc_exe, silent=silent, auto_save='OFF', fmt=f'{ext[1:]}')
+    cmd.open_file(file)
+    for scalar_field in scalar_fields:
+        cmd.append('-REMOVE_SF')
+        cmd.append(scalar_field)
+    cmd.append('-SAVE_CLOUDS')
+    misc.run(cmd)
 
 
 def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',

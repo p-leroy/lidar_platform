@@ -256,3 +256,26 @@ def reclassify_class_2_using_intensity(sbf, i_min):
     cc.write_sbf(out, pc, sf, config)
 
     return out
+
+def keep_points_above_water_surface(file, water_surface, global_shift, depth=0, octree_level=10):
+    print(f'process {file}')
+    head, tail = os.path.split(file)
+    odir = os.path.join(head, 'above_water')
+    os.makedirs(odir, exist_ok=True)
+    out = os.path.join(odir, tail)
+
+    cmd = cc.CCCommand(cc_exe, fmt='LAS')
+    cmd.open_file(file, global_shift=global_shift)
+    cmd.open_file(water_surface, global_shift=global_shift)
+
+    # compute distances to the water surface
+    cmd.extend(['-C2C_DIST', '-SPLIT_XYZ', '-OCTREE_LEVEL', str(octree_level)])
+    cmd.append('-POP_CLOUDS')  # remove class_9 from the database
+    # remove points which are below the water surface
+    cmd.extend(['-SET_ACTIVE_SF', 'C2C absolute distances (Z)', '-FILTER_SF', str(depth), 'MAX'])
+
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
+
+    cc.misc.run(cmd)
+
+    return out
