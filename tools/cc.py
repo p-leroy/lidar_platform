@@ -246,6 +246,8 @@ def q3dmasc(clouds, training_file, only_features=False, keep_attributes=False,
 
     :param clouds: a list of cloud paths or a unique cloud path
     :param training_file: a 3DMASC parameter file
+    :param only_features:
+    :param keep_attributes:
     :param silent:
     :param verbose:
     :param global_shift:
