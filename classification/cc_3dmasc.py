@@ -44,7 +44,7 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
     """
     convention = {"NumberOfReturns": "Number Of Returns",
                   "ReturnNumber": "Return Number"}
-    sbfData = sbf.read_sbf(sbf_filepath)
+    sbfData = sbf.read(sbf_filepath)
     sf_dict = sbfData.get_name_index_dict()
     for sfn in sf_dict.keys():
         sfn = sfn.replace(' ', '_')
