@@ -210,6 +210,81 @@ def density(pc, radius, density_type,
     return root + '_DENSITY.sbf'
 
 
+######
+# M3C2
+######
+
+
+def m3c2(pc1, pc2, params, core=None, fmt='SBF',
+         silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
+
+    cmd = CCCommand(cc, silent=silent, auto_save='ON', fmt=fmt)
+    if global_shift == 'FIRST':
+        raise "'FIRST' is not a valid option, the default is 'AUTO' or pass a valid global shift 3-tuple"
+    elif global_shift =='AUTO':
+        print("[cc.m3c2] WARNING be careful when using 'AUTO' if the resulting shifted coordinates are still large")
+        cmd.open_file(pc1, global_shift='AUTO')
+        cmd.open_file(pc2, global_shift='FIRST')
+        if core is not None:
+            cmd.open_file(core, global_shift='FIRST')
+    else:
+        cmd.open_file(pc1, global_shift=global_shift)
+        cmd.open_file(pc2, global_shift=global_shift)
+        if core is not None:
+            cmd.open_file(core, global_shift=global_shift)
+    cmd.append("-M3C2")
+    cmd.append(params)
+
+    misc.run(cmd, verbose=debug)
+
+    root1, ext1 = os.path.splitext(pc1)
+    results = root1 + f'_M3C2.{fmt.lower()}'
+    return results
+
+
+##########
+#  ICPM3C2
+##########
+
+
+def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', debug=False):
+    cloud_exists(pc1, verbose=False)
+    cloud_exists(pc2, verbose=False)
+    args = ''
+    if silent is True:
+        args += ' -SILENT -NO_TIMESTAMP'
+    else:
+        args += ' -NO_TIMESTAMP'
+    if fmt is None:
+        pass
+    else:
+        args += f' -C_EXPORT_FMT {fmt}'
+    args += ' -o -GLOBAL_SHIFT FIRST ' + pc1
+    args += ' -o -GLOBAL_SHIFT FIRST ' + pc2
+    if core is not None:
+        args += ' -o -GLOBAL_SHIFT FIRST ' + core
+    args += ' -ICPM3C2 ' + params
+    cmd = cc_custom + args
+    if debug is True:
+        logging.info(cmd)
+    ret = misc.run(cmd, verbose=debug)
+    if ret == EXIT_FAILURE:
+        raise CloudCompareError
+    # extracting rootname of the fixed point cloud Q
+    if fmt == 'SBF':
+        ext = 'sbf'
+    elif fmt == 'BIN':
+        ext = 'bin'
+    elif fmt == 'ASC':
+        ext = 'asc'
+    else:
+        ext = 'bin'
+    head2, tail2 = os.path.split(pc2)
+    root2, ext2 = os.path.splitext(tail2)
+    results = os.path.join(head2, root2 + f'_ICPM3C2.{ext}')
+    return results
+
+
 #########################################################
 #  3DMASC KEEP_ATTRIBUTES / ONLY_FEATURES / SKIP_FEATURES
 #########################################################
@@ -286,6 +361,77 @@ def q3dmasc(clouds, training_file, only_features=False, keep_attributes=False,
 
     return output_name
 
+###############
+# FULL WAVEFORM
+###############
+
+
+def compress_fwf(cloud, in_place=True,
+              silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
+
+    if not os.path.exists(cloud):
+        raise FileNotFoundError
+
+    print(f'[compress_fwf] {cloud}')
+
+    cmd = CCCommand(cc, silent=silent, fmt='LAS')
+    cmd.open_file(cloud, global_shift=global_shift)
+    cmd.append('-COMPRESS_FWF')
+    if in_place:
+        out = cloud
+    else:
+        out = os.path.splitext(cloud)[0] + '_compressed.laz'
+    cmd.extend(['-SAVE_CLOUDS', 'file', out])
+
+    misc.run(cmd, verbose=debug)
+
+    return out
+
+
+def fwf_peaks(cloud, ini,
+              silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
+
+    if not os.path.exists(cloud):
+        raise FileNotFoundError
+
+    print(f'[fwf_ortho] {cloud}')
+
+    out = os.path.splitext(cloud)[0] + '_fwf_ortho.laz'
+
+    cmd = CCCommand(cc, silent=silent, fmt='LAS')
+    cmd.open_file(cloud, global_shift=global_shift)
+    cmd.extend(['-FWF_PEAKS', ini])
+
+    cmd.extend(['-SAVE_CLOUDS', 'file', out])
+
+    misc.run(cmd, verbose=debug)
+
+    return out
+
+
+def fwf_ortho(cloud, ini,
+              silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
+
+    if not os.path.exists(cloud):
+        raise FileNotFoundError
+
+    print(f'[fwf_ortho] {cloud}')
+
+    head, tail = os.path.split(cloud)
+    root, ext = os.path.splitext(tail)
+    odir = os.path.join(head, 'fwf_ortho')
+    os.makedirs(odir, exist_ok=True)
+    out = os.path.join(odir, root + '_fwf_ortho.laz')
+
+    cmd = CCCommand(cc, silent=silent, fmt='LAS')
+    cmd.open_file(cloud, global_shift=global_shift)
+    cmd.extend(['-FWF_ORTHO', ini])
+    cmd.extend(['-SAVE_CLOUDS', 'file', out])
+
+    misc.run(cmd, verbose=debug)
+
+    return out
+
 
 ################
 # Best Fit Plane
@@ -314,36 +460,6 @@ def get_orientation_matrix(filename):
         matrix = np.genfromtxt(f, delimiter=' ', skip_header=5)
     return matrix
 
-######
-# M3C2
-######
-
-
-def m3c2(pc1, pc2, params, core=None, fmt='SBF',
-         silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
-
-    cmd = CCCommand(cc, silent=silent, auto_save='ON', fmt=fmt)
-    if global_shift == 'FIRST':
-        raise "'FIRST' is not a valid option, the default is 'AUTO' or pass a valid global shift 3-tuple"
-    elif global_shift =='AUTO':
-        print("[cc.m3c2] WARNING be careful when using 'AUTO' if the resulting shifted coordinates are still large")
-        cmd.open_file(pc1, global_shift='AUTO')
-        cmd.open_file(pc2, global_shift='FIRST')
-        if core is not None:
-            cmd.open_file(core, global_shift='FIRST')
-    else:
-        cmd.open_file(pc1, global_shift=global_shift)
-        cmd.open_file(pc2, global_shift=global_shift)
-        if core is not None:
-            cmd.open_file(core, global_shift=global_shift)
-    cmd.append("-M3C2")
-    cmd.append(params)
-
-    misc.run(cmd, verbose=debug)
-
-    root1, ext1 = os.path.splitext(pc1)
-    results = root1 + f'_M3C2.{fmt.lower()}'
-    return results
 
 #######
 # OTHER
@@ -402,69 +518,6 @@ def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
     misc.run(cmd, verbose=debug)
     
     return out
-
-
-def compress_fwf(cloud, in_place=True,
-              silent=True, debug=False, global_shift='AUTO', cc=cc_custom):
-
-    if not os.path.exists(cloud):
-        raise FileNotFoundError
-
-    cmd = CCCommand(cc, silent=silent, fmt='LAS')
-    cmd.open_file(cloud, global_shift=global_shift)
-    cmd.append('-COMPRESS_FWF')
-    if in_place:
-        out = cloud
-    else:
-        out = os.path.splitext(cloud)[0] + '_compressed.laz'
-    cmd.extend(['-SAVE_CLOUDS', 'file', out])
-
-    misc.run(cmd, verbose=debug)
-
-    return out
-
-
-##########
-#  ICPM3C2
-##########
-
-
-def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', debug=False):
-    cloud_exists(pc1, verbose=False)
-    cloud_exists(pc2, verbose=False)
-    args = ''
-    if silent is True:
-        args += ' -SILENT -NO_TIMESTAMP'
-    else:
-        args += ' -NO_TIMESTAMP'
-    if fmt is None:
-        pass
-    else:
-        args += f' -C_EXPORT_FMT {fmt}'
-    args += ' -o -GLOBAL_SHIFT FIRST ' + pc1
-    args += ' -o -GLOBAL_SHIFT FIRST ' + pc2
-    if core is not None:
-        args += ' -o -GLOBAL_SHIFT FIRST ' + core
-    args += ' -ICPM3C2 ' + params
-    cmd = cc_custom + args
-    if debug is True:
-        logging.info(cmd)
-    ret = misc.run(cmd, verbose=debug)
-    if ret == EXIT_FAILURE:
-        raise CloudCompareError
-    # extracting rootname of the fixed point cloud Q
-    if fmt == 'SBF':
-        ext = 'sbf'
-    elif fmt == 'BIN':
-        ext = 'bin'
-    elif fmt == 'ASC':
-        ext = 'asc'
-    else:
-        ext = 'bin'
-    head2, tail2 = os.path.split(pc2)
-    root2, ext2 = os.path.splitext(tail2)
-    results = os.path.join(head2, root2 + f'_ICPM3C2.{ext}')
-    return results
 
 
 #################

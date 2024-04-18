@@ -108,6 +108,8 @@ def refraction_correction_fwf(filepath, minimum_depth=-0.1, output_suffix = "_co
 def correct(files, sbet_params, n_jobs, fwf=False, minimum_depth=-0.1, force_sbet_std_time=False):
     start = time.time()
 
+    print(f'[correct] minimum depth: {minimum_depth}')
+
     if fwf:
         print("[correct] full waveform mode")
         if type(files) is list or type(files) is tuple:
@@ -120,13 +122,17 @@ def correct(files, sbet_params, n_jobs, fwf=False, minimum_depth=-0.1, force_sbe
         print("[correct] SBET data processing: start")
         sbet_data = sbet.read(sbet_params)
         print("[correct] SBET data processing: done")
-        print("[correct] normal mode")
+        print("[correct] normal mode (not full waveform)")
         if type(files) is list or type(files) is tuple:
             results = Parallel(n_jobs=n_jobs, verbose=1)(
-                delayed(refraction_correction)(file, sbet_data, force_sbet_std_time=force_sbet_std_time)
+                delayed(refraction_correction)(file, sbet_data,
+                                               minimum_depth=minimum_depth,
+                                               force_sbet_std_time=force_sbet_std_time)
                 for file in files)
         else:
-            results = refraction_correction(files, sbet_data, force_sbet_std_time=force_sbet_std_time)
+            results = refraction_correction(files, sbet_data,
+                                            minimum_depth=minimum_depth,
+                                            force_sbet_std_time=force_sbet_std_time)
 
     stop = time.time()
     print("[correct] done in " + str(round(stop - start, 1)) + " sec")
