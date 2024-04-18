@@ -11,11 +11,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-#import shap
 import sklearn
 from sklearn import metrics
 
-from ..tools import cc
+from ..tools import cc, sbf
 
 #  definition of classes names and label values (here, internal conventions of the Rennes LiDAR platform)
 classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Building', 9: 'Water',
@@ -45,7 +44,8 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
     """
     convention = {"NumberOfReturns": "Number Of Returns",
                   "ReturnNumber": "Return Number"}
-    sf_dict = cc.get_name_index_dict(cc.read_sbf_header(sbf_filepath))
+    sbfData = sbf.read(sbf_filepath)
+    sf_dict = sbfData.get_name_index_dict()
     for sfn in sf_dict.keys():
         sfn = sfn.replace(' ', '_')
     f = open(params_filepath[0:-4]+"_feature_sources.txt", "r")
@@ -68,7 +68,8 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
         else:
             sf_to_load.append(sf_dict[feature_name])
             loaded_sf_names.append(feature_name)
-    pc, sf, config = cc.read_sbf(sbf_filepath)
+    pc = sbfData.pc
+    sf = sbfData.sf
     data = {"features": sf[:, sf_to_load], "names": np.array(loaded_sf_names)}
     if labels:
         data["labels"] = sf[:, sf_dict['Classification']]
