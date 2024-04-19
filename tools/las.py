@@ -114,6 +114,89 @@ def create_file_and_get_appender(filename, las_data_in):
     return appender
 
 
+def merge_las_with_wdp(to_merge):
+
+    records = []
+    vlrs = []
+    record_id = 100
+    las_data_0 = read(to_merge[0])  # read with lidar_platform extension of laspy to have information on waveforms
+
+    # create and initialize outputs
+    odir = os.path.join(os.path.split(to_merge[0])[0], 'merge')
+    os.makedirs(odir, exist_ok=True)
+    out = os.path.join(odir, 'merged.las')  # name of the output file
+    out_header = laspy.LasHeader(version=f'{las_data_0.header.version.major}.{las_data_0.header.version.minor}',
+                                 point_format=las_data_0.header.point_format.id)
+    out_header.global_encoding.waveform_data_packets_external = True
+    point_record = laspy.ScaleAwarePointRecord.empty(header=out_header)
+
+    # create and initialize wdp output file
+    out_wdp = os.path.join(odir, 'merged.wdp')
+
+    evlr_header = las_data_0.get_waveform_data_packet_header()  # Read the EVLR header of the original wdp file
+    with open(out_wdp, "wb") as f_out:
+        # write the Extended Variable Length Record header
+        f_out.write(las_fmt.pack_evlr_header_waveform_data_packet(evlr_header))
+
+    for file in to_merge[:5]:
+
+        las_data = laspy.read(file)
+        print(f'{os.path.split(file)[-1]} {las_data.header.point_count} points to merge')
+
+        record_id_map = {}
+
+        # process vlrs
+        for idx, vlr in enumerate(las_data.vlrs):
+
+            if type(vlr) is laspy.vlrs.known.WaveformPacketVlr:  # check that the vlr is a waveform packet vlr
+
+                record = vlr.record_data_bytes()
+
+                try:
+                    index = records.index(record)  # if vlr is already in the list, map the record ids
+                    record_id_map[vlr.record_id] = vlrs[index].record_id
+
+                except ValueError:  # if vlr is not already in the list, addit and map the record ids
+                    records.append(record)
+
+                    new_vlr = laspy.vlrs.known.WaveformPacketVlr(record_id)  # create a new vlr
+                    new_vlr.parse_record_data(vlr.record_data_bytes())  # copy the data
+                    vlrs.append(new_vlr)  # add the new vlr to the list
+                    record_id = record_id + 1  # update record_id
+
+                    record_id_map[vlr.record_id] = vlrs[-1].record_id
+
+                    print(
+                        f'vlr not already in the list, add it,'
+                        f' record ids association {vlr.record_id} <=> {vlrs[-1].record_id}')
+
+                    # add the new vlr to the merge
+                    out_header.vlrs.append(new_vlr)
+
+        # update wavepacket_index
+        for wavepacket_index in np.unique(las_data.wavepacket_index):
+            las_data.wavepacket_index[np.where(las_data.wavepacket_index == wavepacket_index)] = (
+                    record_id_map[wavepacket_index + 100] - 100)
+
+        # update byte offset to waveform data and append waveforms
+        offset = os.path.getsize(out_wdp)
+        print(f'{os.path.split(file)[-1]} offset in wdp {offset}')
+        las_data.wavepacket_offset = las_data.wavepacket_offset + offset
+        wdp_to_merge = os.path.splitext(file)[0] + '.wdp'
+        with open(wdp_to_merge, "rb") as f_in, open(out_wdp, "ab") as f_out:
+            f_out.write(f_in.read())  # append the waveforms to the existing ones
+
+        # append the points
+        current_size = len(point_record)
+        point_record.resize(current_size + las_data.header.point_count)
+        point_record.array[current_size:] = las_data.points.array
+
+    with laspy.open(out, mode="w", header=out_header) as writer:
+        writer.write_points(point_record)
+
+    return out
+
+
 ##########
 # OLD CODE
 ##########
