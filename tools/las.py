@@ -125,9 +125,17 @@ def merge_las_with_wdp(to_merge):
     odir = os.path.join(os.path.split(to_merge[0])[0], 'merge')
     os.makedirs(odir, exist_ok=True)
     out = os.path.join(odir, 'merged.las')  # name of the output file
+
+    # create the output header, same version and point format as the first file to merge
     out_header = laspy.LasHeader(version=f'{las_data_0.header.version.major}.{las_data_0.header.version.minor}',
                                  point_format=las_data_0.header.point_format.id)
+    out_header.scales = las_data_0.header.scales  # copy scales
+    out_header.x_offset = las_data_0.header.x_offset  # copy x offset
+    out_header.y_offset = las_data_0.header.y_offset  # copy y offset
+    out_header.z_offset = las_data_0.header.z_offset  # copy z offset
     out_header.global_encoding.waveform_data_packets_external = True
+
+    # create a record to store the points during merging
     point_record = laspy.ScaleAwarePointRecord.empty(header=out_header)
 
     # create and initialize wdp output file
@@ -176,7 +184,7 @@ def merge_las_with_wdp(to_merge):
         # update wavepacket_index
         for wavepacket_index in np.unique(las_data.wavepacket_index):
             las_data.wavepacket_index[np.where(las_data.wavepacket_index == wavepacket_index)] = (
-                    record_id_map[wavepacket_index + 100] - 100)
+                    record_id_map[wavepacket_index + 99] - 99)
 
         # update byte offset to waveform data and append waveforms
         offset = os.path.getsize(out_wdp)
