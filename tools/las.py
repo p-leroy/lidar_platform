@@ -148,7 +148,7 @@ def merge_las_with_wdp(to_merge, o='merged.las', odir=None):
         # write the Extended Variable Length Record header
         f_out.write(las_fmt.pack_evlr_header_waveform_data_packet(evlr_header))
 
-    for file in to_merge:
+    for k, file in enumerate(to_merge):
 
         las_data = laspy.read(file)
 
@@ -182,8 +182,8 @@ def merge_las_with_wdp(to_merge, o='merged.las', odir=None):
                     record_id_map[vlr.record_id] = vlrs[-1].record_id
 
                     print(
-                        f'vlr not already in the list, add it,'
-                        f' record ids association {vlr.record_id} <=> {vlrs[-1].record_id}')
+                        f'    vlr not already in the header of the merge, add it, '
+                        f'record ids association: in file {vlr.record_id} <=> in merge {vlrs[-1].record_id}')
 
                     # add the new vlr to the merge
                     out_header.vlrs.append(new_vlr)
@@ -195,11 +195,22 @@ def merge_las_with_wdp(to_merge, o='merged.las', odir=None):
 
         # update byte offset to waveform data and append waveforms
         offset = os.path.getsize(out_wdp)
-        print(f'{os.path.split(file)[-1]} offset in wdp {offset}')
         las_data.wavepacket_offset = las_data.wavepacket_offset + offset
+        las_data.point_source_id[:] = k
         wdp_to_merge = os.path.splitext(file)[0] + '.wdp'
         with open(wdp_to_merge, "rb") as f_in, open(out_wdp, "ab") as f_out:
             f_out.write(f_in.read())  # append the waveforms to the existing ones
+
+        # offsets of the merge may be different from offsets of the file to merge, may need some adjustment
+        if out_header.x_offset != las_data.header.x_offset:
+            print(f'    need to adapt x_offset from {las_data.header.x_offset} to the merge one {out_header.x_offset}')
+            las_data.x = las_data.x - out_header.x_offset + las_data.header.x_offset
+        if out_header.y_offset != las_data.header.y_offset:
+            print(f'    need to adapt y_offset from {las_data.header.y_offset} to the merge one {out_header.y_offset}')
+            las_data.y = las_data.y - out_header.y_offset + las_data.header.y_offset
+        if out_header.z_offset != las_data.header.z_offset:
+            print(f'    need to adapt z_offset from {las_data.header.z_offset} to the merge one {out_header.z_offset}')
+            las_data.z = las_data.z - out_header.z_offset + las_data.header.z_offset
 
         # append the points
         current_size = len(point_record)

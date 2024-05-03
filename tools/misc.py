@@ -3,6 +3,7 @@
 # Baptiste Feldmann
 
 import datetime
+import glob
 import os
 import re
 import subprocess
@@ -24,6 +25,20 @@ def delete_file(files):
             os.remove(file)
         except:
             pass
+
+
+def list_files(idir, patterns):
+    list_ = []
+
+    if type(patterns) is list:
+        for pattern in patterns:
+            to_append = glob.glob(os.path.join(idir, pattern))
+            if len(to_append) != 0:
+                list_.extend(to_append)
+    else:
+        list_.extend(glob.glob(os.path.join(idir, patterns)))
+
+    return list_
 
 
 def head_tail_root_ext(path):
@@ -72,7 +87,7 @@ def run(cmd, shell=False, advanced=True, verbose=True):
             for line in process.stdout.readlines():
                 if verbose is True:
                     print(line.strip())
-        # Process has finished, read_bfe rest of the output
+        # Process has finished, read the rest of the output
         for line in process.stdout.readlines():
             if verbose is True:
                 print(line.strip())
