@@ -114,7 +114,7 @@ def create_file_and_get_appender(filename, las_data_in):
     return appender
 
 
-def merge_las_with_wdp(to_merge):
+def merge_las_with_wdp(to_merge, o='merged.las', odir=None):
 
     records = []
     vlrs = []
@@ -122,9 +122,11 @@ def merge_las_with_wdp(to_merge):
     las_data_0 = read(to_merge[0])  # read with lidar_platform extension of laspy to have information on waveforms
 
     # create and initialize outputs
-    odir = os.path.join(os.path.split(to_merge[0])[0], 'merge')
-    os.makedirs(odir, exist_ok=True)
-    out = os.path.join(odir, 'merged.las')  # name of the output file
+    if odir is None:
+        odir = os.path.join(os.path.split(to_merge[0])[0], 'merge')
+        os.makedirs(odir, exist_ok=True)
+
+    out = os.path.join(odir, o)  # name of the output file
 
     # create the output header, same version and point format as the first file to merge
     out_header = laspy.LasHeader(version=f'{las_data_0.header.version.major}.{las_data_0.header.version.minor}',
@@ -139,17 +141,22 @@ def merge_las_with_wdp(to_merge):
     point_record = laspy.ScaleAwarePointRecord.empty(header=out_header)
 
     # create and initialize wdp output file
-    out_wdp = os.path.join(odir, 'merged.wdp')
+    out_wdp = os.path.splitext(out)[0] + '.wdp'
 
     evlr_header = las_data_0.get_waveform_data_packet_header()  # Read the EVLR header of the original wdp file
     with open(out_wdp, "wb") as f_out:
         # write the Extended Variable Length Record header
         f_out.write(las_fmt.pack_evlr_header_waveform_data_packet(evlr_header))
 
-    for file in to_merge[:5]:
+    for file in to_merge:
 
         las_data = laspy.read(file)
-        print(f'{os.path.split(file)[-1]} {las_data.header.point_count} points to merge')
+
+        if las_data.header.point_count == 0:
+            print(f'WARNING {os.path.split(file)[-1]} is empty, nothing to merge')
+            continue
+        else:
+            print(f'MERGE {las_data.header.point_count} points from {os.path.split(file)[-1]}')
 
         record_id_map = {}
 
