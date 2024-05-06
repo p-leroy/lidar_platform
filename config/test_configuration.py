@@ -5,8 +5,6 @@ import os
 import shutil
 import socket
 
-from tools import misc
-
 from .config import cc_custom, GDAL_QUERY_ROOT, QUERY_0, VERTICAL_DATUM_DIR
 
 logger = logging.getLogger(__name__)

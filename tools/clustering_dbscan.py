@@ -4,7 +4,7 @@ import numpy as np
 
 from sklearn.cluster import DBSCAN
 
-from tools import cc
+from tools.misc import cc
 
 idir = r'C:\DATA\Brioude_30092021\05-Traitements'
 odir = r'C:\DATA\Brioude_30092021\05-Traitements\processing'

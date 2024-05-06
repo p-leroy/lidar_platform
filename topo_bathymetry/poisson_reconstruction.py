@@ -7,7 +7,7 @@ import time
 import numpy as np
 
 import lidar_platform as lp
-import tools.misc as utils
+from tools import misc as utils
 
 
 def poisson_recon_step1(filename, water_surface, bbox_place, tile_size,

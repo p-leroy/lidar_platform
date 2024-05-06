@@ -5,7 +5,8 @@ from joblib import delayed, Parallel
 import laspy
 import numpy as np
 
-import misc
+from tools import misc
+
 
 class ReverseTiling(object):
 

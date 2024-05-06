@@ -572,6 +572,8 @@ def to_laz(fullname, remove=False, silent=True, debug=False, global_shift='AUTO'
     :return:
     """
 
+    print(f'[to_laz] {fullname}')
+
     if not os.path.exists(fullname):
         raise FileNotFoundError
 
@@ -580,7 +582,7 @@ def to_laz(fullname, remove=False, silent=True, debug=False, global_shift='AUTO'
         return fullname
     out = root + '.laz'
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt='LAZ')
+    cmd = CCCommand(cc_exe, silent=silent, fmt='LAS')
     cmd.open_file(fullname, global_shift=global_shift)
     cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd, verbose=debug)
