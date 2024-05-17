@@ -1,6 +1,6 @@
 # coding: utf-8
-# Baptiste Feldmann
 # Paul Leroy
+# Baptiste Feldmann
 
 import copy
 from datetime import datetime, timezone

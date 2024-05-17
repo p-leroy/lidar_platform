@@ -2,8 +2,10 @@
 # **Lidar_platform**
 
 ## Installation
+
 ### 1. Install lidar_platform
-The better way to install the lidar_platform module is by cloning the repository from GitHub:
+
+The best way to install the ```lidar_platform``` module is by cloning the repository from GitHub:
 
 https://github.com/p-leroy/lidar_platform
 
@@ -17,7 +19,9 @@ from lidar_platform import cc, las
 ```
 
 ### 2. Install required modules
-Depending on your python installation, there are several ways to install modules. Sometimes, preferred ways are specified on the webstites of the modules. So, do not hesitate to go and have a look at the installation recommandations, which can evolute with time.
+Depending on your python installation, there are several ways to install modules. Sometimes, preferred ways are 
+specified on the websites of the modules. So, do not hesitate to go and have a look at the installation 
+recommendations, which can evolve with time.
 
 For instance, with miniconda (or anaconda but the first one is preferred)
 > conda install -c conda-forge laspy 
@@ -37,13 +41,27 @@ or with pip
 > pip install -r .\plateforme_lidar\requirements.txt
 
 ### 3. Third party tools
+
 Paths to third party tools can be configured in lidar_platform.config.config.py.
 
 Depending on what you need in the library, you will need to install third party tools:
-- To use tools.cloudcompare and tools.cc, you will need CloudCompare<br>
-If CloudCompare is not installed in the standard directory ('C:\Program Files\CloudCompare' on Windows), configure the path in lidar_platform.config.config.py<br>
-See more : http://www.cloudcompare.org/
-- topo_bathymetry.poisson_reconstruction makes calls to the Adaptive Multigrid Solvers tools, especially PoissonRecon.exe<br>
-See more: https://www.cs.jhu.edu/~misha/Code/PoissonRecon/Version13.8/
-- In case of failure during the gdal installation, it is possible to try to install it using OSGeo4W<br>You will have to add the root path to OSGEO4W (containing OSGeo4W.bat) to your environment variables.<br>
-See more : https://trac.osgeo.org/osgeo4w/
+- To use ```tools.cloudcompare``` and ```tools.cc```, you will need CloudCompare.
+**If CloudCompare is not installed in the standard directory ('C:\Program Files\CloudCompare' on Windows), configure 
+  the path in lidar_platform.config.config.py.** See more : http://www.cloudcompare.org
+- topo_bathymetry.poisson_reconstruction makes calls to the Adaptive Multigrid Solvers tools, especially ```PoissonRecon.exe``` See more: https://www.cs.jhu.edu/~misha/Code/PoissonRecon/Version13.8/
+- In case of failure during the gdal installation, it is possible to try to install it using OSGeo4W. You will have 
+  to add the root path to OSGEO4W (containing OSGeo4W.bat) to your environment variables.
+See more : https://trac.osgeo.org/osgeo4w
+
+# HOWTO
+
+## Read a LAS/LAZ file with waveforms
+
+Note that ````lidar_platform.las```` make calls to ```laspy```, you have to install this third party library.
+
+```python
+from lidar_platform import las
+las_data = las.read('filename')
+point_index = 0  # the index of the point in your LAS file
+time, waveform = las_data.get_waveform(point_index)
+```
