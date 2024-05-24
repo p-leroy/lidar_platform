@@ -106,6 +106,8 @@ def merge(files, out_file):
     os.remove(out_file[0:-4] + "_mergeInputFiles.txt")
     print("done in %.1f sec" % (time.time() - begin))
 
+    return out_file
+
 
 def hole_filling(raster_density, raster_dem, debug=False):
     """Script to fill holes in density raster

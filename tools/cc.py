@@ -5,11 +5,9 @@ Created on Thu Jan 14 09:17:49 2021
 @author: Paul Leroy
 """
 
-import configparser
 import logging
 import os
 import shutil
-import struct
 
 import numpy as np
 
@@ -20,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 EXIT_FAILURE = 1
 EXIT_SUCCESS = 0
+
 
 #############################
 # BUILD CLOUD COMPARE COMMAND
@@ -804,42 +803,55 @@ def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
 ##########
 
 
-def c2c_dist(compared, reference, max_dist=None, split_XYZ=False, odir=None, export_fmt='SBF',
-             silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe):
+def c2c_dist(compared, reference,
+             max_dist=None, split=False, export_fmt='SBF', global_shift='AUTO', octree_level=10, silent=True,
+             odir=None, verbose=False, cc_exe=cc_exe):
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')  # create the command
-    cmd.open_file(compared, global_shift=global_shift)
-    cmd.open_file(reference, global_shift=global_shift)
+    cmd.open_file(compared, global_shift=global_shift)  # open compared
+    cmd.open_file(reference, global_shift=global_shift)  # open reference
 
     cmd.append('-c2c_dist')
 
-    if split_XYZ is True:
+    if max_dist:
+        cmd.extend(['-MAX_DIST', str(max_dist)])
+
+    cmd.extend(['-OCTREE_LEVEL', str(octree_level)])
+
+    if split == 'split_xyz':
         cmd.append('-SPLIT_XYZ')
-    if max_dist:
-        cmd.append('-MAX_DIST')
-        cmd.append(str(max_dist))
-
-    misc.run(cmd, verbose=debug)
-
-    root, ext = os.path.splitext(compared)
-    if max_dist:
-        output = root + f'_C2C_DIST_MAX_DIST_{max_dist}.sbf'
+    elif split == 'split_xy_z':
+        cmd.append('-SPLIT_XY_Z')
+    elif split is False:
+        pass
     else:
-        output = root + '_C2C_DIST.sbf'
-    head, tail = os.path.split(output)
+        raise ValueError(f'[{__name__}] unknown option split={split}')
 
-    # move the result if odir has been set
-    if os.path.exists(odir) and odir is not None:
-        overlap = os.path.join(odir, tail)
-        shutil.move(output, overlap)
-        if export_fmt.lower() == 'sbf':  # move .sbf.data also in cas of sbf export format
-            shutil.move(output + '.data', overlap + '.data')
-        output = overlap
+    cmd.append('-POP_CLOUDS')  # remove reference cloud from the database
+
+    # output directory
+    head, tail, root, ext = misc.head_tail_root_ext(compared)
+    if odir is None:
+        output_directory = head
+    else:
+        output_directory = os.path.join(head, odir)
+        if not os.path.exists(odir):
+            print(f'[{__name__}] create output directory {output_directory}')
+            os.makedirs(output_directory, exist_ok=True)
+
+    if max_dist:
+        out = os.path.join(output_directory, root + f'_C2C_DIST_{max_dist}m.{export_fmt.lower()}')
+    else:
+        out = os.path.join(output_directory, root + f'_C2C_DIST.{export_fmt.lower()}')
+
+    cmd.extend(['-SAVE_CLOUDS', 'FILE',  out])  # save cloud
+
+    misc.run(cmd, verbose=verbose)
     
-    return output
+    return out
 
 
-def closest_point_set(compared, reference, silent=True, debug = False):
+def closest_point_set(compared, reference, silent=True, debug=False):
     compRoot, compExt = os.path.splitext(compared)
     compHead, compTail = os.path.split(compared)
     refRoot, refExt = os.path.splitext(reference)

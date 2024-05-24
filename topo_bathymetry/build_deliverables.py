@@ -33,6 +33,22 @@ def clean(path):
     shutil.rmtree(tiles_d)
 
 
+def test_input_files(pattern, tag):
+    list_ = glob.glob(pattern)
+    nb_files = len(list_)
+    if nb_files == 0:
+        raise ValueError(f'[Deliverable] no {tag} input file')
+    elif nb_files == 1:
+        print(f'[Deliverable] {len(list_)} {tag} input file')
+    else:
+        print(f'[Deliverable] {len(list_)} {tag} input files')
+
+
+def file_exists(file, tag):
+    if not os.path.exists(file):
+        raise FileExistsError(f'[{tag}] {file} does not exist')
+
+
 class Deliverable(object):
     
     def __init__(self, workspace, pixel_size, root_name,
@@ -55,17 +71,20 @@ class Deliverable(object):
 
         if input_c2 is not None:
             self.i_c2 = input_c2
-        else: # for backward compatibility
+            test_input_files(input_c2, 'C2')
+        else:  # for backward compatibility
             self.i_c2 = os.path.join(self.workspace, "LAS", "C2", "*.laz")
 
         if input_c3 is not None:
             self.i_c3 = input_c3
-        else: # for backward compatibility
+            test_input_files(input_c3, 'C3')
+        else:  # for backward compatibility
             self.i_c3 = os.path.join(self.workspace, "LAS", "C3", "*.laz")
 
         if input_fwf is not None:
             self.i_fwf = input_fwf
-        else: # for backward compatibility
+            test_input_files(input_fwf, 'FWF')
+        else:  # for backward compatibility
             self.i_fwf = os.path.join(self.workspace, "LAS", "FWF", "*.laz")
 
         self.poisson_path = poisson_path
@@ -76,14 +95,14 @@ class Deliverable(object):
         :param channel: a string containing one or several elements among 'C2', 'C3', 'FWF', 'PoissonRecon'
         :param tile_size: the tile size used during the computation
         :param buffer: the buffer size used when building tiles
-        :param poisson_reconstruction: a file containing the data form the Poisson Reconstruction
+        :param poisson_reconstruction: a file containing the data from the Poisson Reconstruction
         :param keep_only_16_in_c3: keep only the bathymetry in C3 data [True/False]
         :return:
         """
         self.raster_dir = "_".join(["DTM", channel, self.pixel_size_name])
         self.raster_path = os.path.join(self.workspace, self.raster_dir)
         os.mkdir(self.raster_path)
-        out_name = [self.root_name, "DTM", self.pixel_size_name + ".tif"]
+        out_name = self.root_name + "_DTM_" + self.pixel_size_name + ".tif"
 
         # copy Poisson reconstruction data
         if "PoissonRecon" in channel:
@@ -96,31 +115,31 @@ class Deliverable(object):
         # extract ground related classes from C2 data [2=ground]
         if "C2" in channel:
             print(f'[DTM] Extract class 2 (ground) from C2 data ({self.i_c2})')
-            misc.run(f"las2las -i {self.i_c2} -keep_class 2 -cores 50 -odir {self.raster_path} -olaz")
+            misc.run(f"las2las -i {self.i_c2} -keep_class 2 -cores 50 -odir {self.raster_path} -olaz -odix _C2")
 
         # extract ground related classes from C3 data [2=ground, 10=rail, 16=bathymetry]
         if "C3" in channel:
             if keep_only_16_in_c3:
                 print(f'[DTM] Extract classes 16 (bathymetry) from C3 data ({self.i_c3})')
-                misc.run(f"las2las -i {self.i_c3} -keep_class 16 -cores 50 -odir {self.raster_path} -olaz")
+                misc.run(f"las2las -i {self.i_c3} -keep_class 16 -cores 50 -odir {self.raster_path} -olaz -odix _C3")
             else:
                 print(f'[DTM] Extract classes 2 (ground), 10 (rail) and 16 (bathymetry) from C3 data ({self.i_c3})')
-                misc.run(f"las2las -i {self.i_c3} -keep_class 2 10 16 -cores 50 -odir {self.raster_path} -olaz")
+                misc.run(f"las2las -i {self.i_c3} -keep_class 2 10 16 -cores 50 -odir {self.raster_path} -olaz -odix _C3")
 
         # extract ground related classes from C3 full waveform data [16=bathymetry]
         if "FWF" in channel:
             print(f'[DTM] Extract class 16 (bathymetry) from FWF data ({self.i_fwf})')
-            misc.run(f"las2las -i {self.i_fwf} -keep_class 16 -cores 50 -odir {self.raster_path} -olaz")
+            misc.run(f"las2las -i {self.i_fwf} -keep_class 16 -cores 50 -odir {self.raster_path} -olaz -odix _FWF")
 
-        # build tiles from lines
+        # build tiles from files
         tiles_d = os.path.join(self.raster_path, "tiles")
         os.mkdir(tiles_d)
-        lines = os.path.join(self.raster_path, "*.laz")
+        files = os.path.join(self.raster_path, "*.laz")
         o = os.path.join(self.raster_path, "tiles", self.root_name + "_DTM.laz")
         print('[DTM] Create spatial indexing information using lasindex')
-        misc.run(f"lasindex -i {lines} -cores 50")
+        misc.run(f"lasindex -i {files} -cores 50")
         print('[DTM] Create tiles')
-        misc.run(f"lastile -i {lines} -tile_size {tile_size} -buffer {buffer} -cores 45 -odir {tiles_d} -o {o}")
+        misc.run(f"lastile -i {files} -tile_size {tile_size} -buffer {buffer} -cores 45 -odir {tiles_d} -o {o}")
 
         # blast to dem
         tiles = os.path.join(tiles_d, "*.laz")
@@ -128,8 +147,10 @@ class Deliverable(object):
 
         # merge tif files
         i_tif = glob.glob(os.path.join(tiles_d, "*.tif"))
-        o_merge = os.path.join(self.raster_path, "tiles", "_".join(out_name))
+        o_merge = os.path.join(self.raster_path, "tiles", out_name)
         gdal.merge(i_tif, o_merge)
+
+        file_exists(o_merge, self.DTM.__qualname__)
 
         clean(self.raster_path)
 

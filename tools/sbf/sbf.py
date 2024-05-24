@@ -221,7 +221,7 @@ class SbfData:
         sf_count = int(self.config['SBF']['SFCount'])
         self.config['SBF'][f'SF{sf_count + 1}'] = name
         self.config['SBF']['SFCount'] = str(sf_count + 1)  # add 1 to sf count
-        self.sf = np.c_[self.sf, sf_to_add]  # add the clumn to the array
+        self.sf = np.c_[self.sf, sf_to_add]  # add the column to the array
 
     def rename_sf(self, name, new_name):
         index = self.name_index[name]

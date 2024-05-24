@@ -118,56 +118,9 @@ def c2c_class_9(line, class_9, global_shift, octree_level=10, odir='c2c_class_9'
     return out
 
 
-def classify_class_9_in_line(c2c, zmin_zmax=(-0.2, 0.05), xy_max=5, lastools_gc=True):
-    # look for c2c results
-    head, tail, root, ext = misc.head_tail_root_ext(c2c)
-    odir = os.path.join(head, 'lines_with_9')
-    os.makedirs(odir, exist_ok=True)
-    out = os.path.join(odir, root + '.sbf')
+def c2c_class_15_16(file, class_15_16, global_shift, octree_level=10, odir='c2c_15_16'):
 
-    if os.path.exists(out):
-        print(f'[classify_class_9_in_line] sbf already exists, nothing to do {out}')
-        return out
-
-    sbf_data = sbf.read(c2c)
-    pc, sf, config = sbf_data.pc, sbf_data.sf, sbf_data.config
-    zmin, zmax = zmin_zmax
-
-    name_index = cc.get_name_index_dict(config)
-    xy = sf[:, name_index['C2C absolute distances[<350] (XY)']]
-    z = sf[:, name_index['C2C absolute distances[<350] (Z)']]
-
-    if lastools_gc:
-        classification = sf[:, name_index['[Classif] Value']]
-        cc.rename_sf('[Classif] Value', 'Classification', config)
-    else:
-        classification = np.zeros(z.shape)
-
-    # NOTE: along z, the standard deviation is important, the water surface is extracted from the lowest points,
-    # so all other points belonging to the water surface will be above...
-    select_9 = (xy < xy_max) & (zmin < z) & (z < zmax)
-    classification[select_9] = 9
-    print(f'{np.count_nonzero(select_9)}/{len(classification)} classified as water surface (class 9)')
-
-    if not lastools_gc:
-        cc.add_sf('Classification', sf, classification)
-
-    # remove unused scalar fields
-    sf, config = cc.remove_sf('UserData', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<350] (XY)', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<350]', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<350] (X)', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<350] (Y)', sf, config)
-    sf, config = cc.remove_sf('C2C absolute distances[<350] (Z)', sf, config)
-
-    cc.write_sbf(out, pc, sf, config)
-
-    return out
-
-
-def c2c_class_15_16(line, class_15_16, global_shift, octree_level=10, odir='c2c_15_16'):
-
-    head, tail, root, ext = misc.head_tail_root_ext(line)
+    head, tail, root, ext = misc.head_tail_root_ext(file)
     odir = os.path.join(head, odir)
     os.makedirs(odir, exist_ok=True)
     out = os.path.join(odir, root + f'.sbf')
@@ -177,15 +130,72 @@ def c2c_class_15_16(line, class_15_16, global_shift, octree_level=10, odir='c2c_
         return out
 
     x, y, z = global_shift
-    print(f'process line {line}')
+    print(f'process file {file}')
     cmd = [cc_exe]
     cmd.extend(['-SILENT', '-NO_TIMESTAMP', '-C_EXPORT_FMT', 'SBF', '-AUTO_SAVE', 'OFF'])
-    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), line])
+    cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), file])
     cmd.extend(['-O', '-GLOBAL_SHIFT', str(x), str(y), str(z), class_15_16])
     cmd.extend(['-C2C_DIST', '-SPLIT_XY_Z', '-MAX_DIST', str(10), '-OCTREE_LEVEL', str(octree_level)])
     cmd.append('-POP_CLOUDS')  # remove class_9 from the database
     cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd)
+
+    return out
+
+
+def classify_class_9(c2c, zmin_zmax=(-0.2, 0.05), xy_max=5, dist_max=None, classification_sf='Classification'):
+
+    head, tail, root, ext = misc.head_tail_root_ext(c2c)
+    odir = os.path.join(head, 'with_class_9')
+    os.makedirs(odir, exist_ok=True)
+    out = os.path.join(odir, root + '.sbf')
+
+    if os.path.exists(out):
+        print(f'[classify_class_9] sbf already exists, nothing to do {out}')
+        return out
+
+    sbf_data = sbf.read(c2c)  # read cloud to cloud distances
+    pc, sf, config = sbf_data.pc, sbf_data.sf, sbf_data.config
+    name_index = cc.get_name_index_dict(config)
+
+    zmin, zmax = zmin_zmax
+
+    if dist_max is not None:
+        xy = sf[:, name_index[f'C2C absolute distances[<{dist_max}] (XY)']]
+        z = sf[:, name_index[f'C2C absolute distances[<{dist_max}] (Z)']]
+    else:
+        xy = sf[:, name_index[f'C2C absolute distances (XY)']]
+        z = sf[:, name_index[f'C2C absolute distances (Z)']]
+
+    try:
+        classification = sf[:, name_index[classification_sf]]
+    except KeyError:
+        print(f"[{__name__}] create a 'Classification' scalar field")
+        classification = np.zeros(z.shape)
+        sbf_data.add_sf('Classification', sf, classification)
+
+    # NOTE: along z, the standard deviation is important, the water surface is extracted from the lowest points,
+    # so all other points belonging to the water surface will be above...
+    select_9 = (xy < xy_max) & (zmin < z) & (z < zmax)
+    classification[select_9] = 9
+    print(f'{np.count_nonzero(select_9)}/{len(classification)} classified as water surface (class 9)')
+
+    # remove unused scalar fields
+    sf, config = cc.remove_sf('UserData', sf, config)
+    if dist_max is not None:
+        sf, config = cc.remove_sf(f'C2C absolute distances[<{dist_max}] (XY)', sf, config)
+        sf, config = cc.remove_sf(f'C2C absolute distances[<{dist_max}]', sf, config)
+        sf, config = cc.remove_sf(f'C2C absolute distances[<{dist_max}] (X)', sf, config)
+        sf, config = cc.remove_sf(f'C2C absolute distances[<{dist_max}] (Y)', sf, config)
+        sf, config = cc.remove_sf(f'C2C absolute distances[<{dist_max}] (Z)', sf, config)
+    else:
+        sf, config = cc.remove_sf('C2C absolute distances (XY)', sf, config)
+        sf, config = cc.remove_sf('C2C absolute distances', sf, config)
+        sf, config = cc.remove_sf('C2C absolute distances (X)', sf, config)
+        sf, config = cc.remove_sf('C2C absolute distances (Y)', sf, config)
+        sf, config = cc.remove_sf('C2C absolute distances (Z)', sf, config)
+
+    sbf.write(out, pc, sf, config)
 
     return out
 
@@ -256,6 +266,7 @@ def reclassify_class_2_using_intensity(sbf, i_min):
     cc.write_sbf(out, pc, sf, config)
 
     return out
+
 
 def keep_points_above_water_surface(file, water_surface, global_shift, depth=0, octree_level=10):
     print(f'process {file}')
