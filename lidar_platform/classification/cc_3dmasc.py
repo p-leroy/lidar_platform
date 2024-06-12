@@ -4,6 +4,7 @@ Created on Fri Aug  5 18:12:03 2022
 
 @author: Mathilde Letard, Baptiste Feldmann
 """
+import os.path
 import sys
 
 import cv2
@@ -17,9 +18,23 @@ from sklearn import metrics
 from ..tools import cc, sbf
 
 #  definition of classes names and label values (here, internal conventions of the Rennes LiDAR platform)
-classes = {2: 'Ground', 3: 'Low_veg', 4: 'Interm_veg', 5: 'High_veg.', 6: 'Building', 9: 'Water',
-           11: 'Artificial_ground', 13: 'Power_Line', 14: 'Surf_zone', 15: 'Water_Column', 16: 'Bathymetry',
-           18: 'Sandy_seabed', 19: 'Rocky_seabed', 23: 'Bare_ground', 24: 'Pebble', 25: 'Rock', 28: 'Car',
+classes = {2: 'Ground',
+           3: 'Low_veg',
+           4: 'Interm_veg',
+           5: 'High_veg.',
+           6: 'Building',
+           9: 'Water',
+           11: 'Artificial_ground',
+           13: 'Power_Line',
+           14: 'Surf_zone',
+           15: 'Water_Column',
+           16: 'Bathymetry',
+           18: 'Sandy_seabed',
+           19: 'Rocky_seabed',
+           23: 'Bare_ground',
+           24: 'Pebble',
+           25: 'Rock',
+           28: 'Car',
            29: 'Swimming_pools'}
 
 
@@ -44,16 +59,17 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
     """
     convention = {"NumberOfReturns": "Number Of Returns",
                   "ReturnNumber": "Return Number"}
-    sbfData = sbf.read(sbf_filepath)
-    sf_dict = sbfData.get_name_index_dict()
+    sbf_data = sbf.read(sbf_filepath)
+    sf_dict = sbf_data.get_name_index_dict()
     for sfn in sf_dict.keys():
         sfn = sfn.replace(' ', '_')
-    f = open(params_filepath[0:-4]+"_feature_sources.txt", "r")
+    root, ext = os.path.splitext(params_filepath)
+    f = open(root + "_feature_sources.txt", "r")
     features = f.readlines()
     sf_to_load = []
     loaded_sf_names = []
-    for i in features[1:]:
-        feature_name = i.split(sep=':')[1]
+    for feature in features[1:]:
+        feature_name = feature.split(sep=':')[1]
         feature_name = feature_name.split("\n")[0]
         base = feature_name.split('_')[0]
         if feature_name in convention.keys():
@@ -63,13 +79,13 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
             sf_to_load.append(sf_dict[feature_name.replace(base, convention[base])])
             loaded_sf_names.append(feature_name.replace(base, convention[base]))
         elif "kNN" in feature_name:
-            sf_to_load.append(sf_dict['"'+feature_name+'"'])
+            sf_to_load.append(sf_dict['"' + feature_name + '"'])
             loaded_sf_names.append(feature_name)
         else:
             sf_to_load.append(sf_dict[feature_name])
             loaded_sf_names.append(feature_name)
-    pc = sbfData.pc
-    sf = sbfData.sf
+    pc = sbf_data.pc
+    sf = sbf_data.sf
     data = {"features": sf[:, sf_to_load], "names": np.array(loaded_sf_names)}
     if labels:
         data["labels"] = sf[:, sf_dict['Classification']]
@@ -80,7 +96,7 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
 
 def feature_clean(features):
     """
-    Delete NaN and Inf values in the features set (no normalization, juste NaN and Inf values cleaning)
+    Delete NaN and Inf values in the features set (no normalization, just NaN and Inf values cleaning)
 
     Parameters
     ----------

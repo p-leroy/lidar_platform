@@ -12,12 +12,17 @@ lidar_platform: tools to process point clouds
     :height: 100px
     :alt: Rennes LiDAR Platform
 
+The LiDAR platform, in Rennes (`<https://lidar.univ-rennes.fr>`_), aims at developping tools to process point clouds, with a preference for environmental sciences but not only. We develop tools in C++ directly for CloudCompare, but we also develop in Python, or Matlab.
+
+The ``lidar_platform`` Python library contains some helping tools we are using daily (for some of them). Should you be interested in using it, do no hesitate.
+
 .. toctree::
    :maxdepth: 2
    
    installation
    fwf
    deliverables
+   3dmasc
 
 API Documentation
 =================

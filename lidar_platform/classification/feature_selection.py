@@ -4,8 +4,8 @@ Created on Thu Jul 28 10:33:50 2022
 
 @author: Mathilde Letard
 """
-import numpy as np
 
+import numpy as np
 import pandas as pd
 import sklearn
 from sklearn import feature_selection

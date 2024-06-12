@@ -316,16 +316,16 @@ def q3dmasc(clouds, training_file, only_features=False, keep_attributes=False,
 
     In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
     and you also have to associate each label to a number, the number representing the order in which the clouds
-    have been loaded
+    have been open (-O option in the command line).
 
     :param clouds: a list of cloud paths or a unique cloud path
-    :param training_file: a 3DMASC parameter file
-    :param only_features:
-    :param keep_attributes:
-    :param silent:
-    :param verbose:
-    :param global_shift:
-    :param cc_exe:
+    :param training_file: a 3DMASC parameter file or a classifier, depending on the options
+    :param only_features: stop after the features computation, no training, no classification [True / False]
+    :param keep_attributes: keep attributes after completion
+    :param silent: call CloudCompare in silent mode [True / False]
+    :param verbose: verbose mode for the command line
+    :param global_shift: global_shifht for the opening of point clouds by CloudCompare
+    :param cc_exe: the CloudCompare executable
     :return: the name of the output file
     """
 
