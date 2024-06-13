@@ -2,4 +2,4 @@
 
 **lidar_platform** is a library in Python to process point clouds coded by the LiDAR platform members.
 
-API Documentation and tutorials are available at [ReadTheDocs](https://lidar-platform.readthedocs.io).
+API documentation and tutorials are available at [ReadTheDocs](https://lidar-platform.readthedocs.io).
