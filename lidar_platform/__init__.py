@@ -2,7 +2,6 @@
 Python package for point clouds data processing
 """
 
-from . import classification, config, fwf, qc, scripts_bfe, tools, topo_bathymetry
 from .tools import cc, gdal, las, las_fmt, misc, sbf
 from .topo_bathymetry import bathymetry, sbet, water_surface
 from .config import global_shifts
