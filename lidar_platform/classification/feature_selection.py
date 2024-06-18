@@ -395,7 +395,7 @@ def rf_ft_selection(trads, testds, n_scales, n_features, eval_sc, threshold=0.85
 
 def get_n_optimal_sc_ft(train_ds, test_ds, n_scales, n_features, eval_sc, threshold):
     """
-    Get the best nfeats and nscales for classification based on inter-feature correlation and information score.
+    Get the best n_features and n_scales for classification based on inter-feature correlation and information score.
 
     Parameters
     ----------
@@ -475,7 +475,7 @@ def get_best_rf_select_iter(dictio_rf_select, trads, testds, wait, threshold):
     Parameters
     ----------
     dictio_rf_select : dictionary
-        dictionary obtained when performing embedded_rf_selection.
+        obtained when performing embedded_rf_selection.
     trads : dictionary
         data dictionary containing features, labels, names obtained with load_sbf_features().
     testds : dictionary
@@ -488,8 +488,28 @@ def get_best_rf_select_iter(dictio_rf_select, trads, testds, wait, threshold):
     Returns
     -------
     dictio_ft : dictionary
-        dictionary containing the resulting predictors set and associated parameters and metrics.
-    classifier :  sklearn RandomForestClassifier
+        contains the resulting predictors set and associated parameters and metrics.
+
+        - 'Best_it': best iteration
+        - 'Features': optimized set of features
+        - 'Scales': scales related to the optimized features
+        - 'Feat_names': feature names (maybe redundant with 'Features')
+        - 'Feat_imp_mean': mean of feature importance
+        - 'Scales_name': scale names
+        - 'Scales_freq': scale frequency (per scale)
+        - 'Scales_imp': scale importance (per scale)
+        - 'OA': Overall Accuracy,
+        - 'Fscore': F1-score
+        - 'Confid': confidence
+        - 'Recall': recall,
+        - 'Precision': precision,
+        - 'UAs': User's accuracies (per class)
+        - 'PAs': Producer's accuracies (per class)
+        - 'Class_fscores': F1-score per class
+        - 'Class_conf': confidence per class
+        - 'labels': labels
+
+    classifier : sklearn.ensemble.RandomForestClassifier
         theoretically optimal classifier.
     """
     # data = np.load(dictio_rf_select, allow_pickle=True).flat[0]

@@ -139,9 +139,7 @@ In this module, you can also find functions to visualize the random forest featu
 Classifier optimization in Python
 ---------------------------------
 
-The optimization procedure detailed in the 3DMASC paper consists of iteratively pruning a set of features and scales using embedded random forest metrics and using the variation in classification performance to identify an optimal set of predictors. In the Python library, the functions classification.feature_selection.rf_ft_selection() and classification.feature_selection.get_best_rf_select_iter() will enable you to do the same for your classification workflows.
-
-In lidar_platform.classification.feature_selection you will also find multiple scripts to perform other operations such as selecting a given number of uncorrelated features or scales. You can also directly select a set of predictors made of at most n features and m scales using get_n_optimal_sc_ft.
+The optimization procedure detailed in the 3DMASC paper consists of iteratively pruning a set of features and scales using embedded random forest metrics and using the variation in classification performance to identify an optimal set of predictors. In the module ``lidar_platform.classification.feature_selection``, three functions allows you to get automatically an optimized set of predictors: ``rf_ft_selection``, ``get_n_optimal_sc_ft`` and ``get_best_rf_select_iter``. In this module, you will also find multiple scripts to perform other operations such as selecting a given number of uncorrelated features or scales.
 
 Shifting between GUI and Python for classifier training and application
 -----------------------------------------------------------------------
