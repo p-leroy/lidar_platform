@@ -15,3 +15,5 @@ Submodules
     lidar_platform.sbf
     lidar_platform.sbet
     lidar_platform.global_shifts
+    lidar_platform.classification.cc_3dmasc
+    lidar_platform.classification.feature_selection

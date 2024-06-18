@@ -16,7 +16,7 @@ from .cc_3dmasc import get_acc_expe, feature_clean
 
 def get_scales_feats(ds):
     """
-    Get the scales and features present in the dataset read by load_sbf_features() (in cc_3dmasc.py).
+    Get the scales and features present in the dataset read by cc_3dmasc.load_sbf_features().
 
     Parameters
     ----------
@@ -105,7 +105,7 @@ def info_score(ds):
     Returns
     -------
     dictio_ft : dictionary
-        dictionary containing the name of each feature and the associated score value.
+        contains the name of each feature and the associated score value.
     """
     ds_cleaned = feature_clean(ds['features'])
     mi = sklearn.feature_selection.mutual_info_classif(ds_cleaned, ds['labels'])
@@ -118,7 +118,7 @@ def inter_ft_corr_filter(features_set, features_score, threshold):
     Prune a set of predictors by keeping only the most informative elements among correlated pairs.
     First, linear correlation between all provided features at all provided scales is computed.
     Then, when the correlation between two predictors exceeds a given threshold, only the one with the highest
-    mutual info. score is kept.
+    mutual information score is kept.
 
     Parameters
     ----------
@@ -241,7 +241,7 @@ def n_best_uncorr_ft(ds, nf, corr_threshold):
     Parameters
     ----------
     ds : dictionary
-        data dictionary containing features, labels, names obtained with load_sbf_features().
+        data dictionary containing features, labels, names obtained with cc_3dmasc.load_sbf_features().
     nf : int
         number of different features to select.
     corr_threshold : float
@@ -251,7 +251,7 @@ def n_best_uncorr_ft(ds, nf, corr_threshold):
     -------
     select : list(int)
         list of the indices of the selected features in the original ds['features'] array (obtained with
-        load_sbf_features()).
+        cc_3dmasc.load_sbf_features()).
     """
     ft_score = info_score(ds)['MutualInfo']
     possib = np.argsort(ft_score)[-1 * nf:]
@@ -262,7 +262,7 @@ def n_best_uncorr_ft(ds, nf, corr_threshold):
     return select
 
 
-def n_best_uncorr_sc(ds, ns, corr_threshold):
+def n_best_uncorr_sc(ds, n_scales, corr_threshold):
     """
     Select ns uncorrelated scales depending on their mutual information score, linear correlation,
     and a voting process.
@@ -273,7 +273,7 @@ def n_best_uncorr_sc(ds, ns, corr_threshold):
     ----------
     ds : dictionary
         data dictionary containing features, labels, names obtained with load_sbf_features().
-    ns : int
+    n_scales : int
         number of different scales to select.
     corr_threshold : float
         accepted value of correlation between predictors.
@@ -290,7 +290,7 @@ def n_best_uncorr_sc(ds, ns, corr_threshold):
     for f in np.unique(names):
         f_id = np.where((names == f))[0]
         search_ds = {'features': ds['features'][:, f_id], 'labels': ds['labels'], 'names': ds_names[f_id]}
-        result = n_best_uncorr_ft(search_ds, ns, corr_threshold)
+        result = n_best_uncorr_ft(search_ds, n_scales, corr_threshold)
         best_scales += scales[result].tolist()
     sc, freq = np.unique(best_scales, return_counts=True)
     frequencysorted = freq[np.argsort(freq)]
@@ -303,14 +303,14 @@ def n_best_uncorr_sc(ds, ns, corr_threshold):
         argok = argok[::-1]
         optim += sc[argok].tolist()
         freq_optim += (np.ones((1, len(argfreq))) * uf).flatten().tolist()
-    optim_ok = [0] + optim[-1 * ns:]
-    return optim_ok, freq_optim[-1 * ns:]
+    optim_ok = [0] + optim[-1 * n_scales:]
+    return optim_ok, freq_optim[-1 * n_scales:]
 
 
-def rf_ft_selection(trads, testds, nscales, nfeats, eval_sc, threshold=0.85, step=1):
+def rf_ft_selection(trads, testds, n_scales, n_features, eval_sc, threshold=0.85, step=1):
     """
     Perform iterative feature selection using the random forest embedded feature importance as criteria.
-    First, nscales and nfeats are selected based on their linear correlations and mutual information.
+    First, n-scales and n-features are selected based on their linear correlations and mutual information.
     Then, this set is iteratively reduced by discarding the feature having the lowest random forest feature importance.
     At each step, the model is trained again to update the feature importance ranking.
 
@@ -320,19 +320,20 @@ def rf_ft_selection(trads, testds, nscales, nfeats, eval_sc, threshold=0.85, ste
         data dictionary containing features, labels, names obtained with load_sbf_features().
     testds : dictionary
         data dictionary containing features, labels, names obtained with load_sbf_features().
-    nscales : int
+    n_scales : int
         number of different scales to select at the begining of the process.
-    nfeats : int
+    n_features : int
         number of different features to select at the begining of the process.
     eval_sc : float
         scale at which to evaluate each feature's information score at the begining of the process.
     threshold : float
         accepted value of correlation between predictors.
+    step : float
 
     Returns
     -------
     dictio_ft : dictionary
-        dictionary containing the resulting predictors set and associated parameters and metrics at each iteration.
+        contains the resulting predictors set and associated parameters and metrics at each iteration.
     """
     trads['features'] = feature_clean(trads['features'])
     testds['features'] = feature_clean(testds['features'])
@@ -342,13 +343,13 @@ def rf_ft_selection(trads, testds, nscales, nfeats, eval_sc, threshold=0.85, ste
               'Class_confidence': [], 'Class_recall': [], 'Class_precision': [], 'Labels': np.unique(trads['labels'])}
     search_set = np.array(np.where(scales == eval_sc)[0].tolist() + np.where(scales == 0)[0].tolist())
     search_ft_ds = {'features': trads['features'][:, search_set], 'labels': trads['labels'], 'names': names[search_set]}
-    sel = n_best_uncorr_ft(search_ft_ds, nfeats, threshold)
+    sel = n_best_uncorr_ft(search_ft_ds, n_features, threshold)
     scale_search_set = []
     for sn in search_ft_ds['names'][sel]:
         scale_search_set += np.where((sn == names))[0].tolist()  # indices of selected features at all scales
     search_sc_ds = {'features': trads['features'][:, scale_search_set], 'labels': trads['labels'],
                  'names': ds_names[scale_search_set]}
-    sel_sc, freq_sel_sc = n_best_uncorr_sc(search_sc_ds, nscales, threshold)
+    sel_sc, freq_sel_sc = n_best_uncorr_sc(search_sc_ds, n_scales, threshold)
     id_es = []
     for es in sel_sc:
         id_es += np.where(scales[scale_search_set] == es)[0].tolist()
@@ -392,19 +393,19 @@ def rf_ft_selection(trads, testds, nscales, nfeats, eval_sc, threshold=0.85, ste
     return dictio
 
 
-def get_n_optimal_sc_ft(trads, testds, nscales, nfeats, eval_sc, threshold):
+def get_n_optimal_sc_ft(train_ds, test_ds, n_scales, n_features, eval_sc, threshold):
     """
     Get the best nfeats and nscales for classification based on inter-feature correlation and information score.
 
     Parameters
     ----------
-    trads : dictionary
+    train_ds : dictionary
         data dictionary containing features, labels, names obtained with load_sbf_features().
-    testds : dictionary
+    test_ds : dictionary
         data dictionary containing features, labels, names obtained with load_sbf_features().
-    nscales : int
+    n_scales : int
         number of different scales to select.
-    nfeats : int
+    n_features : int
         number of different features to select.
     eval_sc : float
         scale at which to evaluate each feature's information score.
@@ -414,18 +415,38 @@ def get_n_optimal_sc_ft(trads, testds, nscales, nfeats, eval_sc, threshold):
     Returns
     -------
     dictio_ft : dictionary
-        dictionary containing the resulting predictors set and associated parameters and metrics.
+        contains the resulting predictors set and associated parameters and metrics.
+
+         - 'Feats': feature list
+         - 'Scales': scale list
+         - 'feat_imp': feature importance values
+         - 'Indices': indices of the selected features in the initial array of features
+         - 'Freq': number of votes obtained by each selected scale
+         - 'OA': Overall Accuracy of classifier
+         - 'Fscore': F1-score (averaged on all classes)
+         - 'Confidence': Confidence (averaged on all classes)
+         - 'Recall': Recall (averaged on all classes)
+         - 'Precision': Precision (averaged on all classes)
+         - 'Class_UA': User's accuracies (per class)
+         - 'Class_PA': Producer's accuracies (per class)
+         - 'Class_Fscore': F1-score per class
+         - 'Class_confidence': class confidence
+         - 'Class_recall': Recall per class
+         - 'Class_precision': Precision per class
+         - 'Labels': labels
     """
-    scales, names, ds_names = get_scales_feats(trads)
+
+    scales, names, ds_names = get_scales_feats(train_ds)
     search_set = np.array(np.where(scales == eval_sc)[0].tolist() + np.where(scales == 0)[0].tolist())
-    search_ft_ds = {'features': trads['features'][:, search_set], 'labels': trads['labels'], 'names': names[search_set]}
-    sel = n_best_uncorr_ft(search_ft_ds, nfeats, threshold)
+    search_ft_ds = {'features': train_ds['features'][:, search_set], 'labels': train_ds['labels'], 'names': names[search_set]}
+    sel = n_best_uncorr_ft(search_ft_ds, n_features, threshold)
     scale_search_set = []
     for sn in search_ft_ds['names'][sel]:
         scale_search_set += np.where((sn == names))[0].tolist()
-    search_sc_ds = {'features': trads['features'][:, scale_search_set], 'labels': trads['labels'],
+    search_sc_ds = {'features': train_ds['features'][:, scale_search_set],
+                    'labels': train_ds['labels'],
                     'names': ds_names[scale_search_set]}
-    sel_sc, freq_sel_sc = n_best_uncorr_sc(search_sc_ds, nscales, threshold)
+    sel_sc, freq_sel_sc = n_best_uncorr_sc(search_sc_ds, n_scales, threshold)
     id_es = []
     for es in sel_sc:
         print(es)
@@ -434,8 +455,8 @@ def get_n_optimal_sc_ft(trads, testds, nscales, nfeats, eval_sc, threshold):
     idx_used = []
     for ss in sel_sc:
         idx_used += scales_selected[np.where(scales[scales_selected] == float(ss))[0]].tolist()
-    reduced_tra = {'features': trads['features'][:, idx_used], 'labels': trads['labels']}
-    reduced_test = {'features': testds['features'][:, idx_used], 'labels': testds['labels']}
+    reduced_tra = {'features': train_ds['features'][:, idx_used], 'labels': train_ds['labels']}
+    reduced_test = {'features': test_ds['features'][:, idx_used], 'labels': test_ds['labels']}
     accuracy, fscore, confid, recall, precision, uas, pas, fscores, confc, recalls, precisions, labels, feat_imp, classifier, labels_pred = get_acc_expe(reduced_tra, reduced_test, plot=False)
     dictio = {'Feats': ds_names[idx_used], 'Scales': np.array(scales[idx_used]), 'feat_imp': feat_imp,
               'Indices': np.array(idx_used), 'Freq': np.array(freq_sel_sc), 'OA': accuracy, 'Fscore': fscore,

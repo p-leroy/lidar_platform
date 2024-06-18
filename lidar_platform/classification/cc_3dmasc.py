@@ -234,7 +234,7 @@ def get_acc_expe(trads, testds, plot=True, save=False, model=0):
     fscore : float      F1-score (averaged on all classes)
     numpy.mean(confid_pred) : float     Mean prediction confidence
     recall : float      Recall (averaged on all classes)
-    precision : float      Recall (averaged on all classes)
+    precision : float      Precision (averaged on all classes)
     uas : numpy.array(float)    User's accuracies (per class)
     pas : numpy.array(float)    Producer's accuracies (per class)
     fscores : numpy.array(float)     F1-score per class
@@ -243,7 +243,7 @@ def get_acc_expe(trads, testds, plot=True, save=False, model=0):
     precisions : numpy.array(float)     Precision per class
     labels : numpy.array(float)     labels
     feat_imptce : numpy.array(float)     feature importance values
-    classifier : skleanrn RandomForestClassifier or OpenCV RTrees   classifier
+    classifier : sklearn RandomForestClassifier or OpenCV RTrees   classifier
     labels_pred : np.array(int)     model predictions
 
     """
@@ -367,8 +367,7 @@ def get_shap_expl(classifier, testds, save=True):
     testds : dict,
          'features' : numpy.array of computed features
          'names' : list of str, name of each column feature
-         'labels' : list of int, class labels
-        training dataset.
+         'labels' : list of int, class labels training dataset.
     save : bool
         whether to save the resulting plot.
     """
