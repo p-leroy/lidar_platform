@@ -1,2 +1,2 @@
-lidar_platform.misc module
-==========================
+lidar_platform.misc
+===================

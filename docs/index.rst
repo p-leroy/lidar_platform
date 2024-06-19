@@ -23,8 +23,9 @@ The ``lidar_platform`` Python library contains some helping tools we are using d
    
    installation
    fwf
-   deliverables
+   sbf
    3dmasc
+   deliverables
 
 API Documentation
 =================

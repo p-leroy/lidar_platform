@@ -1,2 +1,2 @@
-lidar_platform.global_shifts module
-===================================
+lidar_platform.global_shifts
+============================

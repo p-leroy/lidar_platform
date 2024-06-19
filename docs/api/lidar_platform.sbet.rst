@@ -1,2 +1,2 @@
-lidar_platform.sbet module
-==========================
+lidar_platform.sbet
+===================

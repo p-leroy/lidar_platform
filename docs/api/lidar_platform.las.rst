@@ -1,2 +1,2 @@
-lidar_platform.las module
-=========================
+lidar_platform.las
+==================

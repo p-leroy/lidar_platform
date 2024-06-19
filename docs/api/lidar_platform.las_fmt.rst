@@ -1,2 +1,2 @@
-lidar_platform.las_fmt module
-=============================
+lidar_platform.las_fmt
+======================
