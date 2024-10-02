@@ -217,6 +217,9 @@ def density(pc, radius, density_type,
 def m3c2(pc1, pc2, params, core=None, fmt='SBF',
          silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
 
+    if not os.path.exists(params):
+        raise FileNotFoundError(params)
+
     cmd = CCCommand(cc, silent=silent, auto_save='ON', fmt=fmt)
     if global_shift == 'FIRST':
         raise "'FIRST' is not a valid option, the default is 'AUTO' or pass a valid global shift 3-tuple"

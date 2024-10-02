@@ -128,6 +128,8 @@ def is_int(str_):
 
 class SbfData:
     def __init__(self, filename):
+        self.Np = None
+        self.xyz = None
         self.filename = filename
         self.pc = None
         self.sf = None
@@ -177,8 +179,10 @@ class SbfData:
         else:
             sf = None
 
-        self.pc = pc
-        self.sf = sf.astype(np.float32)
+        self.xyz = pc
+        self.Np = Np
+        if sf is not None:
+            self.sf = sf.astype(np.float32)
         self.config = config
 
     def get_name_index_dict(self):
