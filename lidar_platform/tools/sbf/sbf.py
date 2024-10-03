@@ -205,6 +205,7 @@ class SbfData:
             sf = None
 
         self.xyz = xyz
+
         if sf is not None:
             self.sf = sf.astype(np.float32)
         self.config = config
