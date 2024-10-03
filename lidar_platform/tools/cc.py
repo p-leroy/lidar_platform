@@ -124,7 +124,7 @@ def move_cloud(cloud, odir):
     # /!\ with sbf files, one shall copy .sbf and .sbf.data
     head, tail = os.path.split(cloud)
     root, ext = os.path.splitext(cloud)
-    logger.info(f'move {tail} to output directory')
+    print(f'move {tail} to {odir}')
     if os.path.isdir(odir):
         out = os.path.join(odir, tail)
     else:
@@ -218,6 +218,7 @@ def m3c2(pc1, pc2, params, core=None, fmt='SBF',
          silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
 
     cmd = CCCommand(cc, silent=silent, auto_save='ON', fmt=fmt)
+
     if global_shift == 'FIRST':
         raise "'FIRST' is not a valid option, the default is 'AUTO' or pass a valid global shift 3-tuple"
     elif global_shift =='AUTO':
@@ -232,6 +233,9 @@ def m3c2(pc1, pc2, params, core=None, fmt='SBF',
         if core is not None:
             cmd.open_file(core, global_shift=global_shift)
     cmd.append("-M3C2")
+
+    if not os.path.exists(params):
+        raise FileNotFoundError(params)
     cmd.append(params)
 
     misc.run(cmd, verbose=debug)
@@ -246,30 +250,21 @@ def m3c2(pc1, pc2, params, core=None, fmt='SBF',
 ##########
 
 
-def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', debug=False):
-    cloud_exists(pc1, verbose=False)
-    cloud_exists(pc2, verbose=False)
-    args = ''
-    if silent is True:
-        args += ' -SILENT -NO_TIMESTAMP'
-    else:
-        args += ' -NO_TIMESTAMP'
-    if fmt is None:
-        pass
-    else:
-        args += f' -C_EXPORT_FMT {fmt}'
-    args += ' -o -GLOBAL_SHIFT FIRST ' + pc1
-    args += ' -o -GLOBAL_SHIFT FIRST ' + pc2
+def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', verbose=False, cc_exe=cc_custom):
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
+    cmd.open_file(pc1, global_shift='AUTO')
+    cmd.open_file(pc2, global_shift='FIRST')
     if core is not None:
-        args += ' -o -GLOBAL_SHIFT FIRST ' + core
-    args += ' -ICPM3C2 ' + params
-    cmd = cc_custom + args
-    if debug is True:
+        cmd.open(core)
+    cmd.extend(['-ICPM3C2', params])
+
+    if verbose is True:
         logging.info(cmd)
-    ret = misc.run(cmd, verbose=debug)
+    ret = misc.run(cmd, verbose=verbose)
     if ret == EXIT_FAILURE:
         raise CloudCompareError
-    # extracting rootname of the fixed point cloud Q
+
     if fmt == 'SBF':
         ext = 'sbf'
     elif fmt == 'BIN':
@@ -291,7 +286,7 @@ def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', debug=False):
 
 def q3dmasc_get_labels(training_file):
     # if 'core_points:' is defined, the main cloud is the cloud defined by core_points
-    # if not, the main cloud is the first occurence of 'cloud:'
+    # if not, the main cloud is the first occurrence of 'cloud:'
     with open(training_file, 'r') as f:
         clouds = []
         core_points = None
@@ -314,7 +309,15 @@ def q3dmasc(clouds, training_file, only_features=False, keep_attributes=False,
             silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe, fmt='sbf'):
     """Command line call to 3DMASC with the only_features option.
 
-    In command line, the clouds to load are not read in the parameter file, you have to specify them in the call
+    The Python function generates the command line for you. Some details about the command are given below.
+    For the Python call, you simply have to specify a list of clouds which respects the order of appearance of the roles
+    in the parameter file.
+    clouds[0] will be associated to the first read label
+    clouds[1] to the second one
+    and so on...
+
+    Details about the call in command line:
+    In command line, the clouds to load are not read in the parameter file, you have to specify them in the call,
     and you also have to associate each label to a number, the number representing the order in which the clouds
     have been open (-O option in the command line).
 
@@ -330,6 +333,7 @@ def q3dmasc(clouds, training_file, only_features=False, keep_attributes=False,
     """
 
     main_label, labels = q3dmasc_get_labels(training_file)  # get cloud labels from the parameter file
+    print(f'[q3dmasq] labels read in the parameter file {labels}, compute features on {main_label}')
 
     cmd = CCCommand(cc_exe, silent=silent, fmt=fmt, auto_save='ON')  # create the command
     cloud_dict = {}  # will be used to generate the name of the output file
@@ -352,13 +356,17 @@ def q3dmasc(clouds, training_file, only_features=False, keep_attributes=False,
     role_association = ' '.join([f'{label}={i + 1}' for i, label in enumerate(labels)])
     cmd.append(role_association)
 
-    misc.run(cmd, verbose=verbose)
-
+    # remove expected output file to avoid strange effects when writing in an existing sbf file
     root, ext = os.path.splitext(cloud_dict[main_label])
     if only_features:
         output_name = root + '_WITH_FEATURES.' + fmt.lower()
     else:
         output_name = root + '_CLASSIFIED.' + fmt.lower()
+    if os.path.exists(output_name):
+        print(f'[q3dmasc] remove existing output file before 3DMASC call: {output_name}')
+        os.remove(output_name)
+
+    misc.run(cmd, verbose=verbose)
 
     return output_name
 
@@ -618,7 +626,7 @@ def to_sbf(fullname,
 ##############
 
 
-def ss(fullname, algorithm='OCTREE', parameter=8, odir=None, fmt='SBF',
+def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
        silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe):
     """
     Use CloudCompare to subsample a cloud.
@@ -639,30 +647,31 @@ def ss(fullname, algorithm='OCTREE', parameter=8, odir=None, fmt='SBF',
 
     cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
     cmd.open_file(fullname, global_shift=global_shift)
+    cmd.extend(['-SS', method, str(parameter)])
 
-    cmd.append('-SS')
-    cmd.append(algorithm)
-    cmd.append(str(parameter))
     ret = misc.run(cmd, verbose=debug)
 
     root, ext = os.path.splitext(fullname)
-    os.makedirs(odir, exist_ok=True)
-    if algorithm == 'OCTREE':
+
+    if method == 'OCTREE':
         out = root + f'_OCTREE_LEVEL_{parameter}_SUBSAMPLED.{fmt.lower()}'
-    elif algorithm == 'SPATIAL':
+    elif method == 'SPATIAL':
         out = root + f'_SPATIAL_SUBSAMPLED.{fmt.lower()}'
-    elif algorithm == 'RANDOM':
+    elif method == 'RANDOM':
         out = root + f'_RANDOM_SUBSAMPLED.{fmt.lower()}'
 
-    if odir:
+    if odir:  # if odir is defined, create it if needed and move the result to it
         head, tail = os.path.split(out)
+        odir = os.path.join(head, odir)
+        os.makedirs(odir, exist_ok=True)
         dst = os.path.join(odir, tail)
         shutil.move(out, dst)
         if fmt == 'SBF':
             dst_data = os.path.join(odir, tail + '.data')
             shutil.move(out + '.data', dst_data)
         out = dst
-        return out
+
+    return out
 
 #######################
 #  CLOUD TRANSFORMATION

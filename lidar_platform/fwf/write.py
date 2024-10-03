@@ -24,7 +24,7 @@ def add_point(record, point_idx, return_number, r_peak, i_peak, las_i, idx_wfrm)
     y_t = record.y_t[point_idx]
     z_t = record.z_t[point_idx]
 
-    anchor_x = X + x_t * return_point_wave_location * 1000  # should be replaced by one of the las_i.header.scales
+    anchor_x = X + x_t * return_point_wave_location * 1000  # FIXME should be replaced by one of the las_i.header.scales
     anchor_y = Y + y_t * return_point_wave_location * 1000
     anchor_z = Z + z_t * return_point_wave_location * 1000
     new_x = anchor_x - x_t * peak_return_point_wave_location * 1000

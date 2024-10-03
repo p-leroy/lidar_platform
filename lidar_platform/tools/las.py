@@ -223,9 +223,9 @@ def merge_las_with_wdp(to_merge, o='merged.las', odir=None):
     return out
 
 
-##########
-# OLD CODE
-##########
+########
+# LEGACY
+########
 
 
 def filter_las(obj, select):
@@ -527,8 +527,8 @@ class WriteLAS(object):
 
         header.mins = np.min(self.output_data.XYZ, axis=0)
         header.maxs = np.max(self.output_data.XYZ, axis=0)
-        header.offsets = np.int64(header.mins*scale)/scale
-        header.scales = np.array([scale]*3)
+        header.offsets = np.int64(header.mins * scale) / scale
+        header.scales = np.array([scale] * 3)
 
         header.x_scale, header.y_scale, header.z_scale = header.scales
         header.x_offset, header.y_offset, header.z_offset = header.offsets

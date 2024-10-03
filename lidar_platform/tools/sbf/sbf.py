@@ -34,8 +34,9 @@ def read_sbf_header(sbf, verbose=False):
             return config
 
 
-def write_sbf(sbf, pc, sf=None, config=None, add_index=False, normals=None):
-    head, tail = os.path.split(sbf)
+def write_sbf(sbf, pc,
+              sf=None, config=None, add_index=False, normals=None, global_shift=None):
+
     path_to_sbf = sbf
     path_to_sbf_data = sbf + '.data'
     n_points = pc.shape[0]
@@ -45,6 +46,9 @@ def write_sbf(sbf, pc, sf=None, config=None, add_index=False, normals=None):
     else:
         SFCount = 0
 
+    if global_shift is not None:
+        global_shift_str = f'{global_shift[0]}, {global_shift[1]}, {global_shift[2]}'
+
     # write .sbf
     Points = pc.shape[0]
     if config is None:
@@ -53,12 +57,19 @@ def write_sbf(sbf, pc, sf=None, config=None, add_index=False, normals=None):
         config.optionxform = str
         config['SBF'] = {'Points': str(Points),
                          'SFCount': str(SFCount),
-                         'GlobalShift': '0., 0., 0.',
                          **dict_SF}
+        if global_shift is not None:
+            config['SBF']['GlobalShift'] = global_shift_str
     else:
         # enforce the coherence of the number of points
         config['SBF']['Points'] = str(Points)
         config['SBF']['SFCount'] = str(SFCount)
+        if global_shift is not None:
+            if 'GlobalShift' in config['SBF']:
+                config_global_shift = config['SBF']['GlobalShift']
+                print(f'[write_sbf] warning: global_shift parameter {global_shift}')
+                print(f'            will overwrite the config one {config_global_shift}')
+                config['SBF']['GlobalShift'] = global_shift_str
 
     if add_index is True:
         if 'SFCount' in config['SBF']:
@@ -67,6 +78,7 @@ def write_sbf(sbf, pc, sf=None, config=None, add_index=False, normals=None):
             SFCount = 1
         config['SBF']['SFcount'] = str(SFCount)
         config['SBF'][f'SF{SFCount}'] = 'index'
+
     if normals is not None:
         if 'SFCount' in config['SBF']:
             SFCount += 3
@@ -82,13 +94,16 @@ def write_sbf(sbf, pc, sf=None, config=None, add_index=False, normals=None):
         config.write(sbf)
 
     # remove GlobalShift
-    globalShift = eval(config['SBF']['GlobalShift'])
-    pcOrig = pc - np.array(globalShift).reshape(1, -1)
+    if 'GlobalShift' in config['SBF']:
+        globalShift = eval(config['SBF']['GlobalShift'])
+        pc_orig = pc - np.array(globalShift).reshape(1, -1)
+    else:
+        pc_orig = pc
     # compute sbf internal shift
-    shift = np.mean(pcOrig, axis=0).astype(float)
+    shift = np.mean(pc_orig, axis=0).astype(float)
     # build the array that will effectively be stored (32 bits float)
     a = np.zeros((Points, SFCount + 3)).astype('>f')
-    a[:, :3] = (pcOrig - shift).astype('>f')
+    a[:, :3] = (pc_orig - shift).astype('>f')
     if SFCount != 0:
         a[:, 3:] = sf.astype('>f')
 
@@ -128,14 +143,24 @@ def is_int(str_):
 
 class SbfData:
     def __init__(self, filename):
+        self.Np = None
         self.filename = filename
-        self.pc = None
+        self.xyz = None
         self.sf = None
         self.config = None
 
-        self.read_sbf(filename)  # set pc, sf and config
+        self.read_sbf(filename)  # set xyz, sf and config
+
         self.sf_names = self.get_sf_names()
+
         self.name_index = self.get_name_index_dict()
+        for name, index in self.name_index.items():
+            name = name.replace(" ", "_").replace("(", "I").replace(")", "I").replace("@", "_at_")
+            self.__setattr__(name, self.sf[:, index])
+
+        self.__setattr__('x', self.xyz[:, 0])
+        self.__setattr__('y', self.xyz[:, 1])
+        self.__setattr__('z', self.xyz[:, 2])
 
     def read_sbf(self, verbose=False):
         config = read_sbf_header(self.filename, verbose=verbose)  # READ .sbf header
@@ -168,8 +193,10 @@ class SbfData:
             array = np.fromfile(f, dtype='>f').reshape(Np, Ns + 3)
             shift = np.array((x_shift, y_shift, z_shift)).reshape(1, 3)
 
+        self.Np = Np
+
         # shift point cloud
-        pc = shift_array(array[:, :3], shift, config)
+        xyz = shift_array(array[:, :3], shift, config)
 
         # get scalar fields if any
         if Ns != 0:
@@ -177,8 +204,9 @@ class SbfData:
         else:
             sf = None
 
-        self.pc = pc
-        self.sf = sf.astype(np.float32)
+        self.xyz = xyz
+        if sf is not None:
+            self.sf = sf.astype(np.float32)
         self.config = config
 
     def get_name_index_dict(self):
@@ -234,12 +262,12 @@ class SbfData:
         if sbf_data.sf.shape[1] != self.sf.shape[1]:
             raise ValueError('[SbfData.merge] number of scalar fields shall be the same for merging')
 
-        self.pc = np.r_[self.pc, sbf_data.pc]
+        self.xyz = np.r_[self.xyz, sbf_data.xyz]
         self.sf = np.r_[self.sf, sbf_data.sf]
 
-        print(f'[SbfData.merge] {len(sbf_data.pc)} points added, new total = {self.pc.shape[0]}')
+        print(f'[SbfData.merge] {len(sbf_data.pc)} points added, new total = {self.xyz.shape[0]}')
 
-        self.config['SBF']['Points'] = str(self.pc.shape[0])
+        self.config['SBF']['Points'] = str(self.xyz.shape[0])
 
 
 def read_sbf(filename):
