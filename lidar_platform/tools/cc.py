@@ -259,7 +259,7 @@ def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', verbose=False, 
     cmd.open_file(pc1, global_shift='AUTO')
     cmd.open_file(pc2, global_shift='FIRST')
     if core is not None:
-        cmd.open(core)
+        cmd.open_file(core)
     cmd.extend(['-ICPM3C2', params])
 
     if verbose is True:
@@ -514,8 +514,31 @@ def remove_scalar_fields(file, scalar_fields, silent=True):
     misc.run(cmd)
 
 
-def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
-              silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
+def rasterize(cloud, spacing, suffix='_RASTER', proj='AVG', fmt='SBF',
+              silent=True, debug=False, global_shift='AUTO', cc=cc_exe,
+              resample=False):
+    """
+
+    Parameters
+    ----------
+    cloud
+    spacing
+    suffix
+    proj : str
+        MIN AVG MAX
+    fmt
+    silent
+    debug
+    global_shift
+    cc
+    resample : bool
+         to resample the input cloud
+
+    Returns
+    -------
+
+    """
+
     cloud_exists(cloud)
     if not os.path.exists(cloud):
         raise FileNotFoundError
@@ -524,7 +547,10 @@ def rasterize(cloud, spacing, ext='_RASTER', proj='AVG', fmt='SBF',
     cmd.open_file(cloud, global_shift=global_shift)
     cmd.extend(['-RASTERIZE', '-GRID_STEP', str(spacing), '-PROJ', proj])
 
-    out = os.path.splitext(cloud)[0] + ext + f'.{fmt.lower()}'
+    if resample is True:
+        cmd.append('-RESAMPLE')
+
+    out = os.path.splitext(cloud)[0] + suffix + f'.{fmt.lower()}'
     cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
 
     misc.run(cmd, verbose=debug)
@@ -738,9 +764,9 @@ def apply_transformation(cloudfile, transformation, fmt='SBF',
 
     cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
     cmd.open_file(cloudfile, global_shift=global_shift)
-
     cmd.append('-APPLY_TRANS')
     cmd.append(transformation)
+    cmd.extend(['-SAVE_CLOUDS', 'file', out])
     misc.run(cmd, verbose=debug)
 
     return out
@@ -932,4 +958,49 @@ def icp(compared, reference,
     misc.run(cc_custom + args, verbose=debug)
     
     out = os.path.join(os.getcwd(), 'registration_trace_log.csv')
+    return out
+
+
+def octree_normals(cloud, radius,
+                   orient='PLUS_Z', model='QUADRIC', fmt='BIN',
+                   silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
+    """
+
+    Parameters
+    ----------
+    cloud
+    radius
+    orient : str
+        PLUS_ZERO PLUS_ORIGIN MINUS_ZERO MINUS_ORIGIN PLUS_BARYCENTER MINUS_BARYCENTER
+        PLUS_X MINUS_X
+        PLUS_Y MINUS_Y
+        PLUS_Z MINUS_Z
+        PREVIOUS
+        SENSOR_ORIGIN
+    model : str
+        LS TRI QUADRIC
+    fmt
+    silent
+    debug
+    global_shift
+    cc
+
+    Returns
+    -------
+
+    """
+
+    cmd = CCCommand(cc, silent=silent, fmt=fmt)  # create the command
+    cmd.open_file(cloud, global_shift=global_shift)  # open compared
+
+    cmd.extend(['-OCTREE_NORMALS', str(radius), '-MODEL', model, '-ORIENT', orient])
+
+    if fmt.lower() == 'bin':
+        out = os.path.splitext(cloud)[0] + '_WITH_NORMALS.bin'
+    else:
+        ValueError('format not supported yet?')
+    cmd.extend(['-SAVE_CLOUDS', 'file', out])
+
+    misc.run(cmd, verbose=debug)
+
     return out
