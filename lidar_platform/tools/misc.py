@@ -105,6 +105,16 @@ def run(cmd, shell=False, advanced=True, verbose=True):
     return ret
 
 
+def run_alt(cmd):
+    print("Run command in a subprocess:")
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    while process.poll() is None:
+        # Use read1() instead of read() or Popen.communicate() as both blocks until EOF
+        # https://docs.python.org/3/library/io.html#io.BufferedIOBase.read1
+        text = process.stdout.read1().decode("utf-8")
+        print(text, end='', flush=True)
+
+
 def camel_to_snake(name):
     name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()

@@ -264,9 +264,10 @@ def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', verbose=False, 
 
     if verbose is True:
         logging.info(cmd)
-    ret = misc.run(cmd, verbose=verbose)
-    if ret == EXIT_FAILURE:
-        raise CloudCompareError
+    # ret = misc.run(cmd, verbose=verbose)
+    # if ret == EXIT_FAILURE:
+    #     raise CloudCompareError
+    misc.run_alt(cmd)
 
     if fmt == 'SBF':
         ext = 'sbf'
