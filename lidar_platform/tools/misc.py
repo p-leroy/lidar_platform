@@ -82,11 +82,18 @@ def run(cmd, shell=False, advanced=True, verbose=True):
         if verbose:
             print('Execute the following command:')
             print(cmd)
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, shell=shell)
+        # process = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, shell=shell)
+        # while process.poll() is None:
+        #     for line in process.stdout.readlines():
+        #         if verbose is True:
+        #             print(line.strip())
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         while process.poll() is None:
-            for line in process.stdout.readlines():
-                if verbose is True:
-                    print(line.strip())
+            # Use read1() instead of read() or Popen.communicate() as both blocks until EOF
+            # https://docs.python.org/3/library/io.html#io.BufferedIOBase.read1
+            text = process.stdout.read1().decode("utf-8")
+            if verbose is True:
+                print(text, end='', flush=True)
         # Process has finished, read the rest of the output
         for line in process.stdout.readlines():
             if verbose is True:

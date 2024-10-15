@@ -267,7 +267,7 @@ def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', verbose=False, 
     # ret = misc.run(cmd, verbose=verbose)
     # if ret == EXIT_FAILURE:
     #     raise CloudCompareError
-    misc.run_alt(cmd)
+    misc.run(cmd, verbose=verbose)
 
     if fmt == 'SBF':
         ext = 'sbf'
