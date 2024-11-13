@@ -84,7 +84,7 @@ def load_sbf_features(sbf_filepath, params_filepath, labels=False, coords=False)
         else:
             sf_to_load.append(sf_dict[feature_name])
             loaded_sf_names.append(feature_name)
-    pc = sbf_data.pc
+    pc = sbf_data.xyz
     sf = sbf_data.sf
     data = {"features": sf[:, sf_to_load], "names": np.array(loaded_sf_names)}
     if labels:
