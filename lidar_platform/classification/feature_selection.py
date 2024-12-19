@@ -328,7 +328,7 @@ def rf_ft_selection(trads, testds, n_scales, n_features, eval_sc, threshold=0.85
         scale at which to evaluate each feature's information score at the begining of the process.
     threshold : float
         accepted value of correlation between predictors.
-    step : float
+    step : int
 
     Returns
     -------
