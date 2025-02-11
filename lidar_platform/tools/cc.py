@@ -253,11 +253,16 @@ def m3c2(pc1, pc2, params, core=None, fmt='SBF',
 ##########
 
 
-def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', verbose=False, cc_exe=cc_custom):
+def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', verbose=False, cc_exe=cc_custom,
+            global_shift=None):
 
     cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
-    cmd.open_file(pc1, global_shift='AUTO')
-    cmd.open_file(pc2, global_shift='FIRST')
+    if global_shift is None:
+        cmd.open_file(pc1, global_shift='AUTO')
+        cmd.open_file(pc2, global_shift='FIRST')
+    else:
+        cmd.open_file(pc1, global_shift=global_shift)
+        cmd.open_file(pc2, global_shift=global_shift)
     if core is not None:
         cmd.open_file(core)
     cmd.extend(['-ICPM3C2', params])
@@ -516,7 +521,7 @@ def remove_scalar_fields(file, scalar_fields, silent=True):
 
 
 def rasterize(cloud, spacing, suffix='_RASTER', proj='AVG', fmt='SBF',
-              silent=True, debug=False, global_shift='AUTO', cc=cc_exe,
+              silent=True, verbose=False, global_shift='AUTO', cc=cc_exe,
               resample=False):
     """
 
@@ -529,7 +534,7 @@ def rasterize(cloud, spacing, suffix='_RASTER', proj='AVG', fmt='SBF',
         MIN AVG MAX
     fmt
     silent
-    debug
+    verbose
     global_shift
     cc
     resample : bool
@@ -554,7 +559,7 @@ def rasterize(cloud, spacing, suffix='_RASTER', proj='AVG', fmt='SBF',
     out = os.path.splitext(cloud)[0] + suffix + f'.{fmt.lower()}'
     cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
 
-    misc.run(cmd, verbose=debug)
+    misc.run(cmd, verbose=verbose)
     
     return out
 
@@ -964,7 +969,7 @@ def icp(compared, reference,
 
 def octree_normals(cloud, radius,
                    orient='PLUS_Z', model='QUADRIC', fmt='BIN',
-                   silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
+                   silent=True, verbose=False, global_shift='AUTO', cc=cc_exe):
     """
 
     Parameters
@@ -982,7 +987,7 @@ def octree_normals(cloud, radius,
         LS TRI QUADRIC
     fmt
     silent
-    debug
+    verbose
     global_shift
     cc
 
@@ -999,9 +1004,9 @@ def octree_normals(cloud, radius,
     if fmt.lower() == 'bin':
         out = os.path.splitext(cloud)[0] + '_WITH_NORMALS.bin'
     else:
-        ValueError('format not supported yet?')
-    cmd.extend(['-SAVE_CLOUDS', 'file', out])
+        raise ValueError(f'format {fmt} not supported yet? (only bin is supported)')
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
 
-    misc.run(cmd, verbose=debug)
+    misc.run(cmd, verbose=verbose)
 
     return out

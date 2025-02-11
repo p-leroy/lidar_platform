@@ -4,16 +4,27 @@
 3DMASC
 ======
 
-3DMASC is a plugin for CloudCompare developped by the LiDAR platform in Rennes. The general documentation is `here <https://lidar.univ-rennes.fr>`_. In the following section we present the work we did in Python to help you run 3DMASC or to optimize a classifier in an advanced workflow.
+3DMASC is a plugin for CloudCompare developed by the LiDAR platform in Rennes. The general documentation is `here <https://lidar.univ-rennes.fr>`_. In the following section we present the work we did in Python to help you run 3DMASC or to optimize a classifier in an advanced workflow.
 
-Remember that plugin can be called in command line and that there are 4 options for that:
+The plugin can be called in command line mode and there are 4 options for that:
 
-- 3DMASC_CLASSIFY: the main option for calling 3DMASC in command line, it is mandatory.
-- ONLY_FEATURES: do not train the classifier, just compute the features (used when the training is to be done with Python).
-- KEEP_ATTRIBUTES: at the end of the computation, the features will be stored.
-- SKIP_FEATURES: do not compute the features (used when the features have already been computed).
+- ``3DMASC_CLASSIFY`` the main option for calling 3DMASC in command line, it is mandatory in any case.
+- ``ONLY_FEATURES`` do not train the classifier, just compute the features (used when the training is to be done with Python).
+- ``KEEP_ATTRIBUTES`` at the end of the computation, the features will be stored.
+- ``SKIP_FEATURES`` do not compute the features (used when the features have already been computed).
 
-The 3DMASC plugin can be called from Python using a helper function of ``lidar_platform.cc`` which builds the command line for you and run it
+What you can do in command line depends on what you have in store:
+
+- I have a valid parameter file
+    - I can compute features ``-3DMASC_CLASSIFY -ONLY_FEATURES``
+- I have a classifier as saved using 3DMASC graphical user interface (classifier.txt + classifier.yaml (yaml being saved under the hood))
+    - I can compute features and apply my classifier ``-3DMASC_CLASSIFY``
+    - I can compute features, apply my classifier and save the features ``-3DMASC_CLASSIFY -KEEP_ATTRIBUTES``
+    - I can compute features and stop ``-3DMASC_CLASSIFY -ONLY_FEATURES``
+    - I can apply my classifier without computing features if they are already available ``-3DMASC_CLASSIFY -SKIP_FEATURES``
+
+
+The plugin can also be called from Python using a helper function of ``lidar_platform.cc`` which builds the command line for you and run it
 using ``subprocess``.
 
 .. code-block::

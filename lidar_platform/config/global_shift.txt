@@ -1,4 +1,3 @@
-#Name;shiftX shiftY shiftZ
 Aude;-670000.0 -6240000.0 0.0
 Abisko;-384000.0 -7593000.0 0.0
 Loire;-436000.0 -6704000.0 0.0
