@@ -183,7 +183,7 @@ def sf_interp_and_merge(src, dst, index, global_shift, silent=True, debug=False,
 
 
 def density(pc, radius, density_type,
-            silent=True, debug=False, global_shift='AUTO'):
+            silent=True, verbose=False, global_shift='AUTO'):
     """ Compute the density on a cloud
 
     :param pc:
@@ -195,18 +195,20 @@ def density(pc, radius, density_type,
     :return:
     """
 
+    root, ext = os.path.splitext(pc)
+    out = root + '_DENSITY.sbf'
+
     cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
-    cmd.append('-SAVE_CLOUDS')
     cmd.open_file(pc, global_shift=global_shift)
-    cmd.append('-REMOVE_ALL_SFS')
     cmd.append('-DENSITY')
     cmd.append(str(radius))
     cmd.append('-TYPE')
     cmd.append(density_type)
-    misc.run(cmd, verbose=debug)
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
 
-    root, ext = os.path.splitext(pc)
-    return root + '_DENSITY.sbf'
+    misc.run(cmd, verbose=verbose)
+
+    return out
 
 
 ######
@@ -606,7 +608,6 @@ def to_laz(fullname, remove=False, silent=True, debug=False, global_shift='AUTO'
 
     :param fullname:
     :param remove:
-    :param save_clouds: SAVE_CLOUDS or FWF_SAVE_CLOUDS
     :param silent:
     :param debug:
     :param global_shift:
