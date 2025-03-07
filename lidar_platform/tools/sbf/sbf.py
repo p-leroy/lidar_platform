@@ -142,7 +142,9 @@ def is_int(str_):
 
 
 class SbfData:
+
     def __init__(self, filename):
+
         self.Np = None
         self.filename = filename
         self.xyz = None
@@ -155,7 +157,7 @@ class SbfData:
 
         self.name_index = self.get_name_index_dict()
         for name, index in self.name_index.items():
-            name = name.replace(" ", "_").replace("(", "I").replace(")", "I").replace("@", "_at_")
+            name = name.replace(" ", "_").replace("(", "I").replace(")", "I").replace("@", "_at_").replace('.', 'o')
             self.__setattr__(name, self.sf[:, index])
 
         self.__setattr__('x', self.xyz[:, 0])
@@ -211,13 +213,14 @@ class SbfData:
         self.config = config
 
     def get_name_index_dict(self):
-        dict_ = {self.config['SBF'][name]: int(name.split('SF')[1]) - 1
+        dict_ = {self.config['SBF'][name].split(',')[0]: int(name.split('SF')[1]) - 1  # remove s= and p= information
                  for name in self.config['SBF'] if len(name.split('SF')) == 2 and is_int(name.split('SF')[1])}
         return dict_
 
     def get_sf_names(self):
         list_ = [self.config['SBF'][name]
                  for name in self.config['SBF'] if len(name.split('SF')) == 2 and is_int(name.split('SF')[1])]
+        list_ = [name.split(',')[0] for name in list_]  # remove s= and p= information
         return list_
 
     def remove_sf(self, name):
