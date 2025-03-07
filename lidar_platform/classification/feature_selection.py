@@ -475,7 +475,7 @@ def get_best_rf_select_iter(dictio_rf_select, trads, testds, wait, threshold):
     Parameters
     ----------
     dictio_rf_select : dictionary
-        obtained when performing embedded_rf_selection.
+        obtained when performing rf_ft_selection.
     trads : dictionary
         data dictionary containing features, labels, names obtained with load_sbf_features().
     testds : dictionary
