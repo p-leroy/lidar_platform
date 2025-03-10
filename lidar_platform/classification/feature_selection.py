@@ -475,7 +475,7 @@ def get_best_rf_select_iter(dictio_rf_select, trads, testds, wait, threshold):
     Parameters
     ----------
     dictio_rf_select : dictionary
-        obtained when performing embedded_rf_selection.
+        obtained when performing rf_ft_selection.
     trads : dictionary
         data dictionary containing features, labels, names obtained with load_sbf_features().
     testds : dictionary
@@ -487,7 +487,7 @@ def get_best_rf_select_iter(dictio_rf_select, trads, testds, wait, threshold):
 
     Returns
     -------
-    dictio_ft : dictionary
+    dictio_results : dictionary
         contains the resulting predictors set and associated parameters and metrics.
 
         - 'Best_it': best iteration
@@ -510,7 +510,7 @@ def get_best_rf_select_iter(dictio_rf_select, trads, testds, wait, threshold):
         - 'labels': labels
 
     classifier : sklearn.ensemble.RandomForestClassifier
-        theoretically optimal classifier.
+        theoretically optimal classifier (trained only with the selected features/scales).
     """
     # data = np.load(dictio_rf_select, allow_pickle=True).flat[0]
     data = dictio_rf_select
@@ -572,4 +572,4 @@ def get_best_rf_select_iter(dictio_rf_select, trads, testds, wait, threshold):
                       'Scales_imp': scales_imptces, 'OA': accuracy, 'Fscore': fscore, 'Confid': confid,
                       'Recall': recall, 'Precision': precision, 'UAs': np.array(uas), 'PAs': np.array(pas),
                       'Class_fscores': np.array(fscores), 'Class_conf': np.array(confc), 'labels': labels}
-    return dictio_results, classifier, reduced_te
+    return dictio_results, classifier
