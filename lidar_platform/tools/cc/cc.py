@@ -627,7 +627,7 @@ def to_sbf(fullname,
 
 
 def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
-       silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe):
+       silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe):
     """
     Use CloudCompare to subsample a cloud.
 
@@ -637,7 +637,7 @@ def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
     :param odir: output directory
     :param fmt: output format
     :param silent: use CloudCompare in silent mode
-    :param debug:
+    :param verbose:
     :param global_shift:
     :param cc_exe: CloudCompare executable
     :return: the name of the output file
@@ -645,20 +645,19 @@ def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
 
     print(f'[cc.ss] subsample {fullname}')
 
+    if method not in ('RANDOM', 'SPATIAL', 'OCTREE'):
+        raise ValueError(f'Unknown method: {method}')
+
     cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
     cmd.open_file(fullname, global_shift=global_shift)
+
     cmd.extend(['-SS', method, str(parameter)])
 
-    ret = misc.run(cmd, verbose=debug)
+    root = os.path.splitext(fullname)[0]
+    out = root + f'_{method}_SUBSAMPLED.{fmt.lower()}'
+    cmd.extend(['-SAVE_CLOUDS', 'file', out])
 
-    root, ext = os.path.splitext(fullname)
-
-    if method == 'OCTREE':
-        out = root + f'_OCTREE_LEVEL_{parameter}_SUBSAMPLED.{fmt.lower()}'
-    elif method == 'SPATIAL':
-        out = root + f'_SPATIAL_SUBSAMPLED.{fmt.lower()}'
-    elif method == 'RANDOM':
-        out = root + f'_RANDOM_SUBSAMPLED.{fmt.lower()}'
+    ret = misc.run(cmd, verbose=verbose)
 
     if odir:  # if odir is defined, create it if needed and move the result to it
         head, tail = os.path.split(out)
