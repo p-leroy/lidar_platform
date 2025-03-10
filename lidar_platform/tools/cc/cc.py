@@ -11,8 +11,10 @@ import shutil
 
 import numpy as np
 
-from ..config.config import cc_custom, cc_std, cc_exe
-from ..tools import misc
+from ...config.config import cc_custom, cc_std, cc_exe
+from .. import misc
+
+from lidar_platform.tools.cc.CCCommand import CCCommand
 
 logger = logging.getLogger(__name__)
 
@@ -23,44 +25,6 @@ EXIT_SUCCESS = 0
 #############################
 # BUILD CLOUD COMPARE COMMAND
 #############################
-
-
-class CCCommand(list):
-    def __init__(self, cc_exe, silent=True, auto_save='OFF', fmt='SBF'):
-        self.append(cc_exe)
-        if silent:
-            self.append('-SILENT')
-        self.append('-NO_TIMESTAMP')
-        if auto_save.lower() == 'off':
-            self.extend(['-AUTO_SAVE', 'OFF'])
-        self.append('-C_EXPORT_FMT')
-        if fmt.lower() == 'laz':  # needed to export to laz /!\ OLD SYNTAX, not with new las/laz plugin qLASIO /!\
-            self.append('LAS')
-            self.append("-EXT")
-            self.append("laz")
-        else:
-            self.append(fmt)
-
-    def open_file(self, fullname, global_shift='AUTO', fwf=False):
-        if not os.path.exists(fullname):
-            raise FileNotFoundError(fullname)
-        if fwf:
-            self.append('-fwf_o')  # old syntax for full waveform, only for backward compatibility
-        else:
-            self.append('-o')
-        if global_shift is not None:
-            self.append('-GLOBAL_SHIFT')
-            if global_shift == 'AUTO' or global_shift == 'FIRST':
-                self.append(global_shift)
-            elif type(global_shift) is tuple or type(global_shift) is list:
-                x, y, z = global_shift
-                self.append(str(x))
-                self.append(str(y))
-                self.append(str(z))
-            else:
-                raise ValueError('invalid value for global_shit')
-        self.append(fullname)
-
 
 class Error(Exception):
     """Base class for exceptions in this module."""
@@ -87,7 +51,7 @@ def format_name(in_, name_):
     normpath = os.path.normpath(os.path.join(in_, name_))
     list_ = [f'"{item}"' if ' ' in item else item for item in normpath.split('\\')]
     if ':' in list_[0]:
-        new_name = '/'.join(list_)  # beurk
+        new_name = '/'.join(list_)  # bad
     else:
         new_name = os.path.join(*list_)
     return new_name
@@ -190,7 +154,7 @@ def density(pc, radius, density_type,
     :param radius:
     :param density_type: type can be KNN SURFACE VOLUME
     :param silent:
-    :param debug:
+    :param verbose:
     :param global_shift:
     :return:
     """
