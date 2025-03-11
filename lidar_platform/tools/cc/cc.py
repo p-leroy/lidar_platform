@@ -931,7 +931,7 @@ def icp(compared, reference,
     return out
 
 
-def octree_normals(cloud, radius,
+def octree_normals(cloud, radius, with_grids=False, angle=1,
                    orient='PLUS_Z', model='QUADRIC', fmt='BIN',
                    silent=True, verbose=False, global_shift='AUTO', cc=cc_exe):
     """
@@ -947,6 +947,8 @@ def octree_normals(cloud, radius,
         PLUS_Z MINUS_Z
         PREVIOUS
         SENSOR_ORIGIN
+        WITH_GRIDS
+        WITH_SENSOR
     model : str
         LS TRI QUADRIC
     fmt
@@ -963,7 +965,10 @@ def octree_normals(cloud, radius,
     cmd = CCCommand(cc, silent=silent, fmt=fmt)  # create the command
     cmd.open_file(cloud, global_shift=global_shift)  # open compared
 
-    cmd.extend(['-OCTREE_NORMALS', str(radius), '-MODEL', model, '-ORIENT', orient])
+    cmd.extend(['-OCTREE_NORMALS', str(radius)])
+    if with_grids:
+        cmd.extend(['-WITH_GRIDS', str(angle)])
+    cmd.extend(['-MODEL', model, '-ORIENT', orient])
 
     if fmt.lower() == 'bin':
         out = os.path.splitext(cloud)[0] + '_WITH_NORMALS.bin'
