@@ -1,8 +1,6 @@
 """
 Python package for point clouds data processing
 """
-from pywin.framework.toolmenu import tools
-
 from .tools import cc, gdal, las, las_fmt, misc, sbf, m3c2
 from .topo_bathymetry import bathymetry, sbet, water_surface
 from .config import global_shifts
