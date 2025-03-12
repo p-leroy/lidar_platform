@@ -11,8 +11,10 @@ import shutil
 
 import numpy as np
 
-from ..config.config import cc_custom, cc_std, cc_exe
-from ..tools import misc
+from ...config.config import cc_custom, cc_std, cc_exe
+from .. import misc
+
+from lidar_platform.tools.cc.CCCommand import CCCommand
 
 logger = logging.getLogger(__name__)
 
@@ -23,44 +25,6 @@ EXIT_SUCCESS = 0
 #############################
 # BUILD CLOUD COMPARE COMMAND
 #############################
-
-
-class CCCommand(list):
-    def __init__(self, cc_exe, silent=True, auto_save='OFF', fmt='SBF'):
-        self.append(cc_exe)
-        if silent:
-            self.append('-SILENT')
-        self.append('-NO_TIMESTAMP')
-        if auto_save.lower() == 'off':
-            self.extend(['-AUTO_SAVE', 'OFF'])
-        self.append('-C_EXPORT_FMT')
-        if fmt.lower() == 'laz':  # needed to export to laz /!\ OLD SYNTAX, not with new las/laz plugin qLASIO /!\
-            self.append('LAS')
-            self.append("-EXT")
-            self.append("laz")
-        else:
-            self.append(fmt)
-
-    def open_file(self, fullname, global_shift='AUTO', fwf=False):
-        if not os.path.exists(fullname):
-            raise FileNotFoundError(fullname)
-        if fwf:
-            self.append('-fwf_o')  # old syntax for full waveform, only for backward compatibility
-        else:
-            self.append('-o')
-        if global_shift is not None:
-            self.append('-GLOBAL_SHIFT')
-            if global_shift == 'AUTO' or global_shift == 'FIRST':
-                self.append(global_shift)
-            elif type(global_shift) is tuple or type(global_shift) is list:
-                x, y, z = global_shift
-                self.append(str(x))
-                self.append(str(y))
-                self.append(str(z))
-            else:
-                raise ValueError('invalid value for global_shit')
-        self.append(fullname)
-
 
 class Error(Exception):
     """Base class for exceptions in this module."""
@@ -87,7 +51,7 @@ def format_name(in_, name_):
     normpath = os.path.normpath(os.path.join(in_, name_))
     list_ = [f'"{item}"' if ' ' in item else item for item in normpath.split('\\')]
     if ':' in list_[0]:
-        new_name = '/'.join(list_)  # beurk
+        new_name = '/'.join(list_)  # bad
     else:
         new_name = os.path.join(*list_)
     return new_name
@@ -183,30 +147,32 @@ def sf_interp_and_merge(src, dst, index, global_shift, silent=True, debug=False,
 
 
 def density(pc, radius, density_type,
-            silent=True, debug=False, global_shift='AUTO'):
+            silent=True, verbose=False, global_shift='AUTO'):
     """ Compute the density on a cloud
 
     :param pc:
     :param radius:
     :param density_type: type can be KNN SURFACE VOLUME
     :param silent:
-    :param debug:
+    :param verbose:
     :param global_shift:
     :return:
     """
 
+    root, ext = os.path.splitext(pc)
+    out = root + '_DENSITY.sbf'
+
     cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
-    cmd.append('-SAVE_CLOUDS')
     cmd.open_file(pc, global_shift=global_shift)
-    cmd.append('-REMOVE_ALL_SFS')
     cmd.append('-DENSITY')
     cmd.append(str(radius))
     cmd.append('-TYPE')
     cmd.append(density_type)
-    misc.run(cmd, verbose=debug)
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
 
-    root, ext = os.path.splitext(pc)
-    return root + '_DENSITY.sbf'
+    misc.run(cmd, verbose=verbose)
+
+    return out
 
 
 ######
@@ -606,7 +572,6 @@ def to_laz(fullname, remove=False, silent=True, debug=False, global_shift='AUTO'
 
     :param fullname:
     :param remove:
-    :param save_clouds: SAVE_CLOUDS or FWF_SAVE_CLOUDS
     :param silent:
     :param debug:
     :param global_shift:
@@ -662,7 +627,7 @@ def to_sbf(fullname,
 
 
 def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
-       silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe):
+       silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe):
     """
     Use CloudCompare to subsample a cloud.
 
@@ -672,7 +637,7 @@ def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
     :param odir: output directory
     :param fmt: output format
     :param silent: use CloudCompare in silent mode
-    :param debug:
+    :param verbose:
     :param global_shift:
     :param cc_exe: CloudCompare executable
     :return: the name of the output file
@@ -680,20 +645,19 @@ def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
 
     print(f'[cc.ss] subsample {fullname}')
 
+    if method not in ('RANDOM', 'SPATIAL', 'OCTREE'):
+        raise ValueError(f'Unknown method: {method}')
+
     cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
     cmd.open_file(fullname, global_shift=global_shift)
+
     cmd.extend(['-SS', method, str(parameter)])
 
-    ret = misc.run(cmd, verbose=debug)
+    root = os.path.splitext(fullname)[0]
+    out = root + f'_{method}_SUBSAMPLED.{fmt.lower()}'
+    cmd.extend(['-SAVE_CLOUDS', 'file', out])
 
-    root, ext = os.path.splitext(fullname)
-
-    if method == 'OCTREE':
-        out = root + f'_OCTREE_LEVEL_{parameter}_SUBSAMPLED.{fmt.lower()}'
-    elif method == 'SPATIAL':
-        out = root + f'_SPATIAL_SUBSAMPLED.{fmt.lower()}'
-    elif method == 'RANDOM':
-        out = root + f'_RANDOM_SUBSAMPLED.{fmt.lower()}'
+    ret = misc.run(cmd, verbose=verbose)
 
     if odir:  # if odir is defined, create it if needed and move the result to it
         head, tail = os.path.split(out)
@@ -928,7 +892,7 @@ def icp(compared, reference,
     return out
 
 
-def octree_normals(cloud, radius,
+def octree_normals(cloud, radius, with_grids=False, angle=1,
                    orient='PLUS_Z', model='QUADRIC', fmt='BIN',
                    silent=True, verbose=False, global_shift='AUTO', cc=cc_exe):
     """
@@ -944,6 +908,8 @@ def octree_normals(cloud, radius,
         PLUS_Z MINUS_Z
         PREVIOUS
         SENSOR_ORIGIN
+        WITH_GRIDS
+        WITH_SENSOR
     model : str
         LS TRI QUADRIC
     fmt
@@ -960,7 +926,10 @@ def octree_normals(cloud, radius,
     cmd = CCCommand(cc, silent=silent, fmt=fmt)  # create the command
     cmd.open_file(cloud, global_shift=global_shift)  # open compared
 
-    cmd.extend(['-OCTREE_NORMALS', str(radius), '-MODEL', model, '-ORIENT', orient])
+    cmd.extend(['-OCTREE_NORMALS', str(radius)])
+    if with_grids:
+        cmd.extend(['-WITH_GRIDS', str(angle)])
+    cmd.extend(['-MODEL', model, '-ORIENT', orient])
 
     if fmt.lower() == 'bin':
         out = os.path.splitext(cloud)[0] + '_WITH_NORMALS.bin'
