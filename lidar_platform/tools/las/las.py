@@ -14,8 +14,8 @@ import laspy
 import numpy as np
 
 from . import las_fmt
-from ..tools import misc
-from ..tools.las_fmt import unpack_vlr_waveform_packet_descriptor
+from .. import misc
+from .las_fmt import unpack_vlr_waveform_packet_descriptor
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()

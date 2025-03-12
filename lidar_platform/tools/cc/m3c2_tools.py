@@ -4,7 +4,7 @@ import configparser
 import os
 
 
-def set_search_scale(filename, search_scale):
+def m3c2_set_search_scale(filename, search_scale):
     if not os.path.exists(filename):
         raise FileNotFoundError(filename)
     config = configparser.ConfigParser()
@@ -14,7 +14,7 @@ def set_search_scale(filename, search_scale):
     config.write(filename)
 
 
-def get_search_scale(filename):
+def m3c2_get_search_scale(filename):
     if not os.path.exists(filename):
         raise FileNotFoundError(filename)
     config = configparser.ConfigParser()

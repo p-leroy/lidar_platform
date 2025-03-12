@@ -7,7 +7,7 @@ Created on Mon Feb 15 12:56:40 2021
 
 import os
 
-from lidar_platform import misc
+from .. import misc
 
 #bin_ = 'C:/opt/LAStools/bin'
 bin_ = 'G:/LIDAR_softwares_manuals/LAStools/bin'

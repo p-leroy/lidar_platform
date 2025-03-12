@@ -14,7 +14,7 @@ import numpy as np
 from ...config.config import cc_custom, cc_std, cc_exe
 from .. import misc
 
-from lidar_platform.tools.cc.CCCommand import CCCommand
+from .CCCommand import CCCommand
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,8 @@ def merge(files, fmt='sbf',
     return root + f'_MERGED.{fmt.lower()}'
 
 
-def sf_interp_and_merge(src, dst, index, global_shift, silent=True, debug=False, cc=cc_custom, export_fmt='sbf'):
+def sf_interp_and_merge(src, dst, index, global_shift,
+                        silent=True, debug=False, cc=cc_custom, export_fmt='sbf'):
     x, y, z = global_shift
     args = ''
     if silent is True:
