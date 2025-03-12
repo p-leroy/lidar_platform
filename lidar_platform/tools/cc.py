@@ -803,45 +803,6 @@ def get_from_bin(bin_):
             print(chr(bytes_[k]))
 
 
-################
-# SBF READ/WRITE
-################
-
-error_message_sbf = "There is a dedicated module for SBF format handling, use 'from lidar_platform import sbf'"
-
-
-def get_name_index_dict(config):
-    raise AttributeError(error_message_sbf)
-
-
-def remove_sf(name, sf, config):
-    raise AttributeError(error_message_sbf)
-
-
-def add_sf(name, sf, config, sf_to_add):
-    raise AttributeError(error_message_sbf)
-
-
-def rename_sf(name, new_name, config):
-    raise AttributeError(error_message_sbf)
-
-
-def shift_array(array, shift, config=None, debug=False):
-    raise AttributeError(error_message_sbf)
-
-
-def read_sbf_header(sbf, verbose=False):
-    raise AttributeError(error_message_sbf)
-
-
-def read_sbf(sbf, verbose=False):
-    raise AttributeError(error_message_sbf)
-
-
-def write_sbf(sbf, pc, sf, config=None, add_index=False, normals=None):
-    raise AttributeError(error_message_sbf)
-
-
 ##########
 # C2C_DIST
 ##########
