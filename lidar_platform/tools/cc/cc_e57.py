@@ -55,7 +55,7 @@ def distances_from_sensor_and_scattering_angles(pc, squared=False, degrees=False
     root, ext = os.path.splitext(pc)
     out = root + '_RANGES_ANGLES.' + fmt.lower()
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
     cmd.open_file(pc, global_shift=global_shift)
 
     cmd.append('-DISTANCES_FROM_SENSOR')  # compute distances from sensor
