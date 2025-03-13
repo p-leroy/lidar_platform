@@ -7,12 +7,13 @@ from .CCCommand import CCCommand
 
 
 def distances_from_sensor(pc, squared=False,
-                          silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe):
+                          silent=True, verbose=False, global_shift='AUTO', fmt='bin',
+                          cc_exe=cc_exe):
 
     root, ext = os.path.splitext(pc)
-    out = root + '_RANGES.sbf'
+    out = root + '_RANGES.' + fmt.lower()
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')  # create initial list
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)  # create initial list
     cmd.open_file(pc, global_shift=global_shift)  # open files
 
     cmd.append('-DISTANCES_FROM_SENSOR')  # compute distances from sensor
@@ -27,12 +28,13 @@ def distances_from_sensor(pc, squared=False,
 
 
 def scattering_angles(pc, degrees=False,
-                      silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe):
+                      silent=True, verbose=False, global_shift='AUTO', fmt='bin',
+                      cc_exe=cc_exe):
 
     root, ext = os.path.splitext(pc)
-    out = root + '_ANGLES.sbf'
+    out = root + '_ANGLES.' + fmt.lower()
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
     cmd.open_file(pc, global_shift=global_shift)
 
     cmd.append('-SCATTERING_ANGLES')  # compute scattering angles
@@ -45,11 +47,13 @@ def scattering_angles(pc, degrees=False,
 
     return out
 
+
 def distances_from_sensor_and_scattering_angles(pc, squared=False, degrees=False,
-                                                silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe):
+                                                silent=True, verbose=False, global_shift='AUTO', fmt='bin',
+                                                cc_exe=cc_exe):
 
     root, ext = os.path.splitext(pc)
-    out = root + '_RANGES_ANGLES.sbf'
+    out = root + '_RANGES_ANGLES.' + fmt.lower()
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
     cmd.open_file(pc, global_shift=global_shift)

@@ -16,7 +16,7 @@ out = cc.ss(file, 'SPATIAL', 1, verbose=True)
 
 #%% -OCTREE_NORMAL
 out = cc.octree_normals(file_e57, 0.1, with_grids=True, angle=1, orient='WITH_GRIDS',
-                        silent=True, verbose=True, global_shift='AUTO',
+                        silent=False, verbose=True, global_shift='AUTO',
                         cc='C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe')
 
 #%% -SF_ADD_CONST
