@@ -656,7 +656,7 @@ def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
 
     root = os.path.splitext(fullname)[0]
     out = root + f'_{method}_SUBSAMPLED.{fmt.lower()}'
-    cmd.extend(['-SAVE_CLOUDS', 'file', out])
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
 
     ret = misc.run(cmd, verbose=verbose)
 
@@ -774,29 +774,40 @@ def get_from_bin(bin_):
 
 
 def c2c_dist(compared, reference,
-             max_dist=None, split=False, export_fmt='SBF', global_shift='AUTO', octree_level=10, silent=True,
+             max_dist=None, split_xyz=False, split_xy_z=False, octree_level=10,
+             export_fmt='SBF', global_shift='AUTO', silent=True,
              odir=None, verbose=False, cc_exe=cc_exe):
+    """
+    Compute the distance between a compared cloud and a reference cloud
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')  # create the command
+    :param compared: filename of the compared cloud
+    :param reference: filename of the reference cloud
+    :param max_dist: max distance (speed calculations)
+    :param split_xyz:
+    :param split_xy_z:
+    :param octree_level: well set, it can speed up the calculations
+    :param export_fmt: output format
+    :param global_shift:
+    :param silent: show the CloudCompare console
+    :param odir:
+    :param verbose: verbose mode
+    :param cc_exe: CloudCompare executable (defaults to standard location)
+    :return:
+    """
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt=export_fmt)  # create the command
     cmd.open_file(compared, global_shift=global_shift)  # open compared
     cmd.open_file(reference, global_shift=global_shift)  # open reference
 
-    cmd.append('-c2c_dist')
+    cmd.append('-C2C_DIST')
 
     if max_dist:
         cmd.extend(['-MAX_DIST', str(max_dist)])
-
     cmd.extend(['-OCTREE_LEVEL', str(octree_level)])
-
-    if split == 'split_xyz':
+    if split_xyz == 'split_xyz':
         cmd.append('-SPLIT_XYZ')
-    elif split == 'split_xy_z':
+    elif split_xy_z == 'split_xy_z':
         cmd.append('-SPLIT_XY_Z')
-    elif split is False:
-        pass
-    else:
-        raise ValueError(f'[{__name__}] unknown option split={split}')
-
     cmd.append('-POP_CLOUDS')  # remove reference cloud from the database
 
     # output directory
