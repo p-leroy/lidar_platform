@@ -10,9 +10,9 @@ A module to handle files in the SBF format (Simple Binary File). SBF is an inter
 
     from lidar_platform import sbf
     sbf_data = sbf.read(sbf_file)  # sbf_data is an object of type SbfData
-    xyz = sbf.pc  # coordinates of the points as a NumPy array
-    scalar_fields = sbf.sf  # scalar fields as a NumPy array
-    scalar_fields_names = sbf.sf_names  # scalar fields names
+    xyz = sbf_data.xyz  # coordinates of the points as a NumPy array
+    scalar_fields = sbf_data.sf  # scalar fields as a NumPy array
+    scalar_fields_names = sbf_data.sf_names  # scalar fields names
 
 .. automodule:: lidar_platform.tools.sbf
     :imported-members:
