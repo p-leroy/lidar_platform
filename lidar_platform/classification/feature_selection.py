@@ -533,7 +533,7 @@ def get_best_rf_select_iter(dictio_rf_select, trads, testds, wait, threshold):
                 bi = i - wait + np.argmax(oa[i - wait:i])
         else:
             near = True
-            diffoa = oa[i - wait:i] - best_oa
+            diffoa = np.array(oa[i - wait:i]) - best_oa
             last_best = np.where(np.abs(diffoa) < threshold)[0]
             if len(last_best) > 0:
                 best_oa = oa[i - wait + last_best[-1]]
