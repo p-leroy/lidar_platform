@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def shift_array(array, shift, config=None, debug=False):
     newArray = array.astype(float)
-    # apply the shift read_bfe in the SBF file
+    # apply the shift read in the SBF file
     newArray += np.array(shift).reshape(1, -1)
     # apply GlobalShift if any
     if config is not None:
@@ -34,12 +34,12 @@ def read_sbf_header(sbf, verbose=False):
             return config
 
 
-def write_sbf(sbf, pc,
+def write_sbf(sbf, xyz,
               sf=None, config=None, add_index=False, normals=None, global_shift=None):
 
     path_to_sbf = sbf
     path_to_sbf_data = sbf + '.data'
-    n_points = pc.shape[0]
+    n_points = xyz.shape[0]
     if sf is not None:
         sf = sf.reshape(n_points, -1)
         SFCount = sf.shape[1]
@@ -50,8 +50,8 @@ def write_sbf(sbf, pc,
         global_shift_str = f'{global_shift[0]}, {global_shift[1]}, {global_shift[2]}'
 
     # write .sbf
-    Points = pc.shape[0]
-    if config is None:
+    Points = xyz.shape[0]
+    if config is None:  # if there is no config, build one
         dict_SF = {f'SF{k + 1}': f'{k + 1}' for k in range(SFCount)}
         config = configparser.ConfigParser()
         config.optionxform = str
@@ -61,8 +61,7 @@ def write_sbf(sbf, pc,
         if global_shift is not None:
             config['SBF']['GlobalShift'] = global_shift_str
     else:
-        # enforce the coherence of the number of points
-        config['SBF']['Points'] = str(Points)
+        config['SBF']['Points'] = str(Points)  # enforce the coherence of the number of points
         config['SBF']['SFCount'] = str(SFCount)
         if global_shift is not None:
             if 'GlobalShift' in config['SBF']:
@@ -96,16 +95,28 @@ def write_sbf(sbf, pc,
     # remove GlobalShift
     if 'GlobalShift' in config['SBF']:
         globalShift = eval(config['SBF']['GlobalShift'])
-        pc_orig = pc - np.array(globalShift).reshape(1, -1)
+        xyz_orig = xyz - np.array(globalShift).reshape(1, -1)
     else:
-        pc_orig = pc
+        xyz_orig = xyz
     # compute sbf internal shift
-    shift = np.mean(pc_orig, axis=0).astype(float)
+    shift = np.mean(xyz_orig, axis=0).astype(float)
     # build the array that will effectively be stored (32 bits float)
     a = np.zeros((Points, SFCount + 3)).astype('>f')
-    a[:, :3] = (pc_orig - shift).astype('>f')
+    # set xyz
+    a[:, :3] = (xyz_orig - shift).astype('>f')
+
+    # subtract shifts if any configured
     if SFCount != 0:
-        a[:, 3:] = sf.astype('>f')
+        shifted_sf = sf.copy()
+        for k in range(SFCount):
+            i_sf = k + 1
+            for item in config['SBF'][f'SF{i_sf}'].split(','):
+                if 's=' in item:  # apply offset if any
+                    sf_shift = float(item.replace('"', '').split('s=')[1])
+                    print(f'[read_sbf] subtract shift from scalar field SF{i_sf} for storage: {sf_shift}')
+                    shifted_sf[:, k] -= sf_shift
+        # set scalar fields
+        a[:, 3:] = shifted_sf.astype('>f')
 
     if add_index is True:
         b = np.zeros((Points, SFCount + 1)).astype('>f')
@@ -192,7 +203,7 @@ class SbfData:
                 print(f'shift ({x_shift, y_shift, z_shift})')
                 print(bytes_[37:])
                 print(len(bytes_[37:]))
-            array = np.fromfile(f, dtype='>f').reshape(Np, Ns + 3)
+            array = np.fromfile(f, dtype='>f').reshape(Np, Ns + 3).astype(float)
             shift = np.array((x_shift, y_shift, z_shift)).reshape(1, 3)
 
         self.Np = Np
@@ -200,16 +211,22 @@ class SbfData:
         # shift point cloud
         xyz = shift_array(array[:, :3], shift, config)
 
-        # get scalar fields if any
+        # get scalar fields if any and handle shifts, aka "s=value", if any
         if Ns != 0:
+            for k in range(1, Ns + 1):
+                for item in config['SBF'][f'SF{k}'].split(','):
+                    if 's=' in item:  # apply offset if any
+                        shift = float(item.replace('"', '').split('s=')[1])
+                        print(f'[read_sbf] add shift to scalar field SF{k}: {shift}')
+                        array[:, 2 + k] += shift
             sf = array[:, 3:]
         else:
             sf = None
 
         self.xyz = xyz
 
-        if sf is not None:
-            self.sf = sf.astype(np.float32)
+        self.sf = sf
+
         self.config = config
 
     def get_name_index_dict(self):
