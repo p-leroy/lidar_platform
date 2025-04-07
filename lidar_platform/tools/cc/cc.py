@@ -182,7 +182,7 @@ def density(pc, radius, density_type,
 
 
 def m3c2(pc1, pc2, params, core=None, fmt='SBF',
-         silent=True, debug=False, global_shift='AUTO', cc=cc_exe):
+         silent=True, verbose=False, global_shift='AUTO', cc=cc_exe):
 
     if not os.path.exists(params):
         raise FileNotFoundError(params)
@@ -208,7 +208,7 @@ def m3c2(pc1, pc2, params, core=None, fmt='SBF',
         raise FileNotFoundError(params)
     cmd.append(params)
 
-    misc.run(cmd, verbose=debug)
+    misc.run(cmd, verbose=verbose)
 
     root1, ext1 = os.path.splitext(pc1)
     results = root1 + f'_M3C2.{fmt.lower()}'
