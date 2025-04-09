@@ -607,7 +607,7 @@ def to_laz(fullname, remove=False, silent=True, debug=False, global_shift='AUTO'
 
 
 def to_sbf(fullname,
-           silent=True, debug=False, global_shift='AUTO', cc_exe=cc_exe, fwf=False):
+           silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe, fwf=False):
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='SBF')
     cmd.open_file(fullname, global_shift=global_shift, fwf=fwf)
@@ -617,7 +617,7 @@ def to_sbf(fullname,
         out = fullname
     else:
         cmd.append('-SAVE_CLOUDS')
-        misc.run(cmd, verbose=debug)
+        misc.run(cmd, verbose=verbose)
         out = os.path.splitext(fullname)[0] + '.sbf'
     return out
 
