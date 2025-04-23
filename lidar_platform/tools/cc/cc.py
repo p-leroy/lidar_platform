@@ -8,6 +8,7 @@ Created on Thu Jan 14 09:17:49 2021
 import logging
 import os
 import shutil
+from email.policy import default
 
 import numpy as np
 
@@ -906,7 +907,8 @@ def icp(compared, reference,
 
 def octree_normals(cloud, radius, with_grids=False, angle=1,
                    orient='PLUS_Z', model='QUADRIC', fmt='BIN',
-                   silent=True, verbose=False, global_shift='AUTO', cc=cc_exe):
+                   silent=True, verbose=False, global_shift='AUTO', cc=cc_exe,
+                   all_at_once=False):
     """
 
     Parameters
@@ -946,9 +948,22 @@ def octree_normals(cloud, radius, with_grids=False, angle=1,
     if fmt.lower() == 'bin':
         out = os.path.splitext(cloud)[0] + '_WITH_NORMALS.bin'
     else:
-        raise ValueError(f'format {fmt} not supported yet? (only bin is supported)')
-    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
+        raise ValueError(f'format {fmt} not supported yet? (only bin is supported, e57 gives strange results with normals)')
+
+    if all_at_once:
+        print('WARNING: ALL_AT_ONCE saves all clouds in a single file (the current output format must support it!)')
+        cmd.extend(['-SAVE_CLOUDS', 'ALL_AT_ONCE'])
+    else:
+        cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
 
     misc.run(cmd, verbose=verbose)
+
+    if all_at_once:
+        default_out = os.path.join(os.path.split(cloud)[0], 'AllClouds.' + fmt.lower())
+        try:
+            os.rename(default_out, out)
+        except FileExistsError:
+            print(f'WARNING {out} already existing, keep default CloudCompare name {default_out}')
+            out = default_out
 
     return out
