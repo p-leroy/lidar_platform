@@ -24,8 +24,7 @@ out = cc.octree_normals(filename, 5, with_grids=True, angle=1, orient='PREVIOUS'
 filename = r"C:\DATA\TMP\Normals\Mangarere_20120227_RegV2_S1_SMALL.e57"
 out = cc.octree_normals(filename, 0.1, with_grids=False, angle=1, orient='WITH_SENSOR',
                         silent=False, verbose=True, fmt='e57', global_shift='AUTO',
-                        all_at_once=True,
-                        cc='C:/opt/CloudCompareProjects/CloudCompare/CloudCompare.exe')
+                        all_at_once=True)
 
 #%% -SF_ADD_CONST
 to_add = (("spam", 0.5),

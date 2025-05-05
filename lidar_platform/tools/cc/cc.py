@@ -945,10 +945,10 @@ def octree_normals(cloud, radius, with_grids=False, angle=1,
         cmd.extend(['-WITH_GRIDS', str(angle)])
     cmd.extend(['-MODEL', model, '-ORIENT', orient])
 
-    if fmt.lower() == 'bin':
-        out = os.path.splitext(cloud)[0] + '_WITH_NORMALS.bin'
+    if fmt.lower() == 'bin' or fmt.lower() == 'e57':
+        out = os.path.splitext(cloud)[0] + '_WITH_NORMALS.' + fmt.lower()
     else:
-        raise ValueError(f'format {fmt} not supported yet? (only bin is supported, e57 gives strange results with normals)')
+        raise ValueError(f'format {fmt} not supported yet? (use CloudCompare bin or e57)')
 
     if all_at_once:
         print('WARNING: ALL_AT_ONCE saves all clouds in a single file (the current output format must support it!)')
@@ -962,6 +962,7 @@ def octree_normals(cloud, radius, with_grids=False, angle=1,
         default_out = os.path.join(os.path.split(cloud)[0], 'AllClouds.' + fmt.lower())
         try:
             os.rename(default_out, out)
+            print(f'default output {default_out} renamed to {out}')
         except FileExistsError:
             print(f'WARNING {out} already existing, keep default CloudCompare name {default_out}')
             out = default_out
