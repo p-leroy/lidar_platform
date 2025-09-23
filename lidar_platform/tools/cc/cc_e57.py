@@ -6,6 +6,29 @@ from .. import misc
 from .CCCommand import CCCommand
 
 
+def keep_points_with_range_below(pc, range_max,
+                                 silent=True, verbose=False, global_shift='AUTO', fmt='e57',
+                                 cc_exe=cc_exe):
+
+    root, ext = os.path.splitext(pc)
+    out = root + f'_{range_max}m.{fmt.lower()}'
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)  # create initial list
+    cmd.open_file(pc, global_shift=global_shift)  # open files
+
+    cmd.append('-DISTANCES_FROM_SENSOR')  # compute distances from sensor
+
+    cmd.extend(['-SET_ACTIVE_SF', f'Ranges'])
+
+    cmd.extend(['-FILTER_SF', '0', f'{range_max}'])
+
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
+
+    misc.run(cmd, verbose=verbose)
+
+    return out
+
+
 def distances_from_sensor(pc, squared=False,
                           silent=True, verbose=False, global_shift='AUTO', fmt='bin',
                           cc_exe=cc_exe):

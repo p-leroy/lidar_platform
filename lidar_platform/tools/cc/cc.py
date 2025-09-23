@@ -628,7 +628,7 @@ def to_sbf(fullname,
 ##############
 
 
-def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
+def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt=None,
        silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe):
     """
     Use CloudCompare to subsample a cloud.
@@ -646,6 +646,9 @@ def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt='SBF',
     """
 
     print(f'[cc.ss] subsample {fullname}')
+
+    if fmt is None:
+        fmt = os.path.splitext(fullname)[-1][-1]
 
     if method not in ('RANDOM', 'SPATIAL', 'OCTREE'):
         raise ValueError(f'Unknown method: {method}')

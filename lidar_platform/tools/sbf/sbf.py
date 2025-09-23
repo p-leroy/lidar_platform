@@ -113,7 +113,8 @@ def write_sbf(sbf, xyz,
             for item in config['SBF'][f'SF{i_sf}'].split(','):
                 if 's=' in item:  # apply offset if any
                     sf_shift = float(item.replace('"', '').split('s=')[1])
-                    print(f'[read_sbf] subtract shift from scalar field SF{i_sf} for storage: {sf_shift}')
+                    if verbose:
+                        print(f'[read_sbf] subtract shift from scalar field SF{i_sf} for storage: {sf_shift}')
                     shifted_sf[:, k] -= sf_shift
         # set scalar fields
         a[:, 3:] = shifted_sf.astype('>f')
@@ -154,7 +155,7 @@ def is_int(str_):
 
 class SbfData:
 
-    def __init__(self, filename):
+    def __init__(self, filename, verbose=True):
 
         self.Np = None
         self.filename = filename
@@ -162,7 +163,7 @@ class SbfData:
         self.sf = None
         self.config = None
 
-        self.read_sbf(filename)  # set xyz, sf and config
+        self.read_sbf(verbose=verbose)  # set xyz, sf and config
 
         self.sf_names = self.get_sf_names()
 
@@ -291,8 +292,8 @@ class SbfData:
         self.config['SBF']['Points'] = str(self.xyz.shape[0])
 
 
-def read_sbf(filename):
-    return SbfData(filename)
+def read_sbf(filename, verbose=True):
+    return SbfData(filename, verbose=verbose)
 
 
 def open_sbf(filename):

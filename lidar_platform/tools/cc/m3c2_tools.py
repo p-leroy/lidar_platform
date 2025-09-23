@@ -4,17 +4,28 @@ import configparser
 import os
 
 
-def m3c2_set_search_scale(filename, search_scale):
+normals_computation_mode = {
+    "DEFAULT_MODE": 0,  # compute normals on core points
+    "USE_CLOUD1_NORMALS": 1,
+    "MULTI_SCALE_MODE": 2,
+    "VERT_MODE": 3,
+    "HORIZ_MODE": 4,
+    "USE_CORE_POINTS_NORMALS": 5,
+}
+
+
+def set_search_scale(filename, search_scale):
     if not os.path.exists(filename):
         raise FileNotFoundError(filename)
     config = configparser.ConfigParser()
     config.optionxform = str
     config.read(filename)
     config['General']['SearchScale'] = str(search_scale)
-    config.write(filename)
+    with open(filename, 'w') as f:
+        config.write(f)
 
 
-def m3c2_get_search_scale(filename):
+def get_search_scale(filename):
     if not os.path.exists(filename):
         raise FileNotFoundError(filename)
     config = configparser.ConfigParser()
