@@ -1,6 +1,5 @@
 # coding: utf-8
 # Paul Leroy
-# Baptiste Feldmann
 
 import datetime
 import glob
@@ -9,6 +8,7 @@ import re
 import subprocess
 import sys
 import time
+import shlex
 
 
 def exists(path):
@@ -80,8 +80,7 @@ def run(cmd, shell=False, advanced=True, verbose=True):
 
     if advanced:
         if verbose:
-            print('Execute the following command:')
-            print(cmd)
+            print('[CMD] ' + shlex.join(cmd))
         # process = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, shell=shell)
         # while process.poll() is None:
         #     for line in process.stdout.readlines():
