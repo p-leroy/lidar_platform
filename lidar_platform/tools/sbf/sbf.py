@@ -169,12 +169,17 @@ class SbfData:
 
         self.name_index = self.get_name_index_dict()
         for name, index in self.name_index.items():
-            name = name.replace(" ", "_").replace("(", "I").replace(")", "I").replace("@", "_at_").replace('.', 'o')
-            self.__setattr__(name, self.sf[:, index])
+            self[name] = self.sf[:, index]
 
         self.__setattr__('x', self.xyz[:, 0])
         self.__setattr__('y', self.xyz[:, 1])
         self.__setattr__('z', self.xyz[:, 2])
+
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
 
     def read_sbf(self, verbose=False):
         config = read_sbf_header(self.filename, verbose=verbose)  # READ .sbf header
