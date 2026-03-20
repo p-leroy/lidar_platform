@@ -7,10 +7,12 @@ Created on Thu Jan 14 09:17:49 2021
 
 import logging
 import os
+import fnmatch
 import shutil
-from email.policy import default
 
 import numpy as np
+from IPython.utils.wildcard import is_type
+from dask.array.core import auto_chunks
 
 from ...config.config import cc_custom, cc_std, cc_exe
 from .. import misc
@@ -103,8 +105,28 @@ def move_cloud(cloud, odir):
     return dst
 
 
+def to_odir(file, odir):
+    if odir is not None:
+        ext =  os.path.splitext(file)[1]
+        if not os.path.exists(odir):
+            root = os.path.split(file)[0]
+            if is_type(odir, list):
+                odir = os.path.join(root, *odir)
+            elif is_type(odir, str):
+                odir = os.path.join(root, odir)
+            else:
+                raise TypeError(f'odir must be of type str or list, or a full valid path')
+            os.makedirs(odir, exist_ok=True)
+        shutil.copy2(file, odir)  # copy2 allows overwriting
+        os.remove(file)
+        if ext == '.sbf':
+            dshutil.copy2(file + '.data', odir)
+            os.remove(file + '.data')
+    return file
+
+
 def merge(files, fmt='sbf',
-          silent=True, verbose=False, global_shift='AUTO', cc=cc_exe):
+          silent=True, verbose=False, global_shift='AUTO', cc=cc_exe, odir=None):
 
     if len(files) == 1 or files is None:
         print("[cc.merge] only one file in parameter 'files', this is quite unexpected!")
@@ -127,7 +149,9 @@ def merge(files, fmt='sbf',
     misc.run(cmd, verbose=verbose)
 
     root, ext = os.path.splitext(files[0])
-    return root + f'_MERGED.{fmt.lower()}'
+    out = root + f'_MERGED.{fmt.lower()}'
+
+    return to_odir(out, odir)
 
 
 def store_in_bin(files, silent=True, verbose=False, global_shift='AUTO', cc=cc_exe):
@@ -154,25 +178,6 @@ def store_in_bin(files, silent=True, verbose=False, global_shift='AUTO', cc=cc_e
     misc.run(cmd, verbose=verbose)
 
     return out
-
-
-def sf_interp_and_merge(src, dst, index, global_shift,
-                        silent=True, debug=False, cc=cc_custom, export_fmt='sbf'):
-    x, y, z = global_shift
-    args = ''
-    if silent is True:
-        args += ' -SILENT -NO_TIMESTAMP'
-    else:
-        args += ' -NO_TIMESTAMP'
-    args += f' -C_EXPORT_FMT {export_fmt}'
-    args += f' -o -GLOBAL_SHIFT {x} {y} {z} {src}'
-    args += f' -o -GLOBAL_SHIFT {x} {y} {z} {dst}'
-    args += f' -SF_INTERP {index}'  # interpolate scalar field from src to dst
-    args += ' -MERGE_CLOUDS'
-
-    misc.run(cc + args, verbose=debug)
-    root, ext = os.path.splitext(src)
-    return root + f'_MERGED.{export_fmt}'
 
 
 def density(pc, radius, density_type,
@@ -204,13 +209,126 @@ def density(pc, radius, density_type,
     return out
 
 
+###############
+# SCALAR FIELDS
+###############
+
+def remove_all_scalar_fields(cloud, silent=True):
+    args = ''
+    if silent is True:
+        args += ' -SILENT -NO_TIMESTAMP'
+    else:
+        args += ' -NO_TIMESTAMP'
+    args += ' -o ' + cloud
+    args += ' -REMOVE_ALL_SFS -SAVE_CLOUDS'
+    misc.run(cc_custom + args)
+
+
+def remove_scalar_fields(file, scalar_fields, silent=True):
+    root, ext = os.path.splitext(file)
+    cmd = CCCommand(cc_exe, silent=silent, auto_save='OFF', fmt=f'{ext[1:]}')
+    cmd.open_file(file)
+    for scalar_field in scalar_fields:
+        cmd.append('-REMOVE_SF')
+        cmd.append(scalar_field)
+    cmd.append('-SAVE_CLOUDS')
+    misc.run(cmd)
+
+
+def sf_interp_and_merge(src, dst, index, global_shift,
+                        silent=True, debug=False, cc=cc_custom, export_fmt='sbf'):
+    x, y, z = global_shift
+    args = ''
+    if silent is True:
+        args += ' -SILENT -NO_TIMESTAMP'
+    else:
+        args += ' -NO_TIMESTAMP'
+    args += f' -C_EXPORT_FMT {export_fmt}'
+    args += f' -o -GLOBAL_SHIFT {x} {y} {z} {src}'
+    args += f' -o -GLOBAL_SHIFT {x} {y} {z} {dst}'
+    args += f' -SF_INTERP {index}'  # interpolate scalar field from src to dst
+    args += ' -MERGE_CLOUDS'
+
+    misc.run(cc + args, verbose=debug)
+    root, ext = os.path.splitext(src)
+    return root + f'_MERGED.{export_fmt}'
+
+
+def filter_sf(cloud, filters,
+              silent=True, verbose=False, cc=cc_exe, fmt='sbf', odir=None):
+
+    cmd = CCCommand(cc, silent=silent, auto_save="OFF", fmt=fmt)
+    if is_type(cloud, list):
+        for pc in cloud:
+            cmd.open_file(pc)
+    else:
+        cmd.open_file(cloud)
+    for filter in filters:
+        name, vmin, vmax = filter
+        cmd.extend(['-SET_ACTIVE_SF', name])
+        cmd.append("-FILTER_SF")
+        if min == 'MIN':
+            cmd.append("MIN")
+        else:
+            cmd.append(str(vmin))
+        if max == 'MAX':
+            cmd.append("MAX")
+        else:
+            cmd.append(str(vmax))
+
+    if is_type(cloud, list):
+        root, ext = os.path.splitext(cloud[0])
+        out = os.path.join(root, 'AllClouds.bin')
+        cmd.extend(['-SAVE_CLOUDS', 'ALL_AT_ONCE'])
+    else:
+        root, ext = os.path.splitext(cloud)
+        out = root + f"_filtered.{fmt.lower()}"
+        cmd.extend(["-SAVE_CLOUDS", "FILE", out])
+
+    misc.run(cmd, verbose=verbose)
+
+    out = to_odir(out, odir)
+
+    return out
+
+
 ######
 # M3C2
 ######
 
 
-def m3c2(pc1, pc2, params, core=None, fmt='SBF',
-         silent=True, verbose=False, global_shift='AUTO', cc=cc_exe):
+def m3c2(reference, compared, params, core=None, fmt='SBF',
+         silent=True, verbose=False, global_shift='AUTO', cc=cc_exe, odir=None):
+    """
+    NormalMode
+	DEFAULT_MODE			= 0, //compute normals on core points
+	USE_CLOUD1_NORMALS		= 1,
+	MULTI_SCALE_MODE		= 2,
+	VERT_MODE				= 3,
+	HORIZ_MODE				= 4,
+	USE_CORE_POINTS_NORMALS	= 5,
+
+    ProjDestIndex
+	PROJECT_ON_CLOUD1            = 0
+	PROJECT_ON_CLOUD2            = 1
+	PROJECT_ON_CORE_POINTS       = 2
+	PROJECT_ON_CLOUD1_AND_CLOUD2 = 3
+	PROJECT_ON_CLOUD2_WITH_NORM2 = 4
+
+    Args:
+        reference:
+        compared:
+        params:
+        core:
+        fmt:
+        silent:
+        verbose:
+        global_shift:
+        cc:
+
+    Returns:
+
+    """
 
     if not os.path.exists(params):
         raise FileNotFoundError(params)
@@ -221,13 +339,13 @@ def m3c2(pc1, pc2, params, core=None, fmt='SBF',
         raise "'FIRST' is not a valid option, the default is 'AUTO' or pass a valid global shift 3-tuple"
     elif global_shift =='AUTO':
         print("[cc.m3c2] WARNING be careful when using 'AUTO' if the resulting shifted coordinates are still large")
-        cmd.open_file(pc1, global_shift='AUTO')
-        cmd.open_file(pc2, global_shift='FIRST')
+        cmd.open_file(reference, global_shift='AUTO')
+        cmd.open_file(compared, global_shift='FIRST')
         if core is not None:
             cmd.open_file(core, global_shift='FIRST')
     else:
-        cmd.open_file(pc1, global_shift=global_shift)
-        cmd.open_file(pc2, global_shift=global_shift)
+        cmd.open_file(reference, global_shift=global_shift)
+        cmd.open_file(compared, global_shift=global_shift)
         if core is not None:
             cmd.open_file(core, global_shift=global_shift)
     cmd.append("-M3C2")
@@ -238,8 +356,11 @@ def m3c2(pc1, pc2, params, core=None, fmt='SBF',
 
     misc.run(cmd, verbose=verbose)
 
-    root1, ext1 = os.path.splitext(pc1)
-    results = root1 + f'_M3C2.{fmt.lower()}'
+    root, ext = os.path.splitext(reference)
+    results = root + f'_M3C2.{fmt.lower()}'
+
+    results = to_odir(results, odir)
+
     return results
 
 
@@ -248,39 +369,82 @@ def m3c2(pc1, pc2, params, core=None, fmt='SBF',
 ##########
 
 
-def icpm3c2(pc1, pc2, params, core=None, silent=True, fmt='BIN', verbose=False, cc_exe=cc_custom,
-            global_shift=None):
+def find_last_file(dir_, pattern=None):
+    most_recent_file = None
+    most_recent_time = 0
+    mod_time__path = {}
+    times = []
+    for entry in os.scandir(dir_):  # Build the list of files
+        if entry.is_file():
+            mod_time = entry.stat().st_mtime_ns  # get the modification time of the file
+            mod_time__path[mod_time] = entry.path
+            times.append(mod_time)
 
-    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
+    times.sort(reverse=True)
+    if pattern is None:
+        return mod_time__path[0]
+    for time in times:
+        path = mod_time__path[time]
+        tail = os.path.split(path)[1]
+        if fnmatch.fnmatch(tail, pattern):
+            return path
+
+    raise ValueError(f'Pattern not found {pattern}')
+
+
+def icpm3c2(reference, compared, params, core=None, silent=True, fmt='BIN', verbose=False, cc_exe=cc_custom,
+            global_shift=None, auto_save='OFF'):
+
+    """
+
+    coreCloudSelection
+    USE_CLOUD1          = 0,
+    SUBSAMPLE_CLOUD1	= 1,
+    RASTERIZE_CLOUD1	= 2,
+    USE_OTHER			= 3,
+
+    filterUncertaintyMode
+    UL_NOT_USED = 0,
+	UL_25       = 1,
+	UL_50       = 2,
+	UL_90       = 3,
+	UL_MAX      = 4,
+
+    Args:
+        auto_save:
+        reference:
+        compared:
+        params:
+        core:
+        silent:
+        fmt:
+        verbose:
+        cc_exe:
+        global_shift:
+
+    Returns:
+
+    """
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt, auto_save=auto_save)
     if global_shift is None:
-        cmd.open_file(pc1, global_shift='AUTO')
-        cmd.open_file(pc2, global_shift='FIRST')
+        cmd.open_file(reference, global_shift='AUTO')
+        cmd.open_file(compared, global_shift='FIRST')
     else:
-        cmd.open_file(pc1, global_shift=global_shift)
-        cmd.open_file(pc2, global_shift=global_shift)
+        cmd.open_file(reference, global_shift=global_shift)
+        cmd.open_file(compared, global_shift=global_shift)
     if core is not None:
         cmd.open_file(core)
     cmd.extend(['-ICPM3C2', params])
 
     if verbose is True:
         logging.info(cmd)
-    # ret = misc.run(cmd, verbose=verbose)
-    # if ret == EXIT_FAILURE:
-    #     raise CloudCompareError
     misc.run(cmd, verbose=verbose)
 
-    if fmt == 'SBF':
-        ext = 'sbf'
-    elif fmt == 'BIN':
-        ext = 'bin'
-    elif fmt == 'ASC':
-        ext = 'asc'
-    else:
-        ext = 'bin'
-    head2, tail2 = os.path.split(pc2)
-    root2, ext2 = os.path.splitext(tail2)
-    results = os.path.join(head2, root2 + f'_ICPM3C2.{ext}')
-    return results
+    head, tail = os.path.split(compared)
+    root, ext = os.path.splitext(tail)
+    registered = os.path.join(head, root + f'_ICPM3C2.{fmt.lower()}')
+    return registered
 
 
 #########################################################
@@ -493,28 +657,6 @@ def drop_global_shift(cloud, silent=True):
     return ret
 
 
-def remove_all_scalar_fields(cloud, silent=True):
-    args = ''
-    if silent is True:
-        args += ' -SILENT -NO_TIMESTAMP'
-    else:
-        args += ' -NO_TIMESTAMP'
-    args += ' -o ' + cloud
-    args += ' -REMOVE_ALL_SFS -SAVE_CLOUDS'
-    misc.run(cc_custom + args)
-
-
-def remove_scalar_fields(file, scalar_fields, silent=True):
-    root, ext = os.path.splitext(file)
-    cmd = CCCommand(cc_exe, silent=silent, auto_save='OFF', fmt=f'{ext[1:]}')
-    cmd.open_file(file)
-    for scalar_field in scalar_fields:
-        cmd.append('-REMOVE_SF')
-        cmd.append(scalar_field)
-    cmd.append('-SAVE_CLOUDS')
-    misc.run(cmd)
-
-
 def rasterize(cloud, spacing, suffix='_RASTER', proj='AVG', fmt='SBF',
               silent=True, verbose=False, global_shift='AUTO', cc=cc_exe,
               resample=False):
@@ -667,19 +809,25 @@ def to_ply(fullname,
 
 
 def to_pcd(fullname,
-           silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe, fwf=False):
+           silent=True, verbose=False, global_shift='AUTO', cc_exe=cc_exe, fwf=False, remove=False,
+           odir=None):
 
     cmd = CCCommand(cc_exe, silent=silent, fmt='PCD')
     cmd.open_file(fullname, global_shift=global_shift, fwf=fwf)
 
     root, ext = os.path.splitext(fullname)
     if ext == '.pcd':  # nothing to do, simply return the name
+        print(f"[to_pcd] {fullname} already exists, do nothing")
         out = fullname
     else:
         cmd.append('-SAVE_CLOUDS')
         misc.run(cmd, verbose=verbose)
         out = os.path.splitext(fullname)[0] + '.pcd'
-    return out
+
+    if remove:
+        os.remove(fullname)
+
+    return to_odir(out, odir)
 
 
 ##############
@@ -760,6 +908,11 @@ def save_trans(out, R, T):
     logger.debug(f'{transformation} saved')
 
 
+def save_transformation_matrix(out, transformation):
+    np.savetxt(out, transformation, fmt='%.8f')
+    logger.debug(f'{transformation} saved')
+
+
 def apply_trans_alt(cloudfile, transformation):
     args = ''
     args += ' -SILENT -NO_TIMESTAMP'
@@ -773,7 +926,7 @@ def apply_trans_alt(cloudfile, transformation):
 
 
 def apply_transformation(cloudfile, transformation, fmt='SBF',
-                         global_shift=None, silent=True, debug=False):
+                         global_shift=None, silent=True, verbose=False, odir=None):
     """
     Transform a point cloud using CloudCompare using a transformation specified in a text file.
 
@@ -786,15 +939,15 @@ def apply_transformation(cloudfile, transformation, fmt='SBF',
     :return:
     """
 
-    if debug:
+    if verbose:
         print(f'[cc.apply_transformation] apply transformation to {cloudfile}')
     if not os.path.exists(cloudfile):
         raise FileNotFoundError
 
     root, ext = os.path.splitext(cloudfile)
     out = root + f'_TRANSFORMED.{fmt.lower()}'
-    level = logger.getEffectiveLevel()
-    if debug is True:
+
+    if verbose is True:
         logger.setLevel(logging.DEBUG)
 
     cmd = CCCommand(cc_exe, silent=silent, fmt=fmt)
@@ -802,7 +955,9 @@ def apply_transformation(cloudfile, transformation, fmt='SBF',
     cmd.append('-APPLY_TRANS')
     cmd.append(transformation)
     cmd.extend(['-SAVE_CLOUDS', 'file', out])
-    misc.run(cmd, verbose=debug)
+    misc.run(cmd, verbose=verbose)
+
+    out = to_odir(out, odir)
 
     return out
 
@@ -967,6 +1122,21 @@ def icp(compared, reference,
     out = os.path.join(os.getcwd(), 'registration_trace_log.csv')
     return out
 
+
+def normals_to_sfs(cloud, fmt='SBF', silent=True, verbose=False, odir=None):
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt=fmt, auto_save='ON')  # create the command
+    cmd.open_file(cloud)  # open compared
+    cmd.append("-NORMALS_TO_SFS")
+
+    misc.run(cmd, verbose=verbose)
+
+    root, ext = os.path.splitext(cloud)
+    out = root + '__NORM_TO_SF.' + fmt.lower()
+    print(out)
+    out = to_odir(out, odir)
+
+    return out
 
 def octree_normals(cloud, radius, with_grids=False, angle=1,
                    orient='PLUS_Z', model='QUADRIC', fmt='BIN',
