@@ -11,8 +11,6 @@ import fnmatch
 import shutil
 
 import numpy as np
-from IPython.utils.wildcard import is_type
-from dask.array.core import auto_chunks
 
 from ...config.config import cc_custom, cc_std, cc_exe
 from .. import misc
@@ -110,18 +108,19 @@ def to_odir(file, odir):
         ext =  os.path.splitext(file)[1]
         if not os.path.exists(odir):
             root = os.path.split(file)[0]
-            if is_type(odir, list):
+            if type(odir) == list:
                 odir = os.path.join(root, *odir)
-            elif is_type(odir, str):
+            elif type(odir) == str:
                 odir = os.path.join(root, odir)
             else:
                 raise TypeError(f'odir must be of type str or list, or a full valid path')
             os.makedirs(odir, exist_ok=True)
-        shutil.copy2(file, odir)  # copy2 allows overwriting
+        dst = shutil.copy2(file, odir)  # copy2 allows overwriting
         os.remove(file)
         if ext == '.sbf':
-            dshutil.copy2(file + '.data', odir)
+            shutil.copy2(file + '.data', odir)
             os.remove(file + '.data')
+        return dst
     return file
 
 
@@ -255,29 +254,37 @@ def sf_interp_and_merge(src, dst, index, global_shift,
 
 
 def filter_sf(cloud, filters,
-              silent=True, verbose=False, cc=cc_exe, fmt='sbf', odir=None):
+              silent=True, verbose=False, cc=cc_exe, fmt='sbf', odir=None, colorscale=None):
 
     cmd = CCCommand(cc, silent=silent, auto_save="OFF", fmt=fmt)
-    if is_type(cloud, list):
+    if type(cloud) is list:
         for pc in cloud:
             cmd.open_file(pc)
     else:
         cmd.open_file(cloud)
     for filter in filters:
         name, vmin, vmax = filter
-        cmd.extend(['-SET_ACTIVE_SF', name])
-        cmd.append("-FILTER_SF")
-        if min == 'MIN':
-            cmd.append("MIN")
+        if name == '-SS':  # This is a fake filter for spatial subsampling
+            method = vmin  # 'RANDOM' 'SPATIAL' 'OCTREE'
+            parameter = vmax
+            cmd.extend(['-SS', vmin, str(vmax)])
         else:
-            cmd.append(str(vmin))
-        if max == 'MAX':
-            cmd.append("MAX")
-        else:
-            cmd.append(str(vmax))
+            cmd.extend(['-SET_ACTIVE_SF', name])
+            cmd.append("-FILTER_SF")
+            if min == 'MIN':
+                cmd.append("MIN")
+            else:
+                cmd.append(str(vmin))
+            if max == 'MAX':
+                cmd.append("MAX")
+            else:
+                cmd.append(str(vmax))
 
-    if is_type(cloud, list):
-        root, ext = os.path.splitext(cloud[0])
+    if colorscale is not None:
+        cmd.extend(['-SF_COLOR_SCALE', colorscale])
+
+    if type(cloud) is list:
+        root, ext = os.path.split(cloud[0])
         out = os.path.join(root, 'AllClouds.bin')
         cmd.extend(['-SAVE_CLOUDS', 'ALL_AT_ONCE'])
     else:
@@ -852,10 +859,13 @@ def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt=None,
     :return: the name of the output file
     """
 
-    print(f'[cc.ss] subsample {fullname}')
+    if verbose:
+        print(f'[cc.ss] subsample {fullname}')
 
     if fmt is None:
-        fmt = os.path.splitext(fullname)[-1][-1]
+        fmt = os.path.splitext(fullname)[1][1:]
+        if verbose:
+            print(f"'fmt' set to {fmt}, deduced from input cloud format")
 
     if method not in ('RANDOM', 'SPATIAL', 'OCTREE'):
         raise ValueError(f'Unknown method: {method}')
@@ -871,16 +881,7 @@ def ss(fullname, method='OCTREE', parameter=8, odir=None, fmt=None,
 
     ret = misc.run(cmd, verbose=verbose)
 
-    if odir:  # if odir is defined, create it if needed and move the result to it
-        head, tail = os.path.split(out)
-        odir = os.path.join(head, odir)
-        os.makedirs(odir, exist_ok=True)
-        dst = os.path.join(odir, tail)
-        shutil.move(out, dst)
-        if fmt == 'SBF':
-            dst_data = os.path.join(odir, tail + '.data')
-            shutil.move(out + '.data', dst_data)
-        out = dst
+    out = to_odir(out, odir)
 
     return out
 
@@ -941,6 +942,7 @@ def apply_transformation(cloudfile, transformation, fmt='SBF',
 
     if verbose:
         print(f'[cc.apply_transformation] apply transformation to {cloudfile}')
+
     if not os.path.exists(cloudfile):
         raise FileNotFoundError
 
@@ -954,7 +956,7 @@ def apply_transformation(cloudfile, transformation, fmt='SBF',
     cmd.open_file(cloudfile, global_shift=global_shift)
     cmd.append('-APPLY_TRANS')
     cmd.append(transformation)
-    cmd.extend(['-SAVE_CLOUDS', 'file', out])
+    cmd.extend(['-SAVE_CLOUDS', 'FILE', out])
     misc.run(cmd, verbose=verbose)
 
     out = to_odir(out, odir)
@@ -1133,7 +1135,7 @@ def normals_to_sfs(cloud, fmt='SBF', silent=True, verbose=False, odir=None):
 
     root, ext = os.path.splitext(cloud)
     out = root + '__NORM_TO_SF.' + fmt.lower()
-    print(out)
+
     out = to_odir(out, odir)
 
     return out
