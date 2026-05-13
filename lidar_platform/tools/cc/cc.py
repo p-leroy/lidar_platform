@@ -212,6 +212,25 @@ def density(pc, radius, density_type,
 # SCALAR FIELDS
 ###############
 
+def add_scalar_field(cloud, name, value,
+                     silent=True, verbose=False, cc=cc_exe, odir=None, colorscale=None):
+
+    fmt = os.path.splitext(cloud)[1][1:]
+
+    cmd = CCCommand(cc, silent=silent, auto_save="OFF", fmt=fmt)
+
+    cmd.open_file(cloud)
+
+    cmd.extend(['-SF_ADD_CONST', name, str(value)])
+
+    cmd.extend(["-SAVE_CLOUDS", "FILE", cloud])
+
+    misc.run(cmd, verbose=verbose)
+
+    out = to_odir(cloud, odir)
+
+    return out
+
 def remove_all_scalar_fields(cloud, silent=True):
     args = ''
     if silent is True:
@@ -713,27 +732,29 @@ def rasterize(cloud, spacing, suffix='_RASTER', proj='AVG', fmt='SBF',
 #################
 
 
-def to_bin(fullname, debug=False, shift=None, cc=cc_std):
-    root, ext = os.path.splitext(fullname)
-    if os.path.exists(fullname):
-        args = ''
-        if debug==False:
-            args += ' -SILENT -NO_TIMESTAMP'
-        else:
-            args += ' -NO_TIMESTAMP'
-        args += ' -C_EXPORT_FMT BIN'
-        if shift is not None:
-            x, y, z = shift
-            args += f' -o -GLOBAL_SHIFT {x} {y} {z} ' + fullname
-        else:
-            args += ' -o ' + fullname
-        args += ' -SAVE_CLOUDS'
-        print(f'cc {args}')
-        ret = misc.run(cc + args, verbose=debug)
-        return ret
-    else:
-        print(f'error, {fullname} does not exist')
-        return -1
+def to_bin(fullname, global_shift=None, cc_exe=cc_exe, silent=True, verbose=False):
+
+    cmd = CCCommand(cc_exe, silent=silent, fmt="BIN")
+
+    if type(fullname) is str:
+        root, ext = os.path.splitext(fullname)
+        if ext == '.bin':
+            print('Nothing to do, the file is already a bin file')
+            return fullname
+        cmd.open_file(fullname, global_shift=global_shift)
+        cmd.extend("-SAVE_CLOUDS")
+        out = root + '.bin'
+    elif type(fullname) is list:
+        print('Store all files in a single bin')
+        for name in fullname:
+            cmd.open_file(name, global_shift=global_shift)
+        head = os.path.split(fullname[0])[0]
+        out = os.path.join(head, "AllClouds.bin")
+        cmd.extend(["-SAVE_CLOUDS", "ALL_AT_ONCE"])
+
+    ret = misc.run(cmd, verbose=verbose)
+
+    return out
 
 
 def all_to_bin(dir_, shift, debug=False):
