@@ -155,18 +155,21 @@ def is_int(str_):
 
 class SbfData:
 
-    def __init__(self, filename, verbose=True):
+    def __init__(self, filename, verbose=True, xyz=None, sf=None, config=None):
 
-        self.Np = None
-        self.filename = filename
-        self.xyz = None
-        self.sf = None
-        self.config = None
-
-        self.read_sbf(verbose=verbose)  # set xyz, sf and config
+        if filename is None:
+            self.xyz = xyz
+            self.sf = sf
+            self.config = config
+        else:
+            self.Np = None
+            self.filename = filename
+            self.xyz = None
+            self.sf = None
+            self.config = None
+            self.read_sbf(verbose=verbose)  # set xyz, sf and config
 
         self.sf_names = self.get_sf_names()
-
         self.name_index = self.get_name_index_dict()
         for name, index in self.name_index.items():
             self[name] = self.sf[:, index]
@@ -279,6 +282,10 @@ class SbfData:
         self.config['SBF']['SFCount'] = str(sf_count + 1)  # add 1 to sf count
         self.sf = np.c_[self.sf, sf_to_add]  # add the column to the array
 
+        self.sf_names = self.get_sf_names()  # Update the names
+        self.name_index = self.get_name_index_dict()  # Update the name_index dictionary
+        self[name] = self.sf[:, self.name_index[name]]
+
     def rename_sf(self, name, new_name):
         index = self.name_index[name]
         self.config['SBF'][f'SF{index + 1}'] = new_name
@@ -296,6 +303,26 @@ class SbfData:
         print(f'[SbfData.merge] {len(sbf_data.pc)} points added, new total = {self.xyz.shape[0]}')
 
         self.config['SBF']['Points'] = str(self.xyz.shape[0])
+
+    @classmethod
+    def from_xyz(cls, xyz, normals=None):
+        n_points = xyz.shape[0]
+
+        # write .sbf
+        Points = xyz.shape[0]
+        # Build config
+        config = configparser.ConfigParser()
+        config.optionxform = str
+        config['SBF'] = {"Points": str(Points), 'SFCount': "0"}
+
+        if normals is not None:
+            sf = normals
+            config['SBF']['SFCount'] = str(3)
+            config['SBF']['SF1'] = 'Nx'
+            config['SBF']['SF2'] = 'Ny'
+            config['SBF']['SF3'] = 'Nz'
+
+        return SbfData(None, xyz=xyz, sf=sf, config=config)
 
 
 def read_sbf(filename, verbose=False):
